@@ -40,27 +40,25 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
       const timer = setTimeout(() => {
         const stats = state.subjects[subject];
         
-        // 难度调整：降低非竞赛考试的难度
-        // 假设 level 范围随时间增长，初期较低。我们需要在 Week 10 左右让普通水平玩家拿到 75% 分数
-        // 之前的公式是 base = stats.level.
-        // 新公式：混合 aptitude (天赋) 和 level (后天努力)
-        // Score % = (Aptitude * 0.4 + Level * 2.5) / 100 * MaxScore * RandomVariation
-        // 例：Apt 80, Level 15 -> (32 + 37.5) = 69.5% * Max
-        // 加上 Luck 和 Mindset 修正
+        // --- 难度调整 (Difficulty Adjustment) ---
+        // Old: (Apt * 0.4 + Lvl * 2.5) / 100
+        // New: (Apt * 0.3 + Lvl * 2.0) / 100 -> 更难获得高基础分
         
-        let basePercentage = (stats.aptitude * 0.4 + stats.level * 2.5) / 100;
+        let basePercentage = (stats.aptitude * 0.3 + stats.level * 2.0) / 100;
         
-        // 竞赛考试保持高难度
+        // 竞赛考试保持极高难度，主要依赖等级
         if (state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM) {
-            basePercentage = (stats.level * 3) / 100; // 主要看练度
+            basePercentage = (stats.level * 2.5) / 100; 
         } else {
-             // 普通考试保底机制
-             basePercentage = Math.max(0.4, basePercentage); 
+             // 普通考试保底机制大幅降低，从 0.4 降至 0.2，防止躺平也能及格
+             basePercentage = Math.max(0.2, basePercentage); 
         }
 
-        const luckFactor = (state.general.luck - 50) / 500; // +/- 0.1
-        const mindsetFactor = (state.general.mindset - 50) / 500; // +/- 0.1
-        const randomVar = 0.9 + Math.random() * 0.2; // 0.9 - 1.1
+        const luckFactor = (state.general.luck - 50) / 600; // +/- ~0.08
+        const mindsetFactor = (state.general.mindset - 50) / 600; // +/- ~0.08
+        
+        // 波动范围收窄，避免运气好直接满分
+        const randomVar = 0.95 + Math.random() * 0.15; // 0.95 - 1.1
 
         let finalPercentage = (basePercentage + luckFactor + mindsetFactor) * randomVar;
         finalPercentage = Math.min(1.0, Math.max(0, finalPercentage));
@@ -90,9 +88,9 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
           // 普通考试评价
           const maxTotal = subjectsToTest.reduce((acc, s) => acc + (['chinese', 'math', 'english'].includes(s) ? 150 : 100), 0);
           const ratio = total / maxTotal;
-          if (ratio > 0.85) comment = "傲视群雄，你是八中的明日之星！";
-          else if (ratio > 0.75) comment = "表现稳健，保持在这个梯队。";
-          else if (ratio > 0.6) comment = "中规中矩，还有提升空间。";
+          if (ratio > 0.90) comment = "傲视群雄，你是八中的明日之星！"; // Raised threshold
+          else if (ratio > 0.80) comment = "表现稳健，保持在这个梯队。";
+          else if (ratio > 0.65) comment = "中规中矩，还有提升空间。";
           else comment = "基础不牢，地动山摇。";
       }
 

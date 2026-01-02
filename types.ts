@@ -41,7 +41,7 @@ export interface StoryEntry {
   timestamp: number;
 }
 
-export type CompetitionType = 'None' | 'OI' | 'Math' | 'Physics';
+export type CompetitionType = 'None' | 'OI' | 'MO' | 'PhO' | 'ChO';
 
 export interface CompetitionResultData {
     title: string;
@@ -49,7 +49,33 @@ export interface CompetitionResultData {
     award: string;
 }
 
+// --- New Features Interfaces ---
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'legendary';
+  unlockedAt?: number; // timestamp
+}
+
+export interface GameStatus {
+  id: string;
+  name: string;
+  description: string;
+  type: 'BUFF' | 'DEBUFF' | 'NEUTRAL';
+  duration: number; // remaining weeks
+  icon: string;
+  effectDescription?: string; // e.g. "学习效率 +20%"
+}
+
+// ------------------------------
+
 export interface GameState {
+  isPlaying: boolean; // Controls the time flow
+  eventQueue: GameEvent[]; // Queue for multiple events per week
+
   phase: Phase;
   week: number;
   totalWeeksInPhase: number;
@@ -71,6 +97,11 @@ export interface GameState {
   isSick: boolean;
   isGrounded: boolean;
   debugMode: boolean;
+  
+  // New State Fields
+  activeStatuses: GameStatus[];
+  unlockedAchievements: string[]; // IDs only
+  achievementPopup: Achievement | null; // For toast notification
 }
 
 export interface GameLogEntry {
@@ -79,6 +110,8 @@ export interface GameLogEntry {
   timestamp: number;
 }
 
+export type EventTriggerType = 'RANDOM' | 'CONDITIONAL' | 'FIXED';
+
 export interface GameEvent {
   id: string;
   title: string;
@@ -86,12 +119,19 @@ export interface GameEvent {
   type: 'positive' | 'negative' | 'neutral';
   choices?: EventChoice[];
   condition?: (state: GameState) => boolean;
-  once?: boolean; 
+  once?: boolean;
+  
+  // Editor Metadata
+  triggerType?: EventTriggerType;
+  fixedPhase?: Phase;
+  fixedWeek?: number;
 }
 
 export interface EventChoice {
   text: string;
   resultDescription?: string;
+  // Make chaining explicit for the editor
+  nextEventId?: string; 
   action: (state: GameState) => Partial<GameState>;
 }
 
@@ -100,6 +140,7 @@ export interface ExamResult {
   scores: Record<string, number>;
   totalScore: number;
   rank?: number;
+  totalStudents?: number;
   comment: string;
 }
 

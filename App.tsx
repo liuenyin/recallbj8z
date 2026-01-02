@@ -1,12 +1,14 @@
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Phase, GameState, GameLogEntry, GameEvent, SubjectKey, ExamResult, SubjectStats, GeneralStats, SUBJECT_NAMES, StoryEntry, CompetitionType, CompetitionResultData } from './types';
-import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS } from './gameData';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Phase, GameState, GameEvent, SubjectKey, ExamResult, SubjectStats, GeneralStats, SUBJECT_NAMES, CompetitionResultData, Achievement, GameStatus } from './types';
+import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, ACHIEVEMENTS, generateStudyEvent, generateRandomFlavorEvent, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT, STATUSES } from './gameData';
 import StatsPanel from './components/StatsPanel';
 import ExamView from './components/ExamView';
 
+// --- Constants & Helpers ---
+
 const calculateProgress = (state: GameState) => {
-  if (!state || state.totalWeeksInPhase === 0) return 100;
+  if (!state || state.totalWeeksInPhase === 0) return 0;
   return Math.min(100, (state.week / state.totalWeeksInPhase) * 100);
 };
 
@@ -32,159 +34,9 @@ const INITIAL_GENERAL: GeneralStats = {
   efficiency: 10
 };
 
-// --- Debug Graph Component ---
-
-interface GraphNode {
-    event: GameEvent;
-    source: 'PHASE' | 'CHAINED' | 'BASE';
-}
-
-const DebugGraphView: React.FC<{ 
-    events: typeof PHASE_EVENTS, 
-    chained: typeof CHAINED_EVENTS, 
-    base: typeof BASE_EVENTS,
-    onSelect: (e: GameEvent) => void 
-}> = ({ events, chained, base, onSelect }) => {
-    const [selectedId, setSelectedId] = useState<string | null>(null);
-
-    // Build Graph Data
-    const graphData = useMemo(() => {
-        const nodes: Record<string, GraphNode> = {};
-        const links: Record<string, Array<{ choiceIndex: number, choiceText: string, targetId: string }>> = {};
-        const backlinks: Record<string, string[]> = {};
-
-        // 1. Collect all nodes
-        Object.values(events).flat().forEach(e => nodes[e.id] = { event: e, source: 'PHASE' });
-        Object.values(chained).forEach(e => nodes[e.id] = { event: e, source: 'CHAINED' });
-        Object.values(base).forEach(e => nodes[e.id] = { event: e, source: 'BASE' });
-
-        // 2. Build Links (Heuristic: Run actions to see if they return chainedEvents)
-        const dummyState = { 
-            general: INITIAL_GENERAL, subjects: INITIAL_SUBJECTS, 
-            phase: Phase.SUMMER, week: 1, totalWeeksInPhase: 1, selectedSubjects: [], 
-            competition: 'None', romancePartner: null, className: '', log: [], 
-            currentEvent: null, chainedEvent: null, eventResult: null, history: [], 
-            examResult: null, competitionResults: [], popupCompetitionResult: null, 
-            triggeredEvents: [], isSick: false, isGrounded: false, debugMode: true 
-        } as unknown as GameState;
-
-        Object.values(nodes).forEach(({ event }) => {
-            if (!event.choices) return;
-            event.choices.forEach((choice, idx) => {
-                // Heuristic: Run 10 times to catch probabilistic branches
-                const targets = new Set<string>();
-                for(let i=0; i<10; i++) {
-                    try {
-                        const result = choice.action(dummyState);
-                        if (result.chainedEvent) {
-                            targets.add(result.chainedEvent.id);
-                        }
-                    } catch(e) {}
-                }
-                
-                targets.forEach(targetId => {
-                    if (!links[event.id]) links[event.id] = [];
-                    links[event.id].push({ choiceIndex: idx, choiceText: choice.text, targetId });
-                    
-                    if (!backlinks[targetId]) backlinks[targetId] = [];
-                    if (!backlinks[targetId].includes(event.id)) backlinks[targetId].push(event.id);
-                });
-            });
-        });
-
-        return { nodes, links, backlinks };
-    }, [events, chained, base]);
-
-    const activeNode = selectedId ? graphData.nodes[selectedId] : null;
-
-    // Default select first event if nothing selected
-    useEffect(() => {
-        if (!selectedId) {
-            const first = Object.keys(graphData.nodes)[0];
-            if (first) setSelectedId(first);
-        }
-    }, [graphData, selectedId]);
-
-    if (!activeNode) return <div>Loading Graph...</div>;
-
-    const parents = graphData.backlinks[selectedId!] || [];
-    const children = activeNode.event.choices?.map((c, i) => {
-        const link = graphData.links[selectedId!]?.find(l => l.choiceIndex === i);
-        return { choice: c, targetId: link?.targetId };
-    }) || [];
-
-    return (
-        <div className="flex h-full gap-8 p-4 items-center justify-center bg-slate-50 relative overflow-hidden">
-             {/* Lines Layer (Simple SVG for visual connection) */}
-             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                 <defs>
-                     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                         <path d="M0,0 L0,6 L9,3 z" fill="#cbd5e1" />
-                     </marker>
-                 </defs>
-                 {/* No complex lines for now, using column layout implies flow */}
-             </svg>
-
-             {/* Parents Column */}
-             <div className="flex flex-col gap-4 w-64 items-end z-10">
-                 <h4 className="text-[10px] font-bold text-slate-400 uppercase w-full text-right mb-2">Sources</h4>
-                 {parents.length === 0 ? <div className="text-slate-300 text-sm italic text-right">No chained sources (Random Event)</div> : 
-                    parents.map(pid => {
-                        const pNode = graphData.nodes[pid];
-                        return (
-                            <div key={pid} onClick={() => setSelectedId(pid)} className="bg-white border border-slate-200 p-3 rounded-xl shadow-sm hover:border-indigo-400 cursor-pointer w-full text-right transition-all hover:translate-x-1">
-                                <div className="text-[9px] text-slate-400 font-mono">{pNode.source}</div>
-                                <div className="font-bold text-slate-700">{pNode.event.title}</div>
-                            </div>
-                        );
-                    })
-                 }
-             </div>
-
-             {/* Center Node */}
-             <div className="w-80 z-20 shrink-0">
-                 <div className="bg-indigo-600 text-white p-6 rounded-2xl shadow-2xl scale-110 ring-4 ring-indigo-100">
-                     <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs bg-indigo-500 px-2 py-1 rounded text-indigo-100 font-mono">{activeNode.source}</span>
-                        <span className="text-[10px] font-mono opacity-50">{activeNode.event.id}</span>
-                     </div>
-                     <h2 className="text-2xl font-black mb-2">{activeNode.event.title}</h2>
-                     <p className="text-indigo-100 text-sm leading-relaxed mb-6">{activeNode.event.description}</p>
-                     <button onClick={() => onSelect(activeNode.event)} className="w-full py-2 bg-white text-indigo-600 font-bold rounded-lg shadow-sm hover:bg-indigo-50 transition-colors">
-                        Test This Event
-                     </button>
-                 </div>
-             </div>
-
-             {/* Children Column */}
-             <div className="flex flex-col gap-4 w-64 items-start z-10">
-                 <h4 className="text-[10px] font-bold text-slate-400 uppercase w-full text-left mb-2">Outcomes</h4>
-                 {children.map((child, idx) => (
-                     <div key={idx} className="w-full relative group">
-                         {/* Connection Line */}
-                         <div className="absolute top-1/2 -left-8 w-8 h-0.5 bg-slate-200"></div>
-                         
-                         <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-sm w-full text-left relative overflow-hidden">
-                             <div className="text-xs font-bold text-slate-800 mb-1">"{child.choice.text}"</div>
-                             {child.targetId ? (
-                                 <div onClick={() => setSelectedId(child.targetId!)} className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors">
-                                     <i className="fas fa-link text-xs"></i>
-                                     <span className="text-xs font-bold truncate">{graphData.nodes[child.targetId].event.title}</span>
-                                 </div>
-                             ) : (
-                                 <div className="mt-1 text-[10px] text-slate-400">Ends chain or affects stats</div>
-                             )}
-                         </div>
-                     </div>
-                 ))}
-             </div>
-        </div>
-    );
-};
-
-
-const App: React.FC = () => {
-  const [state, setState] = useState<GameState>({
+const INITIAL_GAME_STATE: GameState = {
+    isPlaying: false,
+    eventQueue: [],
     phase: Phase.INIT,
     week: 0,
     totalWeeksInPhase: 0,
@@ -193,7 +45,7 @@ const App: React.FC = () => {
     selectedSubjects: [],
     competition: 'None',
     romancePartner: null,
-    className: '',
+    className: '待分班',
     log: [],
     currentEvent: null,
     chainedEvent: null,
@@ -205,17 +57,77 @@ const App: React.FC = () => {
     triggeredEvents: [],
     isSick: false,
     isGrounded: false,
-    debugMode: false
-  });
+    debugMode: false,
+    activeStatuses: [],
+    unlockedAchievements: [],
+    achievementPopup: null
+};
 
+// --- Main App Component ---
+
+const App: React.FC = () => {
+  const [view, setView] = useState<'HOME' | 'GAME'>('HOME');
+  
+  // Game State
+  const [state, setState] = useState<GameState>(INITIAL_GAME_STATE);
   const [showHistory, setShowHistory] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
-  const [debugTab, setDebugTab] = useState<'LIST' | 'FLOW'>('LIST');
+  const [showAchievements, setShowAchievements] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.log]);
+
+  // Load Achievements
+  useEffect(() => {
+      const saved = localStorage.getItem('bz_sim_achievements');
+      if (saved) {
+          setState(prev => ({ ...prev, unlockedAchievements: JSON.parse(saved) }));
+      }
+  }, []);
+
+  const unlockAchievement = useCallback((id: string) => {
+      setState(prev => {
+          if (prev.unlockedAchievements.includes(id)) return prev;
+          const newUnlocked = [...prev.unlockedAchievements, id];
+          localStorage.setItem('bz_sim_achievements', JSON.stringify(newUnlocked));
+          const ach = ACHIEVEMENTS[id];
+          return {
+              ...prev,
+              unlockedAchievements: newUnlocked,
+              achievementPopup: ach || null,
+              log: [...prev.log, { message: `【成就解锁】${ach?.title || id}`, type: 'success', timestamp: Date.now() }]
+          };
+      });
+      setTimeout(() => {
+          setState(prev => ({ ...prev, achievementPopup: null }));
+      }, 3000);
+  }, []);
+
+  // --- Core Game Loop: Time Flow ---
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (state.isPlaying && !state.currentEvent && state.eventQueue.length === 0 && !state.popupCompetitionResult && state.phase !== Phase.ENDING && state.phase !== Phase.WITHDRAWAL) {
+        interval = setInterval(() => {
+            processWeekStep();
+        }, 1500); // 1.5s per week
+    }
+    return () => clearInterval(interval);
+  }, [state.isPlaying, state.currentEvent, state.eventQueue, state.popupCompetitionResult, state.phase]);
+
+  // --- Core Game Loop: Queue Processing ---
+  useEffect(() => {
+      if (!state.currentEvent && state.eventQueue.length > 0 && !state.popupCompetitionResult) {
+          const nextEvent = state.eventQueue[0];
+          setState(prev => ({
+              ...prev,
+              currentEvent: nextEvent,
+              eventQueue: prev.eventQueue.slice(1),
+              isPlaying: false // Pause for event
+          }));
+      }
+  }, [state.eventQueue, state.currentEvent, state.popupCompetitionResult]);
+
 
   const startGame = () => {
     const rolledSubjects = { ...INITIAL_SUBJECTS };
@@ -225,523 +137,566 @@ const App: React.FC = () => {
         level: Math.floor(Math.random() * 10 + 5)
       };
     });
-
-    const rolledGeneral: GeneralStats = {
-      mindset: Math.floor(Math.random() * 40 + 30),
-      experience: Math.floor(Math.random() * 10 + 5),
-      luck: Math.floor(Math.random() * 60 + 20),
-      romance: Math.floor(Math.random() * 30 + 10),
-      health: Math.floor(Math.random() * 30 + 70),
-      money: Math.floor(Math.random() * 50 + 10),
-      efficiency: 10
-    };
-
     const firstEvent = PHASE_EVENTS[Phase.SUMMER].find(e => e.id === 'sum_goal_selection');
-
+    unlockAchievement('first_blood');
     setState(prev => ({
       ...prev,
       phase: Phase.SUMMER,
       week: 1,
       totalWeeksInPhase: 5,
       subjects: rolledSubjects,
-      general: rolledGeneral,
-      log: [{ message: "北京八中模拟器启动。加油，八中人！", type: 'success', timestamp: Date.now() }],
       currentEvent: firstEvent || null,
-      triggeredEvents: firstEvent ? [firstEvent.id] : []
+      triggeredEvents: firstEvent ? [firstEvent.id] : [],
+      log: [{ message: "北京八中模拟器启动。", type: 'success', timestamp: Date.now() }],
+      activeStatuses: [],
+      className: '待分班',
+      isPlaying: false,
+      eventQueue: [],
+      general: {
+        mindset: Math.floor(Math.random() * 40 + 30),
+        experience: Math.floor(Math.random() * 10 + 5),
+        luck: Math.floor(Math.random() * 60 + 20),
+        romance: Math.floor(Math.random() * 30 + 20), // Increased initial romance base from 10 to 20
+        health: Math.floor(Math.random() * 30 + 70),
+        money: Math.floor(Math.random() * 50 + 10),
+        efficiency: 10
+      }
     }));
+    setView('GAME');
   };
 
-  const nextStep = () => {
-    setState(prev => {
-      if (prev.phase === Phase.ENDING || prev.phase === Phase.WITHDRAWAL) return prev;
-      if (prev.general.health <= 0 || prev.general.mindset <= 0) {
-        return { ...prev, phase: Phase.WITHDRAWAL, log: [...prev.log, { message: "你的身体或精神已经透支到极限...", type: 'error', timestamp: Date.now() }] };
-      }
+  const endGame = () => {
+      setState(prev => ({ ...prev, phase: Phase.WITHDRAWAL, isPlaying: false, currentEvent: null }));
+  };
 
-      let nextPhase = prev.phase;
-      let nextWeek = prev.week + 1;
-      let nextTotal = prev.totalWeeksInPhase;
+  const processWeekStep = () => {
+      setState(prev => {
+          // Check critical failures
+          if (prev.general.health <= 0 || prev.general.mindset <= 0) return { ...prev, phase: Phase.WITHDRAWAL, isPlaying: false };
+          if (prev.general.money >= 200) unlockAchievement('rich');
+          if (prev.general.health < 10 && prev.phase === Phase.SEMESTER_1) unlockAchievement('survival');
 
-      if (prev.isSick) {
-        return { 
-          ...prev, 
-          isSick: false, 
-          general: { ...prev.general, health: prev.general.health + 20 },
-          log: [...prev.log, { message: "病假归来，你落后了一些进度。", type: 'warning', timestamp: Date.now() }] 
-        };
-      }
+          // Logic to Determine Next State
+          let nextPhase = prev.phase;
+          let nextWeek = prev.week + 1;
+          let nextTotal = prev.totalWeeksInPhase;
+          let eventsToAdd: GameEvent[] = [];
+          let forcePause = false;
 
-      // 阶段逻辑
-      if (prev.phase === Phase.SUMMER && prev.week >= 5) { nextPhase = Phase.MILITARY; nextWeek = 1; nextTotal = 1; }
-      else if (prev.phase === Phase.MILITARY && prev.week >= 1) { nextPhase = Phase.SELECTION; nextWeek = 0; }
-      else if (prev.phase === Phase.SEMESTER_1) {
-          if (prev.competition === 'OI' && prev.week === 10) { nextPhase = Phase.CSP_EXAM; }
-          else if (prev.week === 11) { nextPhase = Phase.MIDTERM_EXAM; } 
-          else if (prev.competition === 'OI' && prev.week === 18) { nextPhase = Phase.NOIP_EXAM; }
-          else if (prev.week >= 21) { nextPhase = Phase.FINAL_EXAM; nextWeek = 0; }
-      }
+          // --- Phase Transition Logic ---
+          if (prev.phase === Phase.SUMMER && prev.week >= 5) { 
+              nextPhase = Phase.MILITARY; nextWeek = 1; nextTotal = 1; 
+          } else if (prev.phase === Phase.MILITARY && prev.week >= 1) { 
+              nextPhase = Phase.SELECTION; nextWeek = 0; forcePause = true;
+          } else if (prev.phase === Phase.SEMESTER_1) {
+              if (prev.competition === 'OI' && prev.week === 10) { nextPhase = Phase.CSP_EXAM; forcePause = true; }
+              else if (prev.week === 11) { nextPhase = Phase.MIDTERM_EXAM; forcePause = true; } 
+              else if (prev.competition === 'OI' && prev.week === 18) { nextPhase = Phase.NOIP_EXAM; forcePause = true; }
+              else if (prev.week >= 21) { nextPhase = Phase.FINAL_EXAM; nextWeek = 0; forcePause = true; }
+          }
 
-      const updatedGeneral = { ...prev.general, health: Math.max(0, prev.general.health - 0.8) };
-      const newSubs = { ...prev.subjects };
-      (Object.keys(newSubs) as SubjectKey[]).forEach(k => {
-        newSubs[k].level += (newSubs[k].aptitude / 100) * (prev.general.efficiency / 10) * 1.5;
+          // If Phase Changed due to exams/selection, stop timer and return
+          if (nextPhase !== prev.phase) {
+              return {
+                  ...prev,
+                  phase: nextPhase,
+                  week: nextWeek,
+                  totalWeeksInPhase: nextTotal,
+                  isPlaying: false
+              };
+          }
+
+          // --- Weekly Logic (Same Phase) ---
+
+          // 1. Decay & Status Effects
+          let activeStatuses = prev.activeStatuses.map(s => ({ ...s, duration: s.duration - 1 })).filter(s => s.duration > 0);
+          
+          // Money Allowance
+          let updatedGeneral = { ...prev.general, health: Math.max(0, prev.general.health - 0.8), money: prev.general.money + 2 };
+
+          // Debt Check Logic (Condition-based status)
+          if (updatedGeneral.money <= 0) {
+             if (!activeStatuses.find(s => s.id === 'debt')) {
+                 activeStatuses.push({ ...STATUSES['debt'], duration: 1 }); // Re-adds every week if condition met
+             } else {
+                 // Refresh duration
+                 activeStatuses = activeStatuses.map(s => s.id === 'debt' ? { ...s, duration: 1 } : s);
+             }
+          } else {
+             // Remove debt if money positive
+             activeStatuses = activeStatuses.filter(s => s.id !== 'debt');
+          }
+
+          // Crush Pending Logic
+          if (updatedGeneral.romance >= 25 && !prev.romancePartner) {
+              if (Math.random() < 0.2 && !activeStatuses.find(s => s.id === 'crush_pending')) {
+                   activeStatuses.push({ ...STATUSES['crush_pending'], duration: 3 });
+              }
+          }
+
+          // Apply Status Effects
+          activeStatuses.forEach(s => {
+              if (s.id === 'anxious') updatedGeneral.mindset -= 2;
+              if (s.id === 'exhausted') updatedGeneral.health -= 2;
+              if (s.id === 'focused') updatedGeneral.efficiency += 2;
+              if (s.id === 'in_love') updatedGeneral.mindset += 5;
+              if (s.id === 'debt') { updatedGeneral.mindset -= 5; updatedGeneral.romance -= 3; }
+              if (s.id === 'crush_pending') { updatedGeneral.luck += 2; updatedGeneral.experience += 2; }
+          });
+
+          // 2. Generate Events for this week
+          
+          // A. Study Event (Always happens in Semester 1)
+          if (nextPhase === Phase.SEMESTER_1) {
+              eventsToAdd.push(generateStudyEvent(prev));
+              
+              // B. Random Flavor Event
+              eventsToAdd.push(generateRandomFlavorEvent(prev));
+
+              // C. Fixed Events
+              if (nextWeek === 15) eventsToAdd.push(SCIENCE_FESTIVAL_EVENT);
+              if (nextWeek === 19) {
+                  // If in love, enhance the New Year event description or options via logic, 
+                  // but here we just push the generic wrapper which handles it via conditional choices in data or just flavor text
+                  let gala = { ...NEW_YEAR_GALA_EVENT };
+                  if (prev.romancePartner) {
+                      gala.choices = [
+                          { 
+                            text: `和${prev.romancePartner}溜出去逛街`, 
+                            action: (s) => ({ 
+                                general: { ...s.general, romance: s.general.romance + 30, mindset: s.general.mindset + 20, money: s.general.money - 50 },
+                                activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 5 }] 
+                            }) 
+                          },
+                          ...(gala.choices || [])
+                      ];
+                  }
+                  eventsToAdd.push(gala);
+              }
+          }
+
+          // D. Phase specific random events (Summer/Military)
+          const phaseEvents = PHASE_EVENTS[nextPhase] || [];
+          const eligible = phaseEvents.filter(e => e.triggerType !== 'FIXED' && (!e.once || !prev.triggeredEvents.includes(e.id)) && (!e.condition || e.condition(prev)));
+          
+          // INCREASED PROBABILITY FOR SUMMER/MILITARY as requested
+          let eventProb = 0.4;
+          if (nextPhase === Phase.SUMMER || nextPhase === Phase.MILITARY) {
+              eventProb = 0.8; 
+          }
+
+          if (eligible.length > 0 && Math.random() < eventProb) {
+              eventsToAdd.push(eligible[Math.floor(Math.random() * eligible.length)]);
+          }
+
+          return {
+            ...prev,
+            phase: nextPhase, 
+            week: nextWeek, 
+            totalWeeksInPhase: nextTotal,
+            general: updatedGeneral,
+            activeStatuses,
+            eventQueue: [...prev.eventQueue, ...eventsToAdd],
+            log: [...prev.log, { message: `Week ${nextWeek}`, type: 'info', timestamp: Date.now() }]
+          };
       });
-
-      const allEvents = PHASE_EVENTS[nextPhase] || [];
-      const eligibleEvents = allEvents.filter(e => {
-          if (e.once && prev.triggeredEvents.includes(e.id)) return false;
-          return !e.condition || e.condition(prev);
-      });
-
-      // 提高事件触发概率到 0.9，确保存档丰富
-      const randomEvent = (eligibleEvents.length > 0 && Math.random() < 0.9) 
-        ? eligibleEvents[Math.floor(Math.random() * eligibleEvents.length)] 
-        : null;
-
-      const newTriggeredEvents = randomEvent ? [...prev.triggeredEvents, randomEvent.id] : prev.triggeredEvents;
-
-      if (!randomEvent && prev.general.health < 25 && Math.random() < 0.3) {
-        return { ...prev, currentEvent: BASE_EVENTS['sick'] };
-      }
-
-      return {
-        ...prev,
-        phase: nextPhase,
-        week: nextWeek,
-        totalWeeksInPhase: nextTotal,
-        subjects: newSubs,
-        general: updatedGeneral,
-        currentEvent: randomEvent,
-        triggeredEvents: newTriggeredEvents,
-        log: [...prev.log, { message: `第 ${nextWeek} 周开始了。`, type: 'info', timestamp: Date.now() }]
-      };
-    });
   };
 
   const handleChoice = (choice: any) => {
     setState(prev => {
       const updates = choice.action(prev);
       const diff: string[] = [];
-      
+
+      // Diff Logic (Simplified for brevity, same as before)
       if (updates.general) {
-        const g = updates.general as GeneralStats;
-        const compare = (key: keyof GeneralStats, name: string) => {
-           const d = (g[key] ?? prev.general[key]) - prev.general[key];
-           if (d !== 0) diff.push(`${name} ${d > 0 ? '+' : ''}${d.toFixed(0)}`);
-        };
-        compare('mindset', '心态'); compare('health', '健康'); compare('romance', '情感');
-        compare('experience', '经验'); compare('money', '金钱');
+          const newG = updates.general as GeneralStats;
+          const oldG = prev.general;
+          if (Math.floor(newG.mindset) !== Math.floor(oldG.mindset)) diff.push(`心态 ${newG.mindset - oldG.mindset > 0 ? '+' : ''}${Math.floor(newG.mindset - oldG.mindset)}`);
+          if (Math.floor(newG.health) !== Math.floor(oldG.health)) diff.push(`健康 ${newG.health - oldG.health > 0 ? '+' : ''}${Math.floor(newG.health - oldG.health)}`);
+          if (Math.floor(newG.money) !== Math.floor(oldG.money)) diff.push(`金钱 ${newG.money - oldG.money > 0 ? '+' : ''}${Math.floor(newG.money - oldG.money)}`);
+          if (Math.floor(newG.romance) !== Math.floor(oldG.romance)) diff.push(`魅力 ${newG.romance - oldG.romance > 0 ? '+' : ''}${Math.floor(newG.romance - oldG.romance)}`);
       }
+      if (updates.subjects) diff.push("学科能力变动");
+      if (updates.activeStatuses) diff.push("状态更新");
+      if (diff.length === 0) diff.push("无明显变化");
 
-      const newHistory: StoryEntry = {
-        week: prev.week, phase: prev.phase,
-        eventTitle: prev.currentEvent?.title || '未知',
-        choiceText: choice.text, resultSummary: diff.join(' | ') || '数值稳定',
-        timestamp: Date.now()
-      };
-
-      return {
-        ...prev, ...updates,
-        eventResult: { choice, diff },
-        history: [newHistory, ...prev.history],
+      return { 
+          ...prev, 
+          ...updates, 
+          eventResult: { choice, diff }, 
+          history: [{ 
+              week: prev.week, 
+              phase: prev.phase, 
+              eventTitle: prev.currentEvent?.title || '', 
+              choiceText: choice.text, 
+              resultSummary: diff.join(' | '), 
+              timestamp: Date.now() 
+          }, ...prev.history] 
       };
     });
   };
 
   const handleEventConfirm = () => {
-      setState(s => {
-          // 如果有连锁事件，立刻触发连锁事件，不清除 eventResult 之外的状态
-          if (s.chainedEvent) {
-              return {
-                  ...s,
-                  currentEvent: s.chainedEvent,
-                  chainedEvent: null, // clear chain
-                  eventResult: null, // clear result to show new event
-                  triggeredEvents: [...s.triggeredEvents, s.chainedEvent.id]
-              };
-          }
-          // 否则回到主界面
-          return { ...s, currentEvent: null, eventResult: null };
-      });
+    setState(s => {
+        let nextEvent: GameEvent | null = null;
+        if (s.eventResult?.choice.nextEventId) {
+            nextEvent = [...Object.values(PHASE_EVENTS).flat(), ...Object.values(CHAINED_EVENTS), ...Object.values(BASE_EVENTS)].find(e => e.id === s.eventResult?.choice.nextEventId) || null;
+        }
+        if (s.chainedEvent) nextEvent = s.chainedEvent;
+
+        if (nextEvent) {
+             // If chained, process immediately, queue stays same
+             return { ...s, currentEvent: nextEvent, chainedEvent: null, eventResult: null, triggeredEvents: [...s.triggeredEvents, nextEvent.id] };
+        }
+        
+        // No chain, clear current, effect will pick up next in queue
+        return { ...s, currentEvent: null, eventResult: null };
+    });
   };
 
   const handleExamFinish = (result: ExamResult) => {
-    setState(prev => {
-      let nextPhase = prev.phase;
-      let className = prev.className;
-      let efficiencyMod = 0;
-      let popupResult: CompetitionResultData | null = null;
-      let triggeredEvent = prev.currentEvent;
-      let logMsg = '';
+      setState(prev => {
+          let nextPhase = prev.phase;
+          let className = prev.className;
+          let efficiencyMod = 0;
+          let popupResult: CompetitionResultData | null = null;
+          let triggeredEvent = prev.currentEvent;
+          let logMsg = '';
+          let nextTotalWeeks = prev.totalWeeksInPhase;
 
-      // 低分检测
-      let hasFailed = false;
-      Object.entries(result.scores).forEach(([sub, score]) => {
-          const max = ['chinese', 'math', 'english'].includes(sub) ? 150 : 100;
-          if (score / max <= 0.6) hasFailed = true;
-      });
-      if (hasFailed) {
-          triggeredEvent = BASE_EVENTS['exam_fail_talk'];
-      }
-
-      if (prev.phase === Phase.PLACEMENT_EXAM) {
-          if (result.totalScore > 540) { className = "素质班"; efficiencyMod = 4; }
-          else if (result.totalScore > 480) { className = "实验班"; efficiencyMod = 2; }
-          else { className = "普通班"; }
-          nextPhase = Phase.SEMESTER_1;
-      } else if (prev.phase === Phase.MIDTERM_EXAM) {
-          // 期中排名逻辑 (假定满分 750)
-          const maxTotal = 750;
-          const ratio = result.totalScore / maxTotal;
-          // 排名公式: 1 + 632 * (1 - ratio)^1.5 (非线性，高分段人少)
-          const rank = Math.floor(1 + 632 * Math.pow(1 - Math.min(1, ratio), 1.5));
-          result.rank = rank;
+          // Rank Check
+          let rank = 0;
+          let totalStudents = 633; // Approx grade size
+          // Simulate rank based on total score ratio. 
+          // Max score approx: 1050 (for 6 subs) + bonus. 
+          // Let's simplified logic: 
+          const maxPossible = (result.totalScore / 1050) > 1 ? result.totalScore : 1050; // Dynamic cap
+          const ratio = result.totalScore / maxPossible;
+          // Normal distribution-ish rank
+          rank = Math.max(1, Math.floor(totalStudents * (1 - Math.pow(ratio, 2))));
           
-          logMsg = `期中考试结束。年级排名: ${rank} / 633。`;
-          // 排名Buff
-          if (rank <= 50) { 
-              prev.general.mindset += 20; prev.general.romance += 10; 
-              logMsg += " 跻身年级第一梯队，意气风发！";
-          } else if (rank <= 200) {
-              prev.general.mindset += 5;
-              logMsg += " 成绩尚可，稳步前行。";
-          } else {
-              prev.general.mindset -= 10;
-              logMsg += " 排名靠后，感受到了巨大的压力。";
+          if (rank === 1) unlockAchievement('top_rank');
+          if (rank > totalStudents * 0.98) unlockAchievement('bottom_rank');
+
+          // Achievement Check: Nerd (Perfect Score)
+          let perfectScore = false;
+          Object.entries(result.scores).forEach(([sub, score]) => {
+              const max = ['chinese', 'math', 'english'].includes(sub) ? 150 : 100;
+              if (score >= max) perfectScore = true;
+          });
+          if (perfectScore) unlockAchievement('nerd');
+
+          let hasFailed = false;
+          Object.entries(result.scores).forEach(([sub, score]) => {
+              const max = ['chinese', 'math', 'english'].includes(sub) ? 150 : 100;
+              if (score / max <= 0.6) hasFailed = true;
+          });
+          if (hasFailed) triggeredEvent = BASE_EVENTS['exam_fail_talk'];
+
+          if (prev.phase === Phase.PLACEMENT_EXAM) {
+              if (result.totalScore > 540) { className = "一类实验班"; efficiencyMod = 4; }
+              else if (result.totalScore > 480) { className = "二类实验班"; efficiencyMod = 2; }
+              else { className = "普通班"; }
+              nextPhase = Phase.SEMESTER_1;
+              nextTotalWeeks = 21;
+              logMsg = `分班考试结束，你被分配到了【${className}】。`;
+
+          } else if (prev.phase === Phase.MIDTERM_EXAM) {
+              nextPhase = Phase.SUBJECT_RESELECTION;
+              logMsg = "期中考试结束，请重新审视你的选科。";
+          } else if (prev.phase === Phase.CSP_EXAM) {
+              const award = result.totalScore >= 155 ? "一等奖" : result.totalScore >= 100 ? "二等奖" : "三等奖";
+              popupResult = { title: "CSP-J/S 2025", score: result.totalScore, award };
+              return { ...prev, popupCompetitionResult: popupResult, examResult: result };
+          } else if (prev.phase === Phase.NOIP_EXAM) {
+              const award = result.totalScore >= 145 ? "省一等奖" : result.totalScore >= 115 ? "省二等奖" : "省三等奖";
+              popupResult = { title: "NOIP 2025", score: result.totalScore, award };
+              if (award === "省一等奖") unlockAchievement('oi_god');
+              return { ...prev, popupCompetitionResult: popupResult, examResult: result };
+          } else if (prev.phase === Phase.FINAL_EXAM) {
+              nextPhase = Phase.ENDING;
           }
 
-          nextPhase = Phase.SUBJECT_RESELECTION; // 期中后改选
-      } else if (prev.phase === Phase.CSP_EXAM) {
-          const award = result.totalScore >= 80 ? "一等奖" : result.totalScore >= 50 ? "二等奖" : "三等奖";
-          popupResult = { title: "CSP-J/S 2024", score: result.totalScore, award };
-          return { ...prev, popupCompetitionResult: popupResult, examResult: result };
-      } else if (prev.phase === Phase.NOIP_EXAM) {
-          const award = result.totalScore >= 85 ? "省一等奖" : result.totalScore >= 65 ? "省二等奖" : "省三等奖";
-          popupResult = { title: "NOIP 2024", score: result.totalScore, award };
-          return { ...prev, popupCompetitionResult: popupResult, examResult: result };
-      } else if (prev.phase === Phase.FINAL_EXAM) { 
-          nextPhase = Phase.ENDING; 
-          const maxTotal = 750;
-          const ratio = result.totalScore / maxTotal;
-          const rank = Math.floor(1 + 632 * Math.pow(1 - Math.min(1, ratio), 1.5));
-          result.rank = rank;
-      }
-
-      return {
-        ...prev, className,
-        general: { ...prev.general, efficiency: prev.general.efficiency + efficiencyMod },
-        phase: nextPhase,
-        totalWeeksInPhase: nextPhase === Phase.SEMESTER_1 ? 21 : prev.totalWeeksInPhase,
-        examResult: result,
-        currentEvent: triggeredEvent, // 插入谈话事件
-        log: logMsg ? [...prev.log, { message: logMsg, type: 'info', timestamp: Date.now() }] : prev.log
-      };
-    });
+          return {
+              ...prev,
+              className,
+              general: { ...prev.general, efficiency: prev.general.efficiency + efficiencyMod },
+              phase: nextPhase,
+              totalWeeksInPhase: nextTotalWeeks,
+              examResult: { ...result, rank, totalStudents },
+              currentEvent: triggeredEvent,
+              log: [...prev.log, { message: logMsg || `${prev.phase} 结束。`, type: 'info', timestamp: Date.now() }]
+          };
+      });
   };
 
   const closeCompetitionPopup = () => {
       setState(prev => {
           if (!prev.popupCompetitionResult) return prev;
           const newHistory = [...prev.competitionResults, prev.popupCompetitionResult];
-          const logMsg = `${prev.popupCompetitionResult.title} 结束，获得 ${prev.popupCompetitionResult.award} (得分: ${prev.popupCompetitionResult.score})`;
-          
           return {
               ...prev,
               popupCompetitionResult: null,
               competitionResults: newHistory,
               phase: Phase.SEMESTER_1,
-              totalWeeksInPhase: 21,
-              log: [...prev.log, { message: logMsg, type: 'success', timestamp: Date.now() }]
+              isPlaying: true, // Resume play after popup
+              log: [...prev.log, { message: "竞赛征程暂时告一段落。", type: 'success', timestamp: Date.now() }]
           };
       });
   };
 
-  return (
-    <div className="h-screen bg-slate-100 flex p-4 gap-4 overflow-hidden font-sans text-slate-900">
-      {/* 侧边栏：属性面板与工具 */}
-      <aside className="w-80 flex-shrink-0 flex flex-col gap-4">
-        {state.phase !== Phase.INIT && (
-          <>
-            <StatsPanel state={state} />
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setShowHistory(true)} className="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center font-bold">
-                <i className="fas fa-archive text-indigo-500 mb-1"></i>
-                <span className="text-xs">历程</span>
-              </button>
-              <button onClick={() => setShowDebug(true)} className="bg-slate-800 border border-slate-700 p-3 rounded-2xl shadow-sm hover:bg-slate-700 transition-all flex flex-col items-center justify-center font-bold text-white">
-                <i className="fas fa-bug text-yellow-400 mb-1"></i>
-                <span className="text-xs">调试</span>
-              </button>
-            </div>
-          </>
-        )}
-      </aside>
-
-      {/* 主界面 */}
-      <main className="flex-1 flex flex-col gap-4 relative">
-        {state.phase === Phase.INIT ? (
-          <div className="flex-1 bg-white rounded-3xl shadow-2xl flex flex-col items-center justify-center p-10 border border-slate-200 relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4">
-                <button onClick={() => setState(s => ({...s, debugMode: !s.debugMode}))} className={`px-3 py-1 rounded-full text-[10px] font-bold ${state.debugMode ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'}`}>DEBUG {state.debugMode ? 'ON' : 'OFF'}</button>
+  if (view === 'HOME') {
+      return (
+          <div className="h-screen bg-white flex flex-col items-center justify-center p-10 font-sans relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
+                 <div className="absolute top-10 left-10 text-9xl font-black rotate-12">8</div>
+                 <div className="absolute bottom-10 right-10 text-9xl font-black -rotate-12">OI</div>
              </div>
-             <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl mb-8 transform -rotate-6">
+             <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl mb-8 transform -rotate-6 z-10">
                 <i className="fas fa-school text-white text-5xl"></i>
              </div>
-             <h1 className="text-6xl font-black text-slate-800 mb-4 tracking-tighter">八中重开模拟器</h1>
-             <p className="text-slate-400 mb-10 text-xl font-medium">重回金融街19号，续写你的青春</p>
-             <button onClick={startGame} className="bg-indigo-600 hover:bg-indigo-700 text-white px-16 py-5 rounded-3xl font-black text-2xl shadow-2xl transition-all hover:scale-105">
-                开启模拟
-             </button>
+             <h1 className="text-6xl font-black text-slate-800 mb-4 tracking-tighter z-10">八中重开模拟器</h1>
+             <p className="text-slate-400 mb-10 text-xl font-medium z-10">Made by lg37,致谢:OI重开模拟器</p>
+             <button onClick={startGame} className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black text-xl shadow-xl transition-all hover:scale-105 flex items-center gap-3"><i className="fas fa-play"></i> 开启模拟</button>
           </div>
-        ) : (
-          <>
-            <header className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
-               <div className="flex-1">
-                  <h2 className="font-black text-slate-800 text-lg flex items-center gap-2 uppercase tracking-tight">
-                    <span className={`w-2 h-2 rounded-full ${state.isSick ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span>
-                    {state.phase} {state.competition === 'OI' && <span className="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-0.5 rounded-full ml-2">OIer</span>}
-                  </h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-64 h-2 bg-slate-100 rounded-full overflow-hidden">
+      );
+  }
+
+  // --- GAME VIEW ---
+  return (
+    <div className="h-screen bg-slate-100 flex p-4 gap-4 overflow-hidden font-sans text-slate-900 relative">
+      {/* Toast */}
+      {state.achievementPopup && (
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[60] bg-slate-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-fadeIn border border-slate-700">
+              <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center text-slate-900 text-xl shadow-lg border-2 border-white"><i className={`fas ${state.achievementPopup.icon}`}></i></div>
+              <div>
+                  <div className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest">Achievement Unlocked</div>
+                  <div className="font-black text-lg">{state.achievementPopup.title}</div>
+              </div>
+          </div>
+      )}
+
+      {/* Sidebar */}
+      <aside className="w-80 flex-shrink-0 flex flex-col gap-4">
+          <StatsPanel state={state} />
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setShowHistory(true)} className="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center font-bold text-slate-600">
+              <i className="fas fa-archive text-indigo-500 mb-1"></i><span className="text-xs">历程</span>
+            </button>
+            <button onClick={() => setShowAchievements(true)} className="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center font-bold text-slate-600 relative">
+                 <i className="fas fa-trophy text-yellow-500 mb-1"></i><span className="text-xs">成就</span>
+                 <span className="absolute top-2 right-2 bg-slate-100 text-[9px] px-1.5 rounded-full">{state.unlockedAchievements.length}</span>
+            </button>
+            <button onClick={endGame} className="col-span-2 bg-rose-100 hover:bg-rose-200 p-2 rounded-xl text-xs font-bold text-rose-600 transition-colors">提前退休（结束游戏）</button>
+          </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col gap-4 relative">
+        <header className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3">
+               <div className="flex items-center justify-between">
+                   <div className="flex flex-col gap-1">
+                       <h2 className="font-black text-slate-800 text-lg flex items-center gap-2 uppercase tracking-tight">
+                            <span className={`w-2 h-2 rounded-full ${state.isSick ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span> {state.phase} 
+                        </h2>
+                        {/* Status Bar Fix: Explicit Height & Layout */}
+                        <div className="flex gap-2 min-h-[24px] items-center flex-wrap">
+                            {state.activeStatuses.length > 0 ? state.activeStatuses.map(s => (
+                                <div key={s.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold shadow-sm ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                    <i className={`fas ${s.icon}`}></i> {s.name} ({s.duration}w)
+                                </div>
+                            )) : <span className="text-[10px] text-slate-300 font-medium italic">无特殊状态</span>}
+                        </div>
+                   </div>
+                   
+                   {/* Play/Pause Control */}
+                   <button 
+                      onClick={() => setState(p => ({ ...p, isPlaying: !p.isPlaying }))} 
+                      disabled={!!state.currentEvent}
+                      className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all ${state.currentEvent ? 'bg-slate-100 text-slate-300' : state.isPlaying ? 'bg-amber-400 text-white hover:bg-amber-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                   >
+                      <i className={`fas ${state.isPlaying ? 'fa-pause' : 'fa-play'} text-xl`}></i>
+                   </button>
+               </div>
+               <div className="flex items-center gap-2 w-full">
+                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                        <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${calculateProgress(state)}%` }}></div>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400">Week {state.week}/{state.totalWeeksInPhase || '-'}</span>
-                  </div>
                </div>
-               <button disabled={!!state.currentEvent} onClick={nextStep} className={`px-8 py-2 rounded-xl font-bold transition-all shadow-lg ${state.currentEvent ? 'bg-slate-50 text-slate-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
-                  {state.currentEvent ? '请选择' : '推进时间轴'}
-               </button>
-            </header>
+        </header>
 
-            {/* 日志与事件层 */}
-            <div className="flex-1 overflow-hidden relative flex flex-col gap-4">
-               <div className="flex-1 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 overflow-y-auto custom-scroll space-y-3">
-                  {state.log.map((l, i) => (
-                    <div key={i} className={`p-3 rounded-xl border-l-4 animate-fadeIn ${l.type === 'event' ? 'bg-indigo-50 border-indigo-400' : l.type === 'success' ? 'bg-emerald-50 border-emerald-400' : l.type === 'error' ? 'bg-rose-50 border-rose-400' : 'bg-slate-50 border-slate-300'}`}>
-                       <p className="text-sm font-medium">{l.message}</p>
-                    </div>
-                  ))}
-                  <div ref={logEndRef} />
-               </div>
+        {/* Log Area */}
+        <div className="flex-1 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 overflow-y-auto custom-scroll space-y-3">
+             {state.log.map((l, i) => (
+                <div key={i} className={`p-3 rounded-xl border-l-4 animate-fadeIn ${l.type === 'event' ? 'bg-indigo-50 border-indigo-400' : l.type === 'success' ? 'bg-emerald-50 border-emerald-400' : l.type === 'error' ? 'bg-rose-50 border-rose-400' : 'bg-slate-50 border-slate-300'}`}>
+                   <p className="text-sm font-medium">{l.message}</p>
+                </div>
+             ))}
+             <div ref={logEndRef} />
+        </div>
 
-               {state.currentEvent && (
-                 <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-8 z-10 animate-fadeIn">
-                    <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-xl w-full border border-slate-200">
-                       {!state.eventResult ? (
-                         <>
-                           <h2 className="text-2xl font-black text-slate-800 mb-4">{state.currentEvent.title}</h2>
-                           <p className="text-slate-600 mb-8 text-lg leading-relaxed">{state.currentEvent.description}</p>
-                           <div className="space-y-3">
-                              {state.currentEvent.choices?.map((c, i) => (
-                                <button key={i} onClick={() => handleChoice(c)} className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-indigo-600 hover:text-white border border-slate-200 transition-all font-bold group flex justify-between items-center">
-                                   {c.text}
-                                   <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all"></i>
-                                </button>
-                              ))}
-                           </div>
-                         </>
-                       ) : (
-                         <div className="text-center py-4">
-                           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
-                              <i className="fas fa-check"></i>
-                           </div>
-                           <h2 className="text-xl font-black text-slate-800 mb-2 italic">"{state.eventResult.choice.text}"</h2>
-                           {state.eventResult.diff.length > 0 && (
-                             <div className="flex flex-wrap justify-center gap-2 mb-8 mt-4">
-                                {state.eventResult.diff.map((d, i) => (
-                                  <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold ${d.includes('+') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                                    {d}
-                                  </span>
-                                ))}
-                             </div>
-                           )}
-                           <button onClick={handleEventConfirm} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-lg hover:bg-indigo-700 shadow-xl">
-                                {state.chainedEvent ? '继续...' : '确认结果'}
+        {/* Event Modal Overlay */}
+        {state.currentEvent && (
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-8 z-20 animate-fadeIn">
+               <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-xl w-full border border-slate-200">
+                  {!state.eventResult ? (
+                    <>
+                      <div className="flex justify-between items-start mb-4">
+                          <h2 className="text-2xl font-black text-slate-800">{state.currentEvent.title}</h2>
+                          {state.eventQueue.length > 0 && <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-full">+{state.eventQueue.length} 更多事件</span>}
+                      </div>
+                      <p className="text-slate-600 mb-8 text-lg leading-relaxed">{state.currentEvent.description}</p>
+                      <div className="space-y-3">
+                         {state.currentEvent.choices?.map((c, i) => (
+                           <button key={i} onClick={() => handleChoice(c)} className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-indigo-600 hover:text-white border border-slate-200 transition-all font-bold group flex justify-between items-center">
+                              {c.text}
+                              <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all"></i>
                            </button>
-                         </div>
-                       )}
-                    </div>
-                 </div>
-               )}
-
-               {/* 竞赛结果结算弹窗 */}
-               {state.popupCompetitionResult && (
-                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md animate-fadeIn">
-                    <div className="bg-white rounded-[40px] p-12 text-center max-w-lg shadow-2xl relative border-4 border-yellow-400">
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
-                            <i className="fas fa-trophy text-white text-4xl"></i>
+                         ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
+                      <h2 className="text-xl font-black text-slate-800 mb-2 italic">"{state.eventResult.choice.text}"</h2>
+                      {state.eventResult.diff.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-2 mb-8 mt-4">
+                           {state.eventResult.diff.map((d, i) => (
+                             <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold ${d.includes('+') ? 'bg-emerald-50 text-emerald-700' : d.includes('-') ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'}`}>{d}</span>
+                           ))}
                         </div>
-                        <h3 className="text-3xl font-black text-slate-800 mt-6 mb-2">{state.popupCompetitionResult.title}</h3>
-                        <p className="text-slate-400 text-lg mb-8 uppercase tracking-widest font-bold">Competition Result</p>
-                        
-                        <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
-                            <div className="text-4xl font-black text-indigo-600 mb-2">{state.popupCompetitionResult.score} <span className="text-sm text-slate-400 font-normal">pts</span></div>
-                            <div className="text-2xl font-bold text-yellow-600">{state.popupCompetitionResult.award}</div>
-                        </div>
-
-                        <button onClick={closeCompetitionPopup} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-xl hover:bg-indigo-700 shadow-xl transition-transform active:scale-95">
-                            收入囊中
-                        </button>
+                      )}
+                      <button onClick={handleEventConfirm} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-lg hover:bg-indigo-700 shadow-xl">
+                           {(state.chainedEvent || state.eventResult.choice.nextEventId) ? '继续...' : '确认结果'}
+                      </button>
                     </div>
-                 </div>
-               )}
-
-               {/* 历程回溯面板 */}
-               {showHistory && (
-                 <div className="absolute inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setShowHistory(false)}>
-                    <div className="w-96 bg-white h-full shadow-2xl p-8 flex flex-col animate-slideInRight" onClick={e => e.stopPropagation()}>
-                       <div className="flex justify-between items-center mb-8 border-b pb-4">
-                          <h2 className="text-2xl font-black text-slate-800 tracking-tight">故事线存档</h2>
-                          <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-800 text-xl"><i className="fas fa-times"></i></button>
-                       </div>
-                       <div className="flex-1 overflow-y-auto custom-scroll space-y-6">
-                          {state.history.length === 0 ? <div className="text-slate-300 text-center py-20 italic">尚未开启故事...</div> : 
-                            state.history.map((h, i) => (
-                              <div key={i} className="relative pl-6 border-l-2 border-indigo-100">
-                                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 border-4 border-white shadow-sm"></div>
-                                 <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{h.phase} | Week {h.week}</div>
-                                 <h4 className="font-black text-slate-800 mt-1">{h.eventTitle}</h4>
-                                 <p className="text-xs text-slate-600 mt-1">决策：{h.choiceText}</p>
-                                 <div className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-50 p-2 rounded-lg">{h.resultSummary}</div>
-                              </div>
-                            ))}
-                       </div>
-                    </div>
-                 </div>
-               )}
-
-               {/* 调试编辑器面板 */}
-               {showDebug && (
-                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md animate-fadeIn" onClick={() => setShowDebug(false)}>
-                    <div className="w-[90%] h-[90%] bg-white rounded-[40px] shadow-2xl p-6 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                       <div className="flex justify-between items-center mb-6 px-4">
-                          <div className="flex items-center gap-6">
-                            <div>
-                                <h2 className="text-3xl font-black text-slate-800 flex items-center gap-3">
-                                <i className="fas fa-tools text-yellow-500"></i> 事件调试器
-                                </h2>
-                            </div>
-                            <div className="flex bg-slate-100 p-1 rounded-xl">
-                                <button onClick={() => setDebugTab('LIST')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${debugTab === 'LIST' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>列表视图</button>
-                                <button onClick={() => setDebugTab('FLOW')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${debugTab === 'FLOW' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>流程视图</button>
-                            </div>
-                          </div>
-                          <button onClick={() => setShowDebug(false)} className="bg-slate-100 w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all"><i className="fas fa-times text-xl"></i></button>
-                       </div>
-                       
-                       <div className="flex-1 overflow-hidden relative border-t border-slate-100">
-                           {debugTab === 'LIST' ? (
-                               <div className="h-full overflow-y-auto custom-scroll grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
-                                    {(Object.keys(PHASE_EVENTS) as Phase[]).map(p => (
-                                        <div key={p} className="space-y-4">
-                                        <h3 className="sticky top-0 bg-white/95 backdrop-blur py-2 text-indigo-600 font-black border-b border-indigo-100 z-10 flex items-center justify-between">
-                                            {p} <span className="text-[10px] bg-indigo-50 px-2 py-0.5 rounded-full">{PHASE_EVENTS[p].length} EVENTS</span>
-                                        </h3>
-                                        {PHASE_EVENTS[p].map(e => (
-                                            <div key={e.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all cursor-pointer group" onClick={() => { setState(s => ({...s, currentEvent: e})); setShowDebug(false); }}>
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-[10px] font-mono text-slate-400">ID: {e.id}</span>
-                                                    <div className="flex gap-2">
-                                                    {e.once && <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase bg-purple-100 text-purple-600">ONCE</span>}
-                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${e.type === 'positive' ? 'bg-emerald-100 text-emerald-600' : e.type === 'negative' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>{e.type}</span>
-                                                    </div>
-                                                </div>
-                                                <h4 className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{e.title}</h4>
-                                                <p className="text-xs text-slate-500 mt-2 line-clamp-2">{e.description}</p>
-                                            </div>
-                                        ))}
-                                        </div>
-                                    ))}
-                               </div>
-                           ) : (
-                               <DebugGraphView 
-                                  events={PHASE_EVENTS} 
-                                  chained={CHAINED_EVENTS} 
-                                  base={BASE_EVENTS}
-                                  onSelect={(e) => { setState(s => ({...s, currentEvent: e})); setShowDebug(false); }} 
-                               />
-                           )}
-                       </div>
-                    </div>
-                 </div>
-               )}
-
-               {/* 选科与改选界面 */}
-               {(state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION) && (
-                 <div className="absolute inset-0 bg-white rounded-3xl z-20 p-10 flex flex-col items-center justify-center">
-                    <h2 className="text-3xl font-black mb-4">{state.phase === Phase.SELECTION ? "高一选科" : "期中改选"}</h2>
-                    <p className="text-slate-400 mb-10">{state.phase === Phase.SELECTION ? "选择你的三门等级考科目，这将决定你的最终高考组合。" : "期中考试后，你有一次重新审视自己选择的机会。"}</p>
-                    <div className="grid grid-cols-3 gap-4 mb-10 w-full max-w-lg">
-                       {(['physics', 'chemistry', 'biology', 'history', 'geography', 'politics'] as SubjectKey[]).map(s => (
-                         <button key={s} onClick={() => setState(prev => ({ ...prev, selectedSubjects: prev.selectedSubjects.includes(s) ? prev.selectedSubjects.filter(x => x !== s) : (prev.selectedSubjects.length < 3 ? [...prev.selectedSubjects, s] : prev.selectedSubjects) }))}
-                           className={`p-4 rounded-2xl border-2 transition-all font-bold ${state.selectedSubjects.includes(s) ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400'}`}>
-                           {SUBJECT_NAMES[s]}
-                         </button>
-                       ))}
-                    </div>
-                    <button disabled={state.selectedSubjects.length !== 3} onClick={() => setState(prev => ({ ...prev, phase: prev.phase === Phase.SELECTION ? Phase.PLACEMENT_EXAM : Phase.SEMESTER_1, log: prev.phase === Phase.SUBJECT_RESELECTION ? [...prev.log, {message: "选科已更新。", type:'success', timestamp: Date.now()}] : prev.log }))} className="bg-indigo-600 disabled:bg-slate-200 text-white px-12 py-4 rounded-2xl font-black text-xl shadow-xl">
-                      确认为：{state.selectedSubjects.map(s => SUBJECT_NAMES[s]).join('、')}
-                    </button>
-                 </div>
-               )}
-
-               {(state.phase === Phase.PLACEMENT_EXAM || state.phase === Phase.FINAL_EXAM || state.phase === Phase.MIDTERM_EXAM || state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM) && (
-                  <div className="absolute inset-0 z-30">
-                    <ExamView 
-                        title={
-                            state.phase === Phase.PLACEMENT_EXAM ? "高一分班考" : 
-                            state.phase === Phase.CSP_EXAM ? "CSP 2024" : 
-                            state.phase === Phase.NOIP_EXAM ? "NOIP 2024" : 
-                            state.phase === Phase.MIDTERM_EXAM ? "高一上期中考试" : "期末考试"
-                        } 
-                        state={state} 
-                        onFinish={handleExamFinish} 
-                    />
-                  </div>
-               )}
-
-               {state.phase === Phase.ENDING && (
-                 <div className="absolute inset-0 bg-slate-900 rounded-3xl z-40 p-12 text-white flex flex-col items-center justify-center overflow-y-auto custom-scroll animate-fadeIn">
-                    <h2 className="text-5xl font-black mb-12 tracking-tighter text-indigo-400">第一学期总结</h2>
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[30px] w-full max-w-3xl shadow-2xl">
-                       <p className="text-2xl mb-10 italic opacity-95 text-center leading-relaxed font-light">"{state.examResult?.comment}"</p>
-                       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                          <SummaryItem label="班级" value={state.className} icon="fa-school" />
-                          <SummaryItem label="期末排名" value={`${state.examResult?.rank || '-'} / 633`} icon="fa-chart-bar" />
-                          <SummaryItem label="情感羁绊" value={state.romancePartner ? "双宿双飞" : "孤身一人"} icon="fa-heart" />
-                          <SummaryItem label="竞赛奖项" value={state.competitionResults.length > 0 ? `${state.competitionResults.length}项` : "无"} icon="fa-trophy" />
-                       </div>
-                       {state.competitionResults.length > 0 && (
-                           <div className="mt-8 pt-8 border-t border-white/10">
-                               <div className="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Honor List</div>
-                               <div className="space-y-2">
-                                   {state.competitionResults.map((r, i) => (
-                                       <div key={i} className="flex justify-between items-center text-sm">
-                                           <span>{r.title}</span>
-                                           <span className="text-yellow-400 font-bold">{r.award}</span>
-                                       </div>
-                                   ))}
-                               </div>
-                           </div>
-                       )}
-                    </div>
-                    <button onClick={() => window.location.reload()} className="mt-12 bg-indigo-600 text-white px-16 py-4 rounded-3xl font-black text-xl hover:scale-105 transition-all">再次重开</button>
-                 </div>
-               )}
+                  )}
+               </div>
             </div>
-          </>
+        )}
+        
+        {/* Exams / Selection / Endings */}
+        {(state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION) && (
+            <div className="absolute inset-0 bg-white rounded-3xl z-30 p-10 flex flex-col items-center justify-center">
+               <h2 className="text-3xl font-black mb-4">高一选科</h2>
+               <div className="grid grid-cols-3 gap-4 mb-10 w-full max-w-lg">
+                  {(['physics', 'chemistry', 'biology', 'history', 'geography', 'politics'] as SubjectKey[]).map(s => (
+                    <button key={s} onClick={() => setState(prev => ({ ...prev, selectedSubjects: prev.selectedSubjects.includes(s) ? prev.selectedSubjects.filter(x => x !== s) : (prev.selectedSubjects.length < 3 ? [...prev.selectedSubjects, s] : prev.selectedSubjects) }))}
+                      className={`p-4 rounded-2xl border-2 transition-all font-bold ${state.selectedSubjects.includes(s) ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400'}`}>
+                      {SUBJECT_NAMES[s]}
+                    </button>
+                  ))}
+               </div>
+               <button disabled={state.selectedSubjects.length !== 3} onClick={() => setState(prev => ({ ...prev, phase: prev.phase === Phase.SELECTION ? Phase.PLACEMENT_EXAM : Phase.SEMESTER_1 }))} className="bg-indigo-600 disabled:bg-slate-200 text-white px-12 py-4 rounded-2xl font-black text-xl shadow-xl">确认选择</button>
+            </div>
+        )}
+        
+        {(state.phase === Phase.PLACEMENT_EXAM || state.phase === Phase.FINAL_EXAM || state.phase === Phase.MIDTERM_EXAM || state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM) && (
+             <div className="absolute inset-0 z-40">
+                 <ExamView 
+                    title={state.phase === Phase.PLACEMENT_EXAM ? "分班考试" : state.phase === Phase.CSP_EXAM ? "CSP 认证" : "期末考试"} 
+                    state={state} 
+                    onFinish={handleExamFinish} 
+                 />
+             </div>
+        )}
+
+        {/* Final Settlement Overlay */}
+        {(state.phase === Phase.ENDING || state.phase === Phase.WITHDRAWAL) && (
+            <div className="absolute inset-0 z-50 bg-slate-900 text-white flex flex-col items-center justify-center p-10 animate-fadeIn">
+                <h1 className="text-4xl font-black mb-6 tracking-tight text-center">
+                    {state.phase === Phase.WITHDRAWAL ? 'BAD ENDING' : 'GAME OVER'}
+                </h1>
+                <p className="text-xl mb-10 text-slate-300 text-center max-w-xl">
+                    {state.phase === Phase.WITHDRAWAL ? "你的高一生活因故提前结束了。也许休息一下，重新开始会更好。" : "你完成了北京八中高一上学期的全部挑战。这是一段难忘的旅程。"}
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl mb-10">
+                    <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                        <h3 className="text-slate-400 font-bold mb-4 uppercase text-xs tracking-widest border-b border-slate-700 pb-2">最终属性</h3>
+                        <div className="space-y-3 font-mono text-sm">
+                            <div className="flex justify-between"><span>心态</span><span className={state.general.mindset > 80 ? 'text-emerald-400' : 'text-indigo-400'}>{state.general.mindset.toFixed(0)}</span></div>
+                            <div className="flex justify-between"><span>健康</span><span className={state.general.health > 80 ? 'text-emerald-400' : state.general.health < 30 ? 'text-rose-400' : 'text-indigo-400'}>{state.general.health.toFixed(0)}</span></div>
+                            <div className="flex justify-between"><span>金钱</span><span className="text-yellow-400">{state.general.money.toFixed(0)}</span></div>
+                            <div className="flex justify-between"><span>综合效率</span><span className="text-blue-400">{state.general.efficiency.toFixed(0)}</span></div>
+                        </div>
+                    </div>
+                     <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                        <h3 className="text-slate-400 font-bold mb-4 uppercase text-xs tracking-widest border-b border-slate-700 pb-2">学业成就</h3>
+                        <div className="space-y-3 text-sm">
+                             <div className="flex justify-between"><span>最终班级</span><span className="font-bold">{state.className}</span></div>
+                             <div className="flex justify-between"><span>选择竞赛</span><span className="font-bold">{state.competition}</span></div>
+                             <div className="flex justify-between"><span>解锁成就</span><span className="text-yellow-400 font-bold">{state.unlockedAchievements.length} 个</span></div>
+                             {state.examResult?.rank && <div className="flex justify-between"><span>最终排名</span><span className="text-indigo-400 font-bold">#{state.examResult.rank} / {state.examResult.totalStudents}</span></div>}
+                        </div>
+                    </div>
+                </div>
+
+                <button onClick={() => setView('HOME')} className="bg-white text-slate-900 px-12 py-4 rounded-full font-black text-lg hover:scale-105 transition-transform shadow-lg hover:shadow-white/20">
+                    <i className="fas fa-redo mr-2"></i> 重开模拟
+                </button>
+            </div>
+        )}
+
+        {state.popupCompetitionResult && (
+             <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md animate-fadeIn">
+                <div className="bg-white rounded-[40px] p-12 text-center max-w-lg shadow-2xl relative border-4 border-yellow-400">
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg border-4 border-white"><i className="fas fa-trophy text-white text-4xl"></i></div>
+                    <h3 className="text-3xl font-black text-slate-800 mt-6 mb-2">{state.popupCompetitionResult.title}</h3>
+                    <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
+                        <div className="text-4xl font-black text-indigo-600 mb-2">{state.popupCompetitionResult.score} pts</div>
+                        <div className="text-2xl font-bold text-yellow-600">{state.popupCompetitionResult.award}</div>
+                    </div>
+                    <button onClick={closeCompetitionPopup} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-xl hover:bg-indigo-700 shadow-xl">收入囊中</button>
+                </div>
+             </div>
+        )}
+
+        {showAchievements && (
+             <div className="absolute inset-0 z-[60] flex justify-center items-center bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setShowAchievements(false)}>
+                <div className="bg-white rounded-[40px] p-8 max-w-4xl w-full h-3/4 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center mb-6">
+                         <h2 className="text-3xl font-black text-slate-800">成就墙</h2>
+                         <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"><i className="fas fa-times"></i></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scroll grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {Object.values(ACHIEVEMENTS).map(ach => (
+                            <div key={ach.id} className={`p-4 rounded-2xl border flex items-center gap-4 ${state.unlockedAchievements.includes(ach.id) ? 'bg-indigo-50 border-indigo-200' : 'opacity-50 grayscale'}`}>
+                                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow"><i className={`fas ${ach.icon} text-indigo-500`}></i></div>
+                                <div><h4 className="font-bold">{ach.title}</h4><p className="text-xs">{ach.description}</p></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+             </div>
+        )}
+
+        {showHistory && (
+             <div className="absolute inset-0 z-[60] flex justify-end bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setShowHistory(false)}>
+                <div className="w-96 bg-white h-full shadow-2xl p-8 flex flex-col animate-slideInRight" onClick={e => e.stopPropagation()}>
+                   <div className="flex justify-between items-center mb-8 border-b pb-4">
+                      <h2 className="text-2xl font-black text-slate-800 tracking-tight">故事线存档</h2>
+                      <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-800 text-xl"><i className="fas fa-times"></i></button>
+                   </div>
+                   <div className="flex-1 overflow-y-auto custom-scroll space-y-6">
+                      {state.history.length === 0 ? <div className="text-slate-300 text-center py-20 italic">尚未开启故事...</div> : 
+                        state.history.map((h, i) => (
+                          <div key={i} className="relative pl-6 border-l-2 border-indigo-100">
+                             <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 border-4 border-white shadow-sm"></div>
+                             <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{h.phase} | Week {h.week}</div>
+                             <h4 className="font-black text-slate-800 mt-1">{h.eventTitle}</h4>
+                             <p className="text-xs text-slate-600 mt-1">决策：{h.choiceText}</p>
+                             <div className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-50 p-2 rounded-lg">{h.resultSummary}</div>
+                          </div>
+                        ))}
+                   </div>
+                </div>
+             </div>
         )}
       </main>
     </div>
   );
 };
-
-const SummaryItem = ({ label, value, icon }: { label: string, value: any, icon: string }) => (
-    <div className="bg-white/5 p-4 rounded-2xl text-center border border-white/5">
-        <i className={`fas ${icon} text-indigo-400 mb-2`}></i>
-        <div className="text-[10px] font-black opacity-40 uppercase mb-1">{label}</div>
-        <div className="text-xl font-black">{value}</div>
-    </div>
-);
 
 export default App;
