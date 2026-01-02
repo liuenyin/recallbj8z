@@ -12,10 +12,10 @@ const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
 // --- Configs ---
 
 export const CHANGELOG_DATA = [
-    { version: 'v1.1.2', date: '2025-03-10', content: ['修复了【争吵】事件文案显示错误的问题'] },
-    { version: 'v1.1.1', date: '2025-03-10', content: ['优化普通难度体验，更容易考入实验班', '增加负债系统与催债事件', '增加约会多样性与情感危机事件', '优化考试结算交互', '事件结束后自动继续游戏'] },
-    { version: 'v1.1.0', date: '2025-03-09', content: ['新增难度选择系统', '现实难度增加初始Debuff机制', '成就系统仅在【现实】难度开放'] },
-    { version: 'v1.0.0', date: '2025-03-08', content: ['八中重开模拟器正式发布'] }
+    { version: 'v1.1.2', date: '2026-1-2', content: ['修复了【争吵】事件文案显示错误的问题','修改了排名计算方式','上调了普通难度的难度'] },
+    { version: 'v1.1.1', date: '2026-1-2', content: ['优化普通难度体验，更容易考入实验班', '增加约会多样性与情感危机事件', '优化考试结算交互', '事件结束后自动继续游戏'] },
+    { version: 'v1.1.0', date: '2026-1-2', content: ['新增难度选择系统', '现实难度增加初始Debuff机制', '成就系统仅在【现实】难度开放'] },
+    { version: 'v1.0.0', date: '2026-1-1', content: ['八中重开模拟器正式发布'] }
 ];
 
 export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, { label: string, desc: string, stats: GeneralStats, color: string }> = {
@@ -24,13 +24,13 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, { label: 
         desc: '体验相对轻松的高中生活。(属性大幅提升，更易获得高分)',
         color: 'bg-emerald-500',
         stats: {
-            mindset: 80, // Buffed
-            experience: 40,
-            luck: 70,
+            mindset: 65, // Buffed
+            experience: 20,
+            luck: 55,
             romance: 40,
             health: 100,
             money: 150,
-            efficiency: 25 // Buffed significantly
+            efficiency: 20 // Buffed significantly
         }
     },
     'HARD': {
@@ -617,7 +617,7 @@ export const PHASE_EVENTS: Record<string, GameEvent[]> = {
         title: '争吵',
         // FIX: Use a function for dynamic description
         description: (s: GameState) => `你和${s.romancePartner || '父母'}发生了一些不愉快，气氛降到了冰点。`,
-        condition: (s) => !!s.romancePartner || Math.random() < 0.3,
+        condition: (s) => !!s.romancePartner || Math.random() < 0.5,
         triggerType: 'RANDOM',
         type: 'negative',
         choices: [
@@ -642,7 +642,7 @@ export const PHASE_EVENTS: Record<string, GameEvent[]> = {
         id: 'evt_betrayal',
         title: '背叛',
         description: '你发现TA最近总是躲着你回消息，直到你看到了不该看到的一幕。',
-        condition: (s) => !!s.romancePartner && s.general.romance < 28,
+        condition: (s) => !!s.romancePartner && s.general.romance < 35,
         triggerType: 'RANDOM',
         once: true,
         type: 'negative',
