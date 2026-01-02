@@ -1,5 +1,5 @@
 
-import { Phase, GameEvent, SubjectKey, GameState, Achievement, GameStatus, SUBJECT_NAMES } from './types';
+import { Phase, GameEvent, SubjectKey, GameState, Achievement, GameStatus, SUBJECT_NAMES, Difficulty, GeneralStats } from './types';
 
 const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
   const newSubs = { ...s.subjects };
@@ -7,6 +7,57 @@ const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
     newSubs[k] = { ...newSubs[k], level: Math.max(0, newSubs[k].level + val) };
   });
   return newSubs;
+};
+
+// --- Configs ---
+
+export const CHANGELOG_DATA = [
+    { version: 'v1.0.0', date: '2026-1-2', content: ['八中重开模拟器正式发布'] }
+];
+
+export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, { label: string, desc: string, stats: GeneralStats, color: string }> = {
+    'NORMAL': {
+        label: '普通',
+        desc: '体验相对轻松的高中生活。',
+        color: 'bg-emerald-500',
+        stats: {
+            mindset: 60,
+            experience: 20,
+            luck: 60,
+            romance: 30,
+            health: 90,
+            money: 100,
+            efficiency: 15
+        }
+    },
+    'HARD': {
+        label: '困难',
+        desc: '资源紧张，压力较大。',
+        color: 'bg-orange-500',
+        stats: {
+            mindset: 40,
+            experience: 10,
+            luck: 40,
+            romance: 10,
+            health: 70,
+            money: 50,
+            efficiency: 10
+        }
+    },
+    'REALITY': {
+        label: '现实',
+        desc: '这就是真实的人生。只有在此模式下可解锁成就。',
+        color: 'bg-rose-600',
+        stats: {
+            mindset: 30,
+            experience: 0,
+            luck: 30,
+            romance: 5,
+            health: 60,
+            money: 20,
+            efficiency: 8
+        }
+    }
 };
 
 // --- Definitions ---
