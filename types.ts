@@ -118,7 +118,8 @@ export type EventTriggerType = 'RANDOM' | 'CONDITIONAL' | 'FIXED';
 export interface GameEvent {
   id: string;
   title: string;
-  description: string;
+  // UPDATE: Allow description to be a dynamic function
+  description: string | ((state: GameState) => string);
   type: 'positive' | 'negative' | 'neutral';
   choices?: EventChoice[];
   condition?: (state: GameState) => boolean;
