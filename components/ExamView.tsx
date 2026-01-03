@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GameState, ExamResult, SubjectKey, SUBJECT_NAMES, Phase, OIProblem, OIStats } from '../types';
-import { OI_PROBLEMS } from '../gameData';
+import { OI_PROBLEMS } from '../data/oi_data';
 
 interface ExamViewProps {
   title: string;
@@ -55,10 +55,6 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
              maxScore = 100;
              const stats = state.oiStats;
              
-             // Calculate success based on stats vs difficulty
-             // Difficulty is 0-10 roughly, stats are 0-100? No, stats seem to be unbounded but 0-20 range mostly in early game
-             // Let's assume OI stats are scaled similarly to subject levels (1-20+)
-             
              // Base performance on relevant stat
              let ability = 0;
              let required = 0;
@@ -92,13 +88,8 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
              const finalRatio = (ratio + luckFactor + mindsetFactor) * modeMod;
              
              // Clamping for partial points logic
-             // 0-0.3: 0 pts
-             // 0.3-0.6: 10-60 pts
-             // 0.6-0.9: 60-95 pts
-             // >0.9: 100 pts (AK)
-             
-             if (finalRatio >= 0.95) score = 100;
-             else if (finalRatio <= 0.2) score = 0;
+             if (finalRatio >= 0.98) score = 100; // Harder to get AK
+             else if (finalRatio <= 0.15) score = 0;
              else score = Math.floor(Math.pow(finalRatio, 0.8) * 100);
              
              logMsg = `题目 "${prob.name}" (难度:${prob.level}) 测试结束，获得 ${score} 分。`;
@@ -110,17 +101,28 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
             maxScore = isMainSubject ? 150 : 100;
             
             const stats = state.subjects[subject];
-            let basePercentage = (stats.aptitude * 0.3 + stats.level * 2.0) / 100;
-            basePercentage = Math.max(0.2, basePercentage); 
+            // Nerfed formula: Harder to get full marks
+            // New Formula: (Aptitude * 0.2 + Level * 1.0) / 80  -- Reduced multipliers heavily
+            let basePercentage = (stats.aptitude * 0.2 + stats.level * 1.0) / 80;
+            basePercentage = Math.max(0.3, basePercentage); 
 
-            const luckFactor = (state.general.luck - 50) / 600; 
-            const mindsetFactor = (state.general.mindset - 50) / 600;
-            const randomVar = 0.95 + Math.random() * 0.15; 
+            const luckFactor = (state.general.luck - 50) / 500; 
+            const mindsetFactor = (state.general.mindset - 50) / 500;
+            const efficiencyFactor = (state.general.efficiency - 10) / 200;
+            
+            // Random variance 0.85 - 1.15 (Wider range)
+            const randomVar = 0.85 + Math.random() * 0.3; 
 
-            let finalPercentage = (basePercentage + luckFactor + mindsetFactor) * randomVar;
+            let finalPercentage = (basePercentage + luckFactor + mindsetFactor + efficiencyFactor) * randomVar;
             finalPercentage = Math.min(1.0, Math.max(0, finalPercentage));
             
+            // Curve the score slightly towards the middle-high range for realism, but harder to get perfect
+            finalPercentage = Math.pow(finalPercentage, 0.9);
+
             score = Math.floor(finalPercentage * maxScore);
+            // Cap at max score
+            if (score > maxScore) score = maxScore;
+
             logMsg = `${SUBJECT_NAMES[subject]} 考试结束，得分 ${score}/${maxScore}。`;
         }
 
@@ -147,9 +149,9 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
           // 普通考试评价
           const maxTotal = subjectsToTest.reduce((acc, s) => acc + (['chinese', 'math', 'english'].includes(s) ? 150 : 100), 0);
           const ratio = total / maxTotal;
-          if (ratio > 0.90) comment = "傲视群雄，你是八中的明日之星！"; 
-          else if (ratio > 0.80) comment = "表现稳健，保持在这个梯队。";
-          else if (ratio > 0.65) comment = "中规中矩，还有提升空间。";
+          if (ratio > 0.95) comment = "傲视群雄，你是八中当之无愧的传说，老师口中的“那个学生”！"; 
+          else if (ratio > 0.85) comment = "表现优异，保持在这个梯队。";
+          else if (ratio > 0.70) comment = "中规中矩，还有提升空间。";
           else comment = "基础不牢，地动山摇。";
       }
 
