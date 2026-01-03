@@ -148,6 +148,7 @@ export interface GameState {
   eventResult: { choice: EventChoice, diff: string[] } | null;
   history: StoryEntry[];
   examResult: ExamResult | null;
+  midtermRank: number | null; // New: Stores midterm rank for ending analysis
   competitionResults: Array<CompetitionResultData>;
   popupCompetitionResult: CompetitionResultData | null;
   triggeredEvents: string[]; 

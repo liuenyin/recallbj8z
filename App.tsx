@@ -1,9 +1,17 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Phase, GameState, GameEvent, SubjectKey, ExamResult, SubjectStats, GeneralStats, SUBJECT_NAMES, CompetitionResultData, Achievement, GameStatus, Difficulty, Club, ClubId, WeekendActivity, OIStats, GameLogEntry, Talent, Item } from './types';
-import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, ACHIEVEMENTS, generateStudyEvent, generateRandomFlavorEvent, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT, STATUSES, DIFFICULTY_PRESETS, CHANGELOG_DATA, CLUBS, WEEKEND_ACTIVITIES, TALENTS, SHOP_ITEMS } from './gameData';
+import { Phase, GameState, GameEvent, SubjectKey, ExamResult, SubjectStats, GeneralStats, SUBJECT_NAMES, CompetitionResultData, GameStatus, Difficulty, ClubId, WeekendActivity, OIStats, GameLogEntry, Talent, Item } from './types';
+import { DIFFICULTY_PRESETS } from './data/constants';
+import { TALENTS, SHOP_ITEMS, ACHIEVEMENTS, STATUSES, CLUBS, WEEKEND_ACTIVITIES } from './data/mechanics';
+import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateStudyEvent, generateRandomFlavorEvent, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT } from './data/events';
+
+// Component Imports
 import StatsPanel from './components/StatsPanel';
 import ExamView from './components/ExamView';
+import HomeView from './components/HomeView';
+import TalentView from './components/TalentView';
+import EndingScreen from './components/EndingScreen';
+import EventModal from './components/EventModal';
+import FloatingTextLayer, { FloatingTextItem } from './components/FloatingTextLayer';
 
 // --- Constants & Helpers ---
 
@@ -64,6 +72,7 @@ const getInitialGameState = (): GameState => ({
     eventResult: null,
     history: [],
     examResult: null,
+    midtermRank: null, // Initial value
     competitionResults: [],
     popupCompetitionResult: null,
     triggeredEvents: [],
@@ -82,15 +91,10 @@ const getInitialGameState = (): GameState => ({
     inventory: []
 });
 
-const INITIAL_GENERAL_CONST = getInitialGeneral(); // Keep for UI reference in custom mode
-
-// --- Main App Component ---
-
 const App: React.FC = () => {
   const [view, setView] = useState<'HOME' | 'TALENTS' | 'GAME'>('HOME');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('NORMAL');
   const [customStats, setCustomStats] = useState<GeneralStats>(getInitialGeneral());
-  const [showChangelog, setShowChangelog] = useState(false);
   const [showClubSelection, setShowClubSelection] = useState(false); // UI State for club modal
   const [showShop, setShowShop] = useState(false); // UI State for shop
   
@@ -100,11 +104,13 @@ const App: React.FC = () => {
   const [showAchievements, setShowAchievements] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
+  // Visuals State
+  const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
+
   // Talent Selection State
   const [availableTalents, setAvailableTalents] = useState<Talent[]>([]);
   const [selectedTalents, setSelectedTalents] = useState<Talent[]>([]);
   const [talentPoints, setTalentPoints] = useState(3); // Initial Points, user starts with 3
-
 
   // New State for Weekend Activity Result Modal
   const [weekendResult, setWeekendResult] = useState<{
@@ -136,6 +142,10 @@ const App: React.FC = () => {
           const newUnlocked = [...prev.unlockedAchievements, id];
           localStorage.setItem('bz_sim_achievements', JSON.stringify(newUnlocked));
           const ach = ACHIEVEMENTS[id];
+          // Sound Effect
+          // const audio = new Audio('/achievement.mp3'); audio.play().catch(e=>{});
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // Haptic
+          
           return {
               ...prev,
               unlockedAchievements: newUnlocked,
@@ -147,6 +157,65 @@ const App: React.FC = () => {
           setState(prev => ({ ...prev, achievementPopup: null }));
       }, 3000);
   }, []);
+
+  // --- Visuals Helpers ---
+  const spawnFloatingText = (text: string, x: number, y: number, type: 'good' | 'bad' | 'neutral' | string) => {
+      let color = '#374151'; // default slate-700
+      if (type === 'mindset') color = '#3b82f6'; // blue
+      else if (type === 'health') color = text.includes('+') ? '#10b981' : '#ef4444'; // emerald / red
+      else if (type === 'money') color = '#ca8a04'; // yellow
+      else if (type === 'efficiency') color = '#a855f7'; // purple
+      else if (type === 'romance') color = '#f43f5e'; // rose
+      else if (type === 'experience') color = '#f59e0b'; // amber
+      else if (type === 'luck') color = '#9333ea'; // purple
+      else if (type === 'oi') color = '#6366f1'; // indigo
+      
+      const newText: FloatingTextItem = {
+          id: Date.now() + Math.random(),
+          text,
+          x,
+          y,
+          color
+      };
+      setFloatingTexts(prev => [...prev, newText]);
+      setTimeout(() => {
+          setFloatingTexts(prev => prev.filter(t => t.id !== newText.id));
+      }, 1500); // Remove after animation
+  };
+
+  const calculateAndVisualizeDiff = (oldState: GameState, newState: GameState, x: number, y: number) => {
+       const diffs: string[] = [];
+       // Helper to check general stats
+       const check = (key: keyof GeneralStats, label: string, colorType: string) => {
+           const delta = newState.general[key] - oldState.general[key];
+           if (Math.abs(delta) >= 1) {
+               const val = Math.floor(delta);
+               const text = `${label} ${val > 0 ? '+' : ''}${val}`;
+               diffs.push(text);
+               // Staggered spawn
+               setTimeout(() => spawnFloatingText(text, x + (Math.random() * 40 - 20), y + (Math.random() * 40 - 20), colorType), diffs.length * 100);
+           }
+       };
+
+       check('mindset', '心态', 'mindset');
+       check('health', '健康', 'health');
+       check('money', '金钱', 'money');
+       check('romance', '魅力', 'romance');
+       check('efficiency', '效率', 'efficiency');
+       check('experience', '经验', 'experience');
+       check('luck', '运气', 'luck');
+
+       // Check OI
+       const oldOI = Object.values(oldState.oiStats).reduce((a, b) => a + b, 0);
+       const newOI = Object.values(newState.oiStats).reduce((a, b) => a + b, 0);
+       if (newOI > oldOI) {
+           diffs.push("OI能力提升");
+           setTimeout(() => spawnFloatingText("OI能力 UP", x, y - 20, 'oi'), 200);
+       }
+
+       return diffs;
+  };
+
 
   // --- Core Game Loop: Time Flow ---
   useEffect(() => {
@@ -312,6 +381,7 @@ const App: React.FC = () => {
       setState(prev => ({ ...prev, phase: Phase.WITHDRAWAL, isPlaying: false, currentEvent: null }));
   };
 
+  // ... (processWeekStep remains the same, omitted for brevity) ...
   const processWeekStep = () => {
       setState(prev => {
           // --- Critical Failure Check (Priority 1) ---
@@ -329,7 +399,8 @@ const App: React.FC = () => {
           if (prev.general.money >= 200) unlockAchievement('rich');
           if (prev.general.money <= -250) unlockAchievement('in_debt');
           if (prev.general.health < 10 && prev.phase === Phase.SEMESTER_1) unlockAchievement('survival');
-          if (prev.general.romance >= 95) unlockAchievement('romance_master');
+          // Update Romance Master requirement to 250
+          if (prev.general.romance >= 250) unlockAchievement('romance_master');
 
           // Logic to Determine Next State
           let nextPhase = prev.phase;
@@ -379,21 +450,14 @@ const App: React.FC = () => {
           }
 
           // --- WEEKEND LOGIC CHECK ---
-          // Before processing the new week, check if we need to pause for Weekend
-          // Only in Semester 1 (for now), and ONLY if we haven't processed weekend for this week yet
           if (prev.phase === Phase.SEMESTER_1 && !prev.isWeekend && !prev.weekendProcessed && prev.week > 0) {
-               // Calculate available Action Points
-               let ap = 2; // Base AP
-               
-               // OI Deduction
+               let ap = 2; 
                if (prev.competition === 'OI') {
                    ap -= 1;
                    newLogs.push({ message: "【周末】你参加了半天竞赛课，OI能力略微提升。", type: 'info', timestamp: Date.now() });
-                   // Passive OI Stat gain
                    nextOIStats.misc += 0.5;
                }
 
-               // Club Deduction (Every 4 weeks: 4, 8, 12, 16, 20)
                if (prev.club && prev.club !== 'none' && prev.week % 4 === 0) {
                    ap -= 1;
                    const clubData = CLUBS.find(c => c.id === prev.club);
@@ -401,11 +465,10 @@ const App: React.FC = () => {
                        newLogs.push({ message: `【周末】你参加了${clubData.name}的活动。`, type: 'info', timestamp: Date.now() });
                        const updates = clubData.action(prev);
                        if (updates.general) nextGeneral = { ...nextGeneral, ...updates.general };
-                       if (updates.subjects) nextSubjects = { ...nextSubjects, ...updates.subjects }; // Shallow merge fix needed if partial
+                       if (updates.subjects) nextSubjects = { ...nextSubjects, ...updates.subjects }; 
                    }
                }
                
-               // If AP > 0, pause for weekend interaction
                if (ap > 0) {
                    return {
                        ...prev,
@@ -418,9 +481,7 @@ const App: React.FC = () => {
                        log: [...prev.log, ...newLogs, { message: "周末到了，你有一些自由支配的时间。", type: 'info', timestamp: Date.now() }]
                    };
                } else {
-                   // No AP left, auto-skip weekend but show logs
                    newLogs.push({ message: "这个周末行程排满了，你没有自由活动时间。", type: 'warning', timestamp: Date.now() });
-                   // Fall through to process end of week and increment, implicitly "processing" the weekend
                }
           }
 
@@ -441,8 +502,7 @@ const App: React.FC = () => {
                  activeStatuses = activeStatuses.map(s => s.id === 'debt' ? { ...s, duration: 1 } : s);
              }
              
-             // UPDATE: Simple probability check for Debt Collection
-             if (Math.random() < 0.3) { // 30% chance each week while in debt
+             if (Math.random() < 0.3) { 
                  eventsToAdd.unshift(BASE_EVENTS['debt_collection']);
              }
           } else {
@@ -489,15 +549,10 @@ const App: React.FC = () => {
           });
 
           // 2. Generate Events for this week
-          
-          // A. Study Event (Always happens in Semester 1)
           if (nextPhase === Phase.SEMESTER_1) {
               eventsToAdd.push(generateStudyEvent(prev));
-              
-              // B. Random Flavor Event
               eventsToAdd.push(generateRandomFlavorEvent(prev));
 
-              // C. Fixed Events
               if (nextWeek === 15) eventsToAdd.push(SCIENCE_FESTIVAL_EVENT);
               if (nextWeek === 19) {
                   let gala = { ...NEW_YEAR_GALA_EVENT };
@@ -517,18 +572,14 @@ const App: React.FC = () => {
               }
           }
           
-          // D. Phase specific random events (Summer/Military)
           const phaseEvents = PHASE_EVENTS[nextPhase] || [];
           const eligible = phaseEvents.filter(e => e.triggerType !== 'FIXED' && (!e.once || !prev.triggeredEvents.includes(e.id)) && (!e.condition || e.condition(prev)));
+          const fixedWeekEvents = phaseEvents.filter(e => e.triggerType === 'FIXED' && e.fixedWeek === nextWeek);
+          eventsToAdd.push(...fixedWeekEvents);
           
           let eventProb = 0.4;
-          if (nextPhase === Phase.SUMMER) {
-              eventProb = 0.8; 
-          }
-          // GUARANTEE EVENT IN MILITARY (It's short)
-          if (nextPhase === Phase.MILITARY) {
-              eventProb = 1.0;
-          }
+          if (nextPhase === Phase.SUMMER) eventProb = 0.8; 
+          if (nextPhase === Phase.MILITARY) eventProb = 1.0;
 
           if (eligible.length > 0 && Math.random() < eventProb) {
               eventsToAdd.push(eligible[Math.floor(Math.random() * eligible.length)]);
@@ -545,32 +596,30 @@ const App: React.FC = () => {
             activeStatuses,
             eventQueue: [...prev.eventQueue, ...eventsToAdd],
             log: [...prev.log, ...newLogs, { message: `Week ${nextWeek}`, type: 'info', timestamp: Date.now() }],
-            weekendProcessed: false // Reset flag for the new week
+            weekendProcessed: false
           };
       });
   };
 
-  const handleChoice = (choice: any) => {
+  const handleChoice = (choice: any, e?: React.MouseEvent) => {
+    // Haptic
+    if (navigator.vibrate) navigator.vibrate(10);
+    
     setState(prev => {
       const updates = choice.action(prev);
-      const diff: string[] = [];
-      if (updates.general) {
-          const newG = updates.general as GeneralStats;
-          const oldG = prev.general;
-          if (Math.floor(newG.mindset) !== Math.floor(oldG.mindset)) diff.push(`心态 ${newG.mindset - oldG.mindset > 0 ? '+' : ''}${Math.floor(newG.mindset - oldG.mindset)}`);
-          if (Math.floor(newG.health) !== Math.floor(oldG.health)) diff.push(`健康 ${newG.health - oldG.health > 0 ? '+' : ''}${Math.floor(newG.health - oldG.health)}`);
-          if (Math.floor(newG.money) !== Math.floor(oldG.money)) diff.push(`金钱 ${newG.money - oldG.money > 0 ? '+' : ''}${Math.floor(newG.money - oldG.money)}`);
-          if (Math.floor(newG.romance) !== Math.floor(oldG.romance)) diff.push(`魅力 ${newG.romance - oldG.romance > 0 ? '+' : ''}${Math.floor(newG.romance - oldG.romance)}`);
-      }
-      if (updates.oiStats) diff.push("OI能力提升");
-      if (updates.subjects) diff.push("学科能力变动");
-      if (updates.activeStatuses) diff.push("状态更新");
+      // Construct temp state for diff calculation
+      const tempState = { ...prev, ...updates };
+      if (updates.general) tempState.general = { ...prev.general, ...updates.general };
+
+      // VISUALS: Calculate Diffs and Spawn Text
+      const diff = calculateAndVisualizeDiff(prev, tempState, e?.clientX || window.innerWidth/2, e?.clientY || window.innerHeight/2);
+      
+      // Fallback diff strings if needed for log, though we use the visualized ones for immediate feedback
       if (updates.sleepCount) diff.push("睡觉次数+1");
       if (diff.length === 0) diff.push("无明显变化");
 
       return { 
-          ...prev, 
-          ...updates, 
+          ...tempState,
           eventResult: { choice, diff }, 
           history: [{ 
               week: prev.week, 
@@ -619,6 +668,10 @@ const App: React.FC = () => {
           const updates = item.effect(prev);
           const nextGeneral = { ...prev.general, ...updates.general };
           
+          // Visuals (Simple center screen spawn as shop click event might be complex to pass down easily without more refactor)
+          // Actually, we can use a generic center point
+          spawnFloatingText(`-${item.price} 金钱`, window.innerWidth/2, window.innerHeight/2, 'money');
+          
           return {
               ...prev,
               ...updates,
@@ -629,28 +682,21 @@ const App: React.FC = () => {
       });
   };
 
-  const handleWeekendActivityClick = (activity: WeekendActivity) => {
+  const handleWeekendActivityClick = (activity: WeekendActivity, e: React.MouseEvent) => {
+      // Haptic
+      if (navigator.vibrate) navigator.vibrate(10);
+
       const updates = activity.action(state);
       const newState = {
           ...state,
           ...updates,
           general: { ...state.general, ...(updates.general || {}) },
-          sleepCount: (state.sleepCount || 0) + (updates.sleepCount as number || 0),
       };
       if (updates.subjects) newState.subjects = { ...state.subjects, ...updates.subjects };
       if (updates.oiStats) newState.oiStats = { ...state.oiStats, ...updates.oiStats };
 
-      const diff: string[] = [];
-      const newG = newState.general;
-      const oldG = state.general;
-      if (Math.floor(newG.mindset) !== Math.floor(oldG.mindset)) diff.push(`心态 ${newG.mindset - oldG.mindset > 0 ? '+' : ''}${Math.floor(newG.mindset - oldG.mindset)}`);
-      if (Math.floor(newG.health) !== Math.floor(oldG.health)) diff.push(`健康 ${newG.health - oldG.health > 0 ? '+' : ''}${Math.floor(newG.health - oldG.health)}`);
-      if (Math.floor(newG.money) !== Math.floor(oldG.money)) diff.push(`金钱 ${newG.money - oldG.money > 0 ? '+' : ''}${Math.floor(newG.money - oldG.money)}`);
-      if (Math.floor(newG.romance) !== Math.floor(oldG.romance)) diff.push(`魅力 ${newG.romance - oldG.romance > 0 ? '+' : ''}${Math.floor(newG.romance - oldG.romance)}`);
-      if (Math.floor(newG.experience) !== Math.floor(oldG.experience)) diff.push(`经验 ${newG.experience - oldG.experience > 0 ? '+' : ''}${Math.floor(newG.experience - oldG.experience)}`);
-      if (updates.oiStats) diff.push("OI能力提升");
-      if (updates.subjects) diff.push("学科能力变动");
-      if (updates.activeStatuses) diff.push("状态更新");
+      // VISUALS
+      const diff = calculateAndVisualizeDiff(state, newState, e.clientX, e.clientY);
       
       const resultText = typeof activity.resultText === 'function' ? activity.resultText(state) : activity.resultText;
 
@@ -682,6 +728,7 @@ const App: React.FC = () => {
   };
 
   const handleExamFinish = (result: ExamResult) => {
+      // ... (Same as before)
       setState(prev => {
           let nextPhase = prev.phase;
           let className = prev.className;
@@ -690,6 +737,7 @@ const App: React.FC = () => {
           let triggeredEvent = prev.currentEvent;
           let logMsg = '';
           let nextTotalWeeks = prev.totalWeeksInPhase;
+          let midtermRank = prev.midtermRank;
 
           let rank = 0;
           let totalStudents = 633; 
@@ -743,7 +791,8 @@ const App: React.FC = () => {
 
           } else if (prev.phase === Phase.MIDTERM_EXAM) {
               nextPhase = Phase.SUBJECT_RESELECTION;
-              logMsg = "期中考试结束，请重新审视你的选科。";
+              midtermRank = rank; // Capture Midterm Rank
+              logMsg = `期中考试结束，年级排名: ${rank}。请重新审视你的选科。`;
           } else if (prev.phase === Phase.CSP_EXAM) {
               const award = result.totalScore >= 170 ? "一等奖" : result.totalScore >= 140 ? "二等奖" : "三等奖";
               popupResult = { title: "CSP-J/S 2026", score: result.totalScore, award };
@@ -764,12 +813,14 @@ const App: React.FC = () => {
               phase: nextPhase,
               totalWeeksInPhase: nextTotalWeeks,
               examResult: { ...result, rank, totalStudents },
+              midtermRank, // Store rank
               currentEvent: triggeredEvent,
               log: [...prev.log, { message: logMsg || `${prev.phase} 结束。`, type: 'info', timestamp: Date.now() }]
           };
       });
   };
 
+  // ... (closeCompetitionPopup, getExamTitle, getEndingAnalysis, endingData same as before) ...
   const closeCompetitionPopup = () => {
       setState(prev => {
           if (!prev.popupCompetitionResult) return prev;
@@ -861,173 +912,42 @@ const App: React.FC = () => {
   // --- HOME VIEW ---
   if (view === 'HOME') {
       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 md:p-10 font-sans relative overflow-hidden">
-             {/* Background Decoration */}
-             <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none overflow-hidden">
-                 <div className="absolute top-10 left-10 text-9xl font-black rotate-12">8</div>
-                 <div className="absolute bottom-10 right-10 text-9xl font-black -rotate-12">OI</div>
-             </div>
-
-             {/* Header */}
-             <div className="w-20 h-20 md:w-24 md:h-24 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl mb-6 md:mb-8 transform -rotate-6 z-10">
-                <i className="fas fa-school text-white text-4xl md:text-5xl"></i>
-             </div>
-             <h1 className="text-4xl md:text-6xl font-black text-slate-800 mb-2 md:mb-4 tracking-tighter z-10 text-center">八中重开模拟器</h1>
-             <p className="text-slate-400 mb-8 md:mb-10 text-lg md:text-xl font-medium z-10">Made by lg37</p>
-
-             {/* Difficulty Selection */}
-             <div className="w-full max-w-4xl z-10 mb-8">
-                 <h3 className="text-center text-slate-500 font-bold mb-4 uppercase tracking-widest text-sm">选择你的开局难度</h3>
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                     {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof DIFFICULTY_PRESETS['NORMAL']][]).map(([key, config]) => (
-                         <button key={key} onClick={() => setSelectedDifficulty(key)}
-                             className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-2 group ${selectedDifficulty === key ? 'border-indigo-600 bg-white shadow-xl scale-105' : 'border-transparent bg-white/50 hover:bg-white hover:shadow-md'}`}
-                         >
-                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${config.color} shadow-md`}>
-                                 {key === 'REALITY' ? <i className="fas fa-skull"></i> : key === 'HARD' ? <i className="fas fa-exclamation"></i> : <i className="fas fa-coffee"></i>}
-                             </div>
-                             <div className="font-black text-slate-800">{config.label}</div>
-                             <div className="text-[10px] text-slate-500 leading-tight">{config.desc}</div>
-                         </button>
-                     ))}
-                     <button onClick={() => setSelectedDifficulty('CUSTOM')}
-                         className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-2 group ${selectedDifficulty === 'CUSTOM' ? 'border-indigo-600 bg-white shadow-xl scale-105' : 'border-transparent bg-white/50 hover:bg-white hover:shadow-md'}`}
-                     >
-                          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold shadow-md"><i className="fas fa-sliders-h"></i></div>
-                          <div className="font-black text-slate-800">自定义</div>
-                          <div className="text-[10px] text-slate-500 leading-tight">我是神，由于我太强了，所以我要自定义属性</div>
-                     </button>
-                 </div>
-             </div>
-
-             {/* Custom Stats Editor */}
-             {selectedDifficulty === 'CUSTOM' && (
-                 <div className="w-full max-w-2xl bg-white p-6 rounded-3xl shadow-lg border border-slate-100 z-10 mb-8 animate-fadeIn">
-                     <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><i className="fas fa-pen"></i> 配置初始属性</h4>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         {(Object.keys(INITIAL_GENERAL_CONST) as (keyof GeneralStats)[]).map(key => (
-                             <div key={key}>
-                                 <label className="text-xs font-bold text-slate-400 uppercase flex justify-between mb-1">
-                                     <span>{key}</span>
-                                     <span className="text-indigo-600">{customStats[key]}</span>
-                                 </label>
-                                 <input type="range" min="0" max="100" value={customStats[key]} onChange={(e) => setCustomStats(prev => ({...prev, [key]: parseInt(e.target.value)}))} 
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                 />
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
-
-             {/* Warnings & Start */}
-             <div className="z-10 flex flex-col items-center gap-4">
-                {selectedDifficulty !== 'REALITY' && (
-                    <div className="text-amber-600 text-xs font-bold bg-amber-50 px-4 py-2 rounded-full border border-amber-200">
-                        <i className="fas fa-exclamation-triangle mr-2"></i>注意：仅在【现实】难度下可解锁成就
-                    </div>
-                )}
-                
-                <div className="flex gap-4">
-                    <button onClick={() => setShowChangelog(true)} className="bg-white text-slate-500 px-6 py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-slate-50 transition-all flex items-center gap-2">
-                        <i className="fas fa-history"></i> <span className="hidden md:inline">更新日志</span>
-                    </button>
-                    <button onClick={prepareGame} className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black text-xl shadow-xl transition-all hover:scale-105 flex items-center gap-3">
-                        <i className="fas fa-play"></i> 开启模拟
-                    </button>
-                </div>
-             </div>
-
-             {/* Changelog Modal */}
-             {showChangelog && (
-                 <div className="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowChangelog(false)}>
-                     <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">更新日志</h2>
-                             <button onClick={() => setShowChangelog(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
-                         </div>
-                         <div className="overflow-y-auto custom-scroll space-y-6 pr-2">
-                             {CHANGELOG_DATA.map((log, i) => (
-                                 <div key={i}>
-                                     <div className="flex items-baseline gap-2 mb-2">
-                                         <span className="text-lg font-bold text-indigo-600">{log.version}</span>
-                                         <span className="text-xs text-slate-400 font-mono">{log.date}</span>
-                                     </div>
-                                     <ul className="list-disc list-inside space-y-1">
-                                         {log.content.map((item, idx) => (
-                                             <li key={idx} className="text-sm text-slate-600">{item}</li>
-                                         ))}
-                                     </ul>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
-                 </div>
-             )}
-          </div>
+        <HomeView 
+          selectedDifficulty={selectedDifficulty}
+          onDifficultyChange={setSelectedDifficulty}
+          customStats={customStats}
+          onCustomStatsChange={setCustomStats}
+          onStart={prepareGame}
+        />
       );
   }
 
-  // --- TALENT SELECTION VIEW ---
+  // --- TALENTS VIEW ---
   if (view === 'TALENTS') {
       return (
-          <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 md:p-10 font-sans relative">
-              <h2 className="text-3xl md:text-5xl font-black text-white mb-2 tracking-tight">天赋抉择</h2>
-              <div className="flex items-center gap-4 mb-8 bg-slate-800 px-6 py-3 rounded-full border border-slate-700">
-                  <span className="text-slate-400 font-bold">剩余点数</span>
-                  <span className={`text-2xl font-black ${talentPoints >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>{talentPoints}</span>
-                  <span className="text-xs text-slate-500 border-l border-slate-600 pl-4 ml-2">选择负面天赋以获取更多点数</span>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 max-w-6xl w-full mb-8 overflow-y-auto max-h-[60vh] p-2 custom-scroll">
-                  {availableTalents.map(talent => {
-                      const isSelected = selectedTalents.some(t => t.id === talent.id);
-                      return (
-                        <button 
-                            key={talent.id} 
-                            onClick={() => handleTalentToggle(talent)}
-                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-start gap-2 h-44 relative overflow-hidden group text-left ${isSelected ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg transform scale-105 z-10' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
-                        >
-                            <div className="flex justify-between w-full items-start">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${talent.rarity === 'cursed' ? 'bg-rose-900 text-rose-300' : 'bg-slate-700 text-slate-400'}`}>
-                                    {talent.rarity}
-                                </span>
-                                <span className={`text-xs font-black px-2 py-1 rounded-full ${talent.cost > 0 ? 'bg-slate-900 text-red-400' : 'bg-emerald-900 text-emerald-400'}`}>
-                                    {talent.cost > 0 ? `-${talent.cost}` : `+${Math.abs(talent.cost)}`}
-                                </span>
-                            </div>
-                            
-                            <h3 className="text-base md:text-lg font-bold mt-1 leading-tight">{talent.name}</h3>
-                            <p className={`text-xs leading-relaxed ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>{talent.description}</p>
-                            
-                            {isSelected && (
-                                <div className="absolute bottom-2 right-2 w-5 h-5 bg-white text-indigo-600 rounded-full flex items-center justify-center shadow-sm">
-                                    <i className="fas fa-check text-[10px]"></i>
-                                </div>
-                            )}
-                        </button>
-                      );
-                  })}
-              </div>
-
-              <div className="flex gap-4 z-20 bg-slate-900/90 backdrop-blur p-4 rounded-2xl border border-slate-800">
-                  <button onClick={() => setView('HOME')} className="text-slate-500 font-bold hover:text-white transition-colors px-4">返回</button>
-                  <button 
-                    onClick={startGame} 
-                    disabled={talentPoints < 0}
-                    className="bg-white text-slate-900 px-8 py-3 rounded-xl font-black text-lg hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                      {talentPoints < 0 ? '点数不足' : '入学吧。'} 
-                      {talentPoints >= 0 && <i className="fas fa-arrow-right"></i>}
-                  </button>
-              </div>
-          </div>
+          <TalentView 
+            availableTalents={availableTalents}
+            selectedTalents={selectedTalents}
+            talentPoints={talentPoints}
+            onToggleTalent={handleTalentToggle}
+            onConfirm={startGame}
+            onBack={() => setView('HOME')}
+          />
       )
   }
 
   // --- GAME VIEW ---
   return (
     <div className="h-[100dvh] bg-slate-100 flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative">
+      {/* SCREEN EFFECTS OVERLAYS */}
+      <div className={`fixed inset-0 pointer-events-none z-[50] transition-all duration-1000 ${state.general.health < 30 ? 'opacity-100' : 'opacity-0'}`}
+           style={{ boxShadow: 'inset 0 0 100px rgba(255, 0, 0, 0.3)' }}></div>
+      <div className={`fixed inset-0 pointer-events-none z-[50] transition-all duration-1000 ${state.general.mindset > 90 ? 'opacity-100' : 'opacity-0'}`}
+           style={{ boxShadow: 'inset 0 0 100px rgba(255, 255, 255, 0.6)', mixBlendMode: 'overlay' }}></div>
+      
+      {/* FLOATING TEXT LAYER */}
+      <FloatingTextLayer items={floatingTexts} />
+
       {/* Toast */}
       {state.achievementPopup && (
           <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[60] bg-slate-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-fadeIn border border-slate-700">
@@ -1069,17 +989,14 @@ const App: React.FC = () => {
 
         <header className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3 flex-shrink-0 z-20 relative">
                <div className="flex items-center justify-between">
-                   {/* UPDATE: Removed overflow-hidden to allow tooltips to show */}
                    <div className="flex flex-col gap-1 w-full mr-4">
                        <h2 className="font-black text-slate-800 text-lg flex items-center gap-2 uppercase tracking-tight truncate">
                             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${state.isSick ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span> {state.phase} 
                         </h2>
-                        {/* Status Bar: Added flex-wrap to prevent layout break */}
                         <div className="flex gap-2 items-center flex-wrap">
                             {state.activeStatuses.length > 0 ? state.activeStatuses.map(s => (
                                 <div key={s.id} className={`group relative flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold shadow-sm cursor-help ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
                                     <i className={`fas ${s.icon}`}></i> {s.name} ({s.duration}w)
-                                    {/* Tooltip: Increased z-index to 60 */}
                                     <div className="absolute top-full left-0 mt-1 w-48 p-3 bg-slate-800 text-white rounded-xl shadow-2xl z-[60] hidden group-hover:block text-xs font-normal pointer-events-none">
                                         <div className="font-bold mb-1 text-amber-300">{s.name}</div>
                                         <div className="mb-2 leading-tight">{s.description}</div>
@@ -1127,7 +1044,7 @@ const App: React.FC = () => {
              <div ref={logEndRef} />
         </div>
 
-        {/* Weekend Modal (Moved OUTSIDE the scrollable log area) */}
+        {/* Weekend Modal */}
         {state.isWeekend && !weekendResult && (
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-30 flex items-center justify-center p-4 md:p-8 animate-fadeIn">
                <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-xl w-full border border-slate-200 max-h-[90vh] overflow-y-auto custom-scroll">
@@ -1147,8 +1064,8 @@ const App: React.FC = () => {
                      }).map(activity => {
                          if (activity.condition && !activity.condition(state)) return null;
                          return (
-                             <button key={activity.id} onClick={() => handleWeekendActivityClick(activity)}
-                                 className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-indigo-600 hover:text-white border border-slate-200 transition-all group flex justify-between items-center"
+                             <button key={activity.id} onClick={(e) => handleWeekendActivityClick(activity, e)}
+                                 className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-indigo-600 hover:text-white border border-slate-200 transition-all group flex justify-between items-center active:scale-95"
                              >
                                  <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-lg shadow-sm flex-shrink-0 ${activity.type === 'OI' ? 'bg-indigo-500 group-hover:bg-white group-hover:text-indigo-600' : activity.type === 'LOVE' ? 'bg-rose-500 group-hover:bg-white group-hover:text-rose-600' : 'bg-slate-400 group-hover:bg-white group-hover:text-slate-600'}`}>
@@ -1168,7 +1085,7 @@ const App: React.FC = () => {
             </div>
         )}
 
-        {/* Weekend Result Modal (Moved OUTSIDE the scrollable log area) */}
+        {/* Weekend Result Modal */}
         {weekendResult && (
              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-fadeIn">
                  <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl text-center border-t-8 border-indigo-500">
@@ -1186,7 +1103,7 @@ const App: React.FC = () => {
                         </div>
                      )}
 
-                     <button onClick={confirmWeekendActivity} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-lg hover:bg-indigo-700 shadow-xl transition-all">
+                     <button onClick={confirmWeekendActivity} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-lg hover:bg-indigo-700 shadow-xl transition-all active:scale-95">
                          确定
                      </button>
                  </div>
@@ -1203,7 +1120,7 @@ const App: React.FC = () => {
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto custom-scroll p-2">
                          {CLUBS.map(club => (
                              <button key={club.id} onClick={() => handleClubSelect(club.id)}
-                                 className="p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex flex-col gap-2 group"
+                                 className="p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex flex-col gap-2 group active:scale-95"
                              >
                                  <div className="flex items-center gap-3">
                                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
@@ -1217,7 +1134,7 @@ const App: React.FC = () => {
                                  </div>
                              </button>
                          ))}
-                         <button onClick={() => handleClubSelect('none')} className="p-4 rounded-2xl border-2 border-slate-100 hover:border-slate-400 hover:bg-slate-50 transition-all text-left flex flex-col justify-center items-center gap-2 text-slate-400">
+                         <button onClick={() => handleClubSelect('none')} className="p-4 rounded-2xl border-2 border-slate-100 hover:border-slate-400 hover:bg-slate-50 transition-all text-left flex flex-col justify-center items-center gap-2 text-slate-400 active:scale-95">
                              <span className="font-bold">不参加社团</span>
                              <span className="text-xs">以此换取更多的自由时间</span>
                          </button>
@@ -1244,7 +1161,7 @@ const App: React.FC = () => {
                                 key={item.id} 
                                 onClick={() => handleShopPurchase(item)}
                                 disabled={state.general.money < item.price}
-                                className="p-4 rounded-xl border border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-4 group disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="p-4 rounded-xl border border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-4 group disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                              >
                                  <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:text-indigo-600 transition-colors">
                                      <i className={`fas ${item.icon} text-xl`}></i>
@@ -1265,47 +1182,13 @@ const App: React.FC = () => {
 
         {/* Event Modal Overlay */}
         {state.currentEvent && (
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 z-20 animate-fadeIn">
-               <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-xl w-full border border-slate-200 max-h-[85vh] overflow-y-auto custom-scroll">
-                  {!state.eventResult ? (
-                    <>
-                      <div className="flex justify-between items-start mb-4">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800">{state.currentEvent.title}</h2>
-                          {state.eventQueue.length > 0 && <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap">+{state.eventQueue.length} 更多</span>}
-                      </div>
-                      {/* FIXED: Handle dynamic description text */}
-                      <p className="text-slate-600 mb-8 text-base md:text-lg leading-relaxed">
-                          {typeof state.currentEvent.description === 'function' 
-                            ? state.currentEvent.description(state) 
-                            : state.currentEvent.description}
-                      </p>
-                      <div className="space-y-3">
-                         {state.currentEvent.choices?.map((c, i) => (
-                           <button key={i} onClick={() => handleChoice(c)} className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-indigo-600 hover:text-white border border-slate-200 transition-all font-bold group flex justify-between items-center">
-                              {c.text}
-                              <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all"></i>
-                           </button>
-                         ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-4">
-                      <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
-                      <h2 className="text-xl font-black text-slate-800 mb-2 italic">"{state.eventResult.choice.text}"</h2>
-                      {state.eventResult.diff.length > 0 && (
-                        <div className="flex flex-wrap justify-center gap-2 mb-8 mt-4">
-                           {state.eventResult.diff.map((d, i) => (
-                             <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold ${d.includes('+') ? 'bg-emerald-50 text-emerald-700' : d.includes('-') ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'}`}>{d}</span>
-                           ))}
-                        </div>
-                      )}
-                      <button onClick={handleEventConfirm} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-lg hover:bg-indigo-700 shadow-xl">
-                           {(state.chainedEvent || state.eventResult.choice.nextEventId) ? '继续...' : '确认结果'}
-                      </button>
-                    </div>
-                  )}
-               </div>
-            </div>
+            <EventModal 
+                event={state.currentEvent}
+                state={state}
+                eventResult={state.eventResult}
+                onChoice={handleChoice}
+                onConfirm={handleEventConfirm}
+            />
         )}
         
         {/* Exams / Selection / Endings */}
@@ -1336,115 +1219,12 @@ const App: React.FC = () => {
 
         {/* Final Settlement Overlay - IMPROVED UI */}
         {(state.phase === Phase.ENDING || state.phase === Phase.WITHDRAWAL) && endingData && (
-            <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-md text-slate-800 flex flex-col items-center justify-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
-                <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden border-4 border-slate-800 relative shrink-0">
-                    
-                    {/* Rank Stamp */}
-                    <div className="absolute top-0 right-0 z-20 pointer-events-none transform translate-x-1/4 -translate-y-1/4 md:translate-x-0 md:-translate-y-0 md:top-6 md:right-6">
-                        <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-8 border-red-600 flex items-center justify-center rotate-12 opacity-80 animate-pulse bg-white/10 backdrop-blur-sm shadow-xl">
-                            <span className="text-6xl md:text-8xl font-black text-red-600 tracking-tighter">{endingData.rank}</span>
-                        </div>
-                    </div>
-
-                    {/* Left Column: Stats & Profile */}
-                    <div className="flex-1 p-8 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200">
-                         <div className="flex items-center gap-4 mb-8">
-                             <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-4xl shadow-lg flex-shrink-0">
-                                <i className="fas fa-user-graduate"></i>
-                             </div>
-                             <div>
-                                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">八中生涯档案</div>
-                                 <h2 className="text-3xl font-black text-slate-900 leading-tight">{endingData.title}</h2>
-                                 <div className="text-sm font-bold text-indigo-600 mt-1">{state.className}</div>
-                             </div>
-                         </div>
-                         
-                         <p className="text-slate-600 italic mb-8 border-l-4 border-indigo-200 pl-4 py-1">
-                             "{endingData.comment}"
-                         </p>
-
-                         {/* Stats Grid */}
-                         <div className="space-y-4">
-                             <h3 className="font-black text-slate-400 uppercase text-xs">综合能力评估</h3>
-                             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                                 {/* Simple Stat Bars */}
-                                 {[
-                                     { label: '心态', val: state.general.mindset, max: 100, color: 'bg-blue-500' },
-                                     { label: '健康', val: state.general.health, max: 100, color: 'bg-emerald-500' },
-                                     { label: '效率', val: state.general.efficiency * 5, max: 100, color: 'bg-purple-500' },
-                                     { label: '魅力', val: state.general.romance, max: 100, color: 'bg-rose-500' },
-                                     { label: 'OI实力', val: (state.oiStats.dp + state.oiStats.ds + state.oiStats.math + state.oiStats.string + state.oiStats.graph + state.oiStats.misc) * 5, max: 100, color: 'bg-indigo-500' },
-                                     { label: '财富', val: Math.max(0, Math.min(100, state.general.money / 5)), max: 100, color: 'bg-yellow-500' },
-                                 ].map((stat, i) => (
-                                     <div key={i} className="flex flex-col gap-1">
-                                         <div className="flex justify-between text-xs font-bold text-slate-600">
-                                             <span>{stat.label}</span>
-                                             <span>{stat.val > 100 ? 'MAX' : Math.floor(stat.val)}</span>
-                                         </div>
-                                         <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                             <div className={`h-full ${stat.color} transition-all duration-1000`} style={{ width: `${Math.min(100, stat.val)}%` }}></div>
-                                         </div>
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
-                    </div>
-
-                    {/* Right Column: Highlights & Achievements */}
-                    <div className="flex-1 p-8 flex flex-col bg-white">
-                        {state.talents.length > 0 && (
-                            <div className="mb-6">
-                                <h3 className="font-black text-slate-400 uppercase text-xs mb-3">天赋</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {state.talents.map(t => (
-                                        <div key={t.id} className="px-2 py-1 bg-slate-100 rounded text-xs font-bold text-slate-600 border border-slate-200">
-                                            {t.name}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <div className="flex-1">
-                            <h3 className="font-black text-slate-400 uppercase text-xs mb-4">学期高光时刻</h3>
-                            <div className="space-y-4 relative">
-                                <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-slate-100"></div>
-                                {state.history.slice(0, 4).map((h, i) => (
-                                    <div key={i} className="flex gap-4 relative">
-                                        <div className="w-4 h-4 rounded-full bg-white border-4 border-indigo-500 flex-shrink-0 z-10"></div>
-                                        <div>
-                                            <div className="text-[10px] font-bold text-indigo-400 uppercase">{h.phase}</div>
-                                            <div className="text-sm font-bold text-slate-800">{h.eventTitle}</div>
-                                            <div className="text-xs text-slate-500">{h.resultSummary}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-slate-100">
-                             <div className="flex justify-between items-end mb-4">
-                                 <div>
-                                     <div className="text-xs font-bold text-slate-400 uppercase">本局成就</div>
-                                     <div className="text-2xl font-black text-slate-800">{state.unlockedAchievements.length} 个</div>
-                                 </div>
-                                 <div className="text-right">
-                                     <div className="text-xs font-bold text-slate-400 uppercase">最终得分</div>
-                                     <div className="text-4xl font-black text-indigo-600">{Math.floor(endingData.score)}</div>
-                                 </div>
-                             </div>
-                             
-                             <div className="flex gap-3">
-                                 <button onClick={() => setView('HOME')} className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center justify-center gap-2">
-                                     <i className="fas fa-redo-alt"></i> 再来一年
-                                 </button>
-                                 <button onClick={() => setShowHistory(true)} className="px-6 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">
-                                     <i className="fas fa-history"></i>
-                                 </button>
-                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <EndingScreen 
+                state={state}
+                endingData={endingData}
+                onRestart={() => setView('HOME')}
+                onViewHistory={() => setShowHistory(true)}
+            />
         )}
 
         {state.popupCompetitionResult && (
