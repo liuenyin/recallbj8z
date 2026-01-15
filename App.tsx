@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Phase, GameState, GameEvent, SubjectKey, ExamResult, SubjectStats, GeneralStats, SUBJECT_NAMES, CompetitionResultData, GameStatus, Difficulty, ClubId, WeekendActivity, OIStats, GameLogEntry, Talent, Item } from './types';
+import { Phase, GameState, GameEvent, SubjectKey, ExamResult, SubjectStats, GeneralStats, SUBJECT_NAMES, CompetitionResultData, GameStatus, Difficulty, ClubId, WeekendActivity, OIStats, GameLogEntry, Talent, Item, Theme } from './types';
 import { DIFFICULTY_PRESETS } from './data/constants';
 import { TALENTS, SHOP_ITEMS, ACHIEVEMENTS, STATUSES, CLUBS, WEEKEND_ACTIVITIES } from './data/mechanics';
-import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateStudyEvent, generateRandomFlavorEvent, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT } from './data/events';
+import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateStudyEvent, generateRandomFlavorEvent, generateSummerLifeEvent, generateOIEvent, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT } from './data/events';
 
 // Component Imports
 import StatsPanel from './components/StatsPanel';
@@ -22,7 +22,7 @@ const calculateProgress = (state: GameState) => {
   return Math.min(100, (state.week / state.totalWeeksInPhase) * 100);
 };
 
-// FACTORY FUNCTIONS (To ensure deep copies on reset)
+// FACTORY FUNCTIONS
 const getInitialSubjects = (): Record<SubjectKey, SubjectStats> => ({
   chinese: { aptitude: 0, level: 0 },
   math: { aptitude: 0, level: 0 },
@@ -62,7 +62,7 @@ const getInitialGameState = (): GameState => ({
     totalWeeksInPhase: 0,
     subjects: getInitialSubjects(),
     general: getInitialGeneral(),
-    initialGeneral: getInitialGeneral(),
+    initialGeneral: getInitialGeneral(), // NEW: Stores the baseline stats for regression
     oiStats: getInitialOIStats(),
     selectedSubjects: [],
     competition: 'None',
@@ -75,7 +75,7 @@ const getInitialGameState = (): GameState => ({
     eventResult: null,
     history: [],
     examResult: null,
-    midtermRank: null, // Initial value
+    midtermRank: null, // New: Stores midterm rank for ending analysis
     competitionResults: [],
     popupCompetitionResult: null,
     popupExamResult: null,
@@ -91,8 +91,10 @@ const getInitialGameState = (): GameState => ({
     weekendActionPoints: 0,
     weekendProcessed: false,
     sleepCount: 0,
+    rejectionCount: 0,
     talents: [],
-    inventory: []
+    inventory: [],
+    theme: 'light'
 });
 
 const App: React.FC = () => {
@@ -102,7 +104,8 @@ const App: React.FC = () => {
   const [showClubSelection, setShowClubSelection] = useState(false); // UI State for club modal
   const [showShop, setShowShop] = useState(false); // UI State for shop
   const [showRealityGuide, setShowRealityGuide] = useState(false); // UI State for Reality Guide
-  
+  const [hasSave, setHasSave] = useState(false);
+
   // Game State
   const [state, setState] = useState<GameState>(getInitialGameState());
   const [showHistory, setShowHistory] = useState(false);
@@ -167,13 +170,24 @@ const App: React.FC = () => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.log]);
 
-  // Load Achievements
+  // Load Achievements & Check Save
   useEffect(() => {
-      const saved = localStorage.getItem('bz_sim_achievements');
-      if (saved) {
-          setState(prev => ({ ...prev, unlockedAchievements: JSON.parse(saved) }));
+      const savedAchievements = localStorage.getItem('bz_sim_achievements');
+      const saveGame = localStorage.getItem('bz_sim_save_v1');
+
+      if (savedAchievements) {
+          setState(prev => ({ ...prev, unlockedAchievements: JSON.parse(savedAchievements) }));
       }
+
+      if (saveGame) {
+          setHasSave(true);
+      }
+      
+      // Force remove dark mode class on mount to ensure light mode
+      document.documentElement.classList.remove('dark');
+      document.body.style.backgroundColor = '#f8fafc';
   }, []);
+
 
   const unlockAchievement = useCallback((id: string) => {
       setState(prev => {
@@ -205,7 +219,7 @@ const App: React.FC = () => {
       let color = '#374151'; // default slate-700
       if (type === 'mindset') color = '#3b82f6'; // blue
       else if (type === 'health') color = text.includes('+') ? '#10b981' : '#ef4444'; // emerald / red
-      else if (type === 'money') color = '#ca8a04'; // yellow
+      else if (type === 'money') color = '#fbbf24'; // yellow
       else if (type === 'efficiency') color = '#a855f7'; // purple
       else if (type === 'romance') color = '#f43f5e'; // rose
       else if (type === 'experience') color = '#f59e0b'; // amber
@@ -353,7 +367,8 @@ const App: React.FC = () => {
         activeStatuses: initialStatuses,
         talents: selectedTalents,
         oiStats: getInitialOIStats(),
-        romancePartner: null // Explicitly clear partner
+        romancePartner: null, // Explicitly clear partner
+        theme: 'light'
     };
 
     // Apply Talent Effects
@@ -378,11 +393,11 @@ const App: React.FC = () => {
       // New Game Setup
       phase: Phase.SUMMER,
       week: 1,
-      totalWeeksInPhase: 5,
+      totalWeeksInPhase: 8, // UPDATED: Extended Summer
       
       currentEvent: firstEvent || null,
       triggeredEvents: firstEvent ? [firstEvent.id] : [],
-      log: [{ message: "北京八中模拟器启动。", type: 'success', timestamp: Date.now() }],
+      log: [{ message: "八中模拟器启动。", type: 'success', timestamp: Date.now() }],
       
       className: '待分班',
       club: null,
@@ -393,7 +408,8 @@ const App: React.FC = () => {
       isPlaying: false,
       eventQueue: [],
       weekendProcessed: false,
-      sleepCount: 0
+      sleepCount: 0,
+      rejectionCount: 0
     }));
     
     setView('GAME');
@@ -425,6 +441,43 @@ const App: React.FC = () => {
       setState(prev => ({ ...prev, phase: Phase.WITHDRAWAL, isPlaying: false, currentEvent: null }));
   };
 
+  const saveGame = () => {
+      // Need to clean state of functions before saving (though JSON.stringify does this, it's safer to rely on IDs for static data)
+      // Since currentEvent might contain functions, saving during an event is risky.
+      // We only allow save when !currentEvent.
+      if (state.currentEvent || state.eventQueue.length > 0) {
+          // Ideally toast an error
+          return;
+      }
+      localStorage.setItem('bz_sim_save_v1', JSON.stringify(state));
+      setHasSave(true);
+      setState(prev => ({
+          ...prev,
+          log: [...prev.log, { message: "游戏进度已保存。", type: 'success', timestamp: Date.now() }]
+      }));
+  };
+
+  const loadGame = () => {
+      const saved = localStorage.getItem('bz_sim_save_v1');
+      if (!saved) return;
+      
+      try {
+          const loadedState = JSON.parse(saved) as GameState;
+          // Re-hydrate static data if needed (e.g. if we stored only IDs, but we store full objects)
+          // Since actions are functions, they are lost. We rely on the fact that talents apply ONCE at start, 
+          // and Statuses use IDs for lookup in processWeekStep.
+          // The only risk is if an event is active. We blocked save during event, so it should be fine.
+          
+          setState({
+              ...loadedState,
+              isPlaying: false // Pause on load
+          });
+          setView('GAME');
+      } catch (e) {
+          console.error("Load failed", e);
+      }
+  };
+
   // ... (processWeekStep remains the same, omitted for brevity) ...
   const processWeekStep = () => {
       setState(prev => {
@@ -443,8 +496,8 @@ const App: React.FC = () => {
           if (prev.general.money >= 200) unlockAchievement('rich');
           if (prev.general.money <= -250) unlockAchievement('in_debt');
           if (prev.general.health < 10 && prev.phase === Phase.SEMESTER_1) unlockAchievement('survival');
-          // Update Romance Master requirement to 150
           if (prev.general.romance >= 150) unlockAchievement('romance_master');
+          if (prev.rejectionCount >= 5) unlockAchievement('nice_person');
 
           // Logic to Determine Next State
           let nextPhase = prev.phase;
@@ -461,7 +514,7 @@ const App: React.FC = () => {
           let newLogs: GameLogEntry[] = [];
 
           // --- Phase Transition Logic ---
-          if (prev.phase === Phase.SUMMER && prev.week >= 5) { 
+          if (prev.phase === Phase.SUMMER && prev.week >= 8) { // Updated to 8 weeks
               // UPDATE: Set Military duration to 2 weeks
               nextPhase = Phase.MILITARY; nextWeek = 1; nextTotal = 2; 
           } else if (prev.phase === Phase.MILITARY && prev.week >= 2) { 
@@ -587,12 +640,28 @@ const App: React.FC = () => {
               if (s.id === 'exhausted') nextGeneral.health -= 1.5;
               if (s.id === 'focused') nextGeneral.efficiency += 0.5;
               if (s.id === 'in_love') nextGeneral.mindset += 2;
+              if (s.id === 'heartbroken') { nextGeneral.mindset -= 3; nextGeneral.efficiency -= 1; }
               if (s.id === 'debt') { nextGeneral.mindset -= 2; nextGeneral.romance -= 0.5; }
               if (s.id === 'crush_pending') { nextGeneral.luck += 0.5; nextGeneral.experience += 0.5; }
               if (s.id === 'crush') { nextGeneral.efficiency -= 0.4; nextGeneral.romance += 0.5; }
           });
 
           // 2. Generate Events for this week
+          
+          // --- SUMMER PHASE DYNAMIC EVENTS ---
+          if (nextPhase === Phase.SUMMER && prev.week > 1) { // Week 1 is fixed Goal Selection
+              // High chance for dynamic leisure/study event
+              if (Math.random() < 0.7) {
+                  eventsToAdd.push(generateSummerLifeEvent(prev));
+              }
+              // OI Logic: Random training/contest
+              if (prev.competition === 'OI') {
+                  if (Math.random() < 0.5) {
+                      eventsToAdd.push(generateOIEvent(prev));
+                  }
+              }
+          }
+
           if (nextPhase === Phase.SEMESTER_1) {
               eventsToAdd.push(generateStudyEvent(prev));
               eventsToAdd.push(generateRandomFlavorEvent(prev));
@@ -622,7 +691,7 @@ const App: React.FC = () => {
           eventsToAdd.push(...fixedWeekEvents);
           
           let eventProb = 0.4;
-          if (nextPhase === Phase.SUMMER) eventProb = 0.8; 
+          if (nextPhase === Phase.SUMMER) eventProb = 0.4; // Reduced slightly due to dynamic events
           if (nextPhase === Phase.MILITARY) eventProb = 1.0;
 
           if (eligible.length > 0 && Math.random() < eventProb) {
@@ -645,6 +714,7 @@ const App: React.FC = () => {
       });
     };
   
+    // ... (rest of the component logic handles UI) ...
     const handleChoice = (choice: any, e?: React.MouseEvent) => {
       // Haptic
       if (navigator.vibrate) navigator.vibrate(10);
@@ -660,6 +730,7 @@ const App: React.FC = () => {
         
         // Fallback diff strings if needed for log, though we use the visualized ones for immediate feedback
         if (updates.sleepCount) diff.push("睡觉次数+1");
+        if (updates.rejectionCount) diff.push("好人卡+1");
         if (diff.length === 0) diff.push("无明显变化");
   
         return { 
@@ -892,7 +963,7 @@ const App: React.FC = () => {
     };
   
     const getEndingAnalysis = () => {
-        const { general, examResult, activeStatuses, sleepCount, competitionResults, competition, unlockedAchievements } = state;
+        const { general, examResult, activeStatuses, sleepCount, competitionResults, competition, unlockedAchievements, midtermRank } = state;
         let title = "普通高中生";
         let rank = "B";
         let comment = "你的高中生活波澜不惊。";
@@ -921,17 +992,32 @@ const App: React.FC = () => {
                }
             }
   
-            if (examResult?.rank && examResult.rank <= 3) {
-                rank = "SSS";
-                title = "全能卷王";
-                comment = `期末考年级第 ${examResult.rank} 名！你是八中当之无愧的传说，老师口中的“那个学生”。`;
-                score += 1000;
-            } else if (examResult?.rank && examResult.rank <= 50) {
-                if (rank !== "SSS") {
-                    rank = "S";
-                    title = "名校预备";
-                    comment = "成绩优异，只要保持下去，985高校稳稳的。";
-                    score += 600;
+            if (examResult?.rank) {
+                 if (examResult.rank <= 3) {
+                    rank = "SSS";
+                    title = "全能卷王";
+                    comment = `期末考年级第 ${examResult.rank} 名！你是八中当之无愧的传说，老师口中的“那个学生”。`;
+                    score += 1000;
+                } else if (examResult.rank <= 50) {
+                    if (rank !== "SSS") {
+                        rank = "S";
+                        title = "名校预备";
+                        comment = "成绩优异，只要保持下去，985高校稳稳的。";
+                        score += 600;
+                    }
+                }
+                
+                // Progress Star Check
+                if (competition !== 'OI' && midtermRank && (midtermRank - examResult.rank >= 250)) {
+                    if (rank !== "SSS" && rank !== "S") { // Don't downgrade if already high
+                        rank = "A";
+                        title = "进步之星";
+                        comment = `从期中到期末，你进步了 ${midtermRank - examResult.rank} 名！天道酬勤，你的努力大家都看在眼里。`;
+                        score += 300;
+                    } else {
+                        score += 300; // Just bonus points if already S/SSS
+                        comment += ` 而且你进步神速，提升了 ${midtermRank - examResult.rank} 名！`;
+                    }
                 }
             }
   
@@ -962,6 +1048,8 @@ const App: React.FC = () => {
             customStats={customStats}
             onCustomStatsChange={setCustomStats}
             onStart={prepareGame}
+            hasSave={hasSave}
+            onLoadGame={loadGame}
           />
         );
     }
@@ -982,7 +1070,7 @@ const App: React.FC = () => {
   
     // --- GAME VIEW ---
     return (
-      <div className="h-[100dvh] bg-slate-100 flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative">
+      <div className={`h-[100dvh] bg-slate-100 flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative transition-colors duration-300`}>
         {/* SCREEN EFFECTS OVERLAYS */}
         <div className={`fixed inset-0 pointer-events-none z-[50] transition-all duration-1000 ${state.general.health < 30 ? 'opacity-100' : 'opacity-0'}`}
              style={{ boxShadow: 'inset 0 0 100px rgba(255, 0, 0, 0.3)' }}></div>
@@ -1020,7 +1108,14 @@ const App: React.FC = () => {
                    <i className="fas fa-trophy text-yellow-500 mb-1"></i><span className="text-xs">成就</span>
                    <span className="absolute top-2 right-2 bg-slate-100 text-[9px] px-1.5 rounded-full">{state.unlockedAchievements.length}</span>
               </button>
-              <button onClick={endGame} className="col-span-2 bg-rose-100 hover:bg-rose-200 p-2 rounded-xl text-xs font-bold text-rose-600 transition-colors">提前退休（结束游戏）</button>
+              <button onClick={() => {
+                  if(!state.currentEvent && state.eventQueue.length === 0) {
+                      localStorage.setItem('bz_sim_save_v1', JSON.stringify(state));
+                      setHasSave(true);
+                      setState(prev => ({ ...prev, log: [...prev.log, { message: "游戏进度已保存。", type: 'success', timestamp: Date.now() }] }));
+                  }
+              }} className="col-span-1 bg-emerald-100 hover:bg-emerald-200 p-2 rounded-xl text-xs font-bold text-emerald-600 transition-colors disabled:opacity-50" disabled={!!state.currentEvent}>保存进度</button>
+              <button onClick={endGame} className="col-span-1 bg-rose-100 hover:bg-rose-200 p-2 rounded-xl text-xs font-bold text-rose-600 transition-colors">提前退休</button>
             </div>
         </aside>
   
@@ -1031,10 +1126,17 @@ const App: React.FC = () => {
                <button onClick={() => setShowShop(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-store text-emerald-500 mr-1"></i>小卖部</button>
                <button onClick={() => setShowAchievements(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-trophy text-yellow-500 mr-1"></i>成就</button>
                <button onClick={() => setShowHistory(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-archive text-indigo-500 mr-1"></i>历程</button>
+               <button onClick={() => {
+                   if(!state.currentEvent) {
+                      localStorage.setItem('bz_sim_save_v1', JSON.stringify(state));
+                      setHasSave(true);
+                      setState(prev => ({ ...prev, log: [...prev.log, { message: "游戏进度已保存。", type: 'success', timestamp: Date.now() }] }));
+                   }
+               }} className="flex-shrink-0 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl text-xs font-bold text-emerald-600 shadow-sm" disabled={!!state.currentEvent}>保存</button>
                <button onClick={endGame} className="flex-shrink-0 bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 shadow-sm">结束</button>
           </div>
   
-          <header className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3 flex-shrink-0 z-20 relative">
+          <header className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3 flex-shrink-0 z-20 relative transition-colors">
                  <div className="flex items-center justify-between">
                      <div className="flex flex-col gap-1 w-full mr-4">
                          <h2 className="font-black text-slate-800 text-lg flex items-center gap-2 uppercase tracking-tight truncate">
@@ -1082,10 +1184,10 @@ const App: React.FC = () => {
           </header>
   
           {/* Log Area */}
-          <div className="flex-1 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200 overflow-y-auto custom-scroll space-y-3 relative">
+          <div className="flex-1 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200 overflow-y-auto custom-scroll space-y-3 relative transition-colors">
                {state.log.map((l, i) => (
                   <div key={i} className={`p-3 rounded-xl border-l-4 animate-fadeIn ${l.type === 'event' ? 'bg-indigo-50 border-indigo-400' : l.type === 'success' ? 'bg-emerald-50 border-emerald-400' : l.type === 'error' ? 'bg-rose-50 border-rose-400' : 'bg-slate-50 border-slate-300'}`}>
-                     <p className="text-sm font-medium">{l.message}</p>
+                     <p className="text-sm font-medium text-slate-800">{l.message}</p>
                   </div>
                ))}
                <div ref={logEndRef} />
@@ -1195,7 +1297,7 @@ const App: React.FC = () => {
                               <h2 className="text-2xl font-black text-slate-800">八中小卖部</h2>
                               <p className="text-sm text-slate-500">持有金钱: <span className="text-yellow-600 font-bold">{state.general.money}</span></p>
                            </div>
-                           <button onClick={() => setShowShop(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center z-[105]"><i className="fas fa-times"></i></button>
+                           <button onClick={() => setShowShop(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center z-[105] text-slate-500"><i className="fas fa-times"></i></button>
                        </div>
                        
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto custom-scroll p-1 mb-4">
@@ -1244,7 +1346,7 @@ const App: React.FC = () => {
           
           {/* Exams / Selection / Endings */}
           {(state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION) && (
-              <div className="absolute inset-0 bg-white/95 z-30 p-4 md:p-10 flex flex-col items-center justify-center rounded-2xl">
+              <div className="absolute inset-0 bg-white/95 z-30 p-4 md:p-10 flex flex-col items-center justify-center rounded-2xl transition-colors">
                  <h2 className="text-3xl font-black mb-4">高一选科</h2>
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-10 w-full max-w-lg">
                     {(['physics', 'chemistry', 'biology', 'history', 'geography', 'politics'] as SubjectKey[]).map(s => (
@@ -1300,13 +1402,13 @@ const App: React.FC = () => {
                               <h2 className="text-3xl font-black text-slate-800">成就墙</h2>
                               {state.difficulty !== 'REALITY' && <p className="text-xs text-rose-500 font-bold mt-1">当前难度无法解锁新成就</p>}
                            </div>
-                           <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"><i className="fas fa-times"></i></button>
+                           <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><i className="fas fa-times"></i></button>
                       </div>
                       <div className="flex-1 overflow-y-auto custom-scroll grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {Object.values(ACHIEVEMENTS).map(ach => (
                               <div key={ach.id} className={`p-4 rounded-2xl border flex items-center gap-4 ${state.unlockedAchievements.includes(ach.id) ? 'bg-indigo-50 border-indigo-200' : 'opacity-50 grayscale'}`}>
                                   <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow flex-shrink-0"><i className={`fas ${ach.icon} text-indigo-500`}></i></div>
-                                  <div><h4 className="font-bold text-sm md:text-base">{ach.title}</h4><p className="text-[10px] md:text-xs text-slate-500">{ach.description}</p></div>
+                                  <div><h4 className="font-bold text-sm md:text-base text-slate-800">{ach.title}</h4><p className="text-[10px] md:text-xs text-slate-500">{ach.description}</p></div>
                               </div>
                           ))}
                       </div>
@@ -1317,7 +1419,7 @@ const App: React.FC = () => {
           {showHistory && (
                <div className="absolute inset-0 z-[60] flex justify-end bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setShowHistory(false)}>
                   <div className="w-full md:w-96 bg-white h-full shadow-2xl p-6 md:p-8 flex flex-col animate-slideInRight" onClick={e => e.stopPropagation()}>
-                     <div className="flex justify-between items-center mb-8 border-b pb-4">
+                     <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
                         <h2 className="text-2xl font-black text-slate-800 tracking-tight">故事线存档</h2>
                         <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-800 text-xl"><i className="fas fa-times"></i></button>
                      </div>
