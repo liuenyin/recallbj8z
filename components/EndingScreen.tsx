@@ -12,7 +12,7 @@ interface EndingScreenProps {
 
 const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestart, onViewHistory }) => {
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md text-slate-800 flex flex-col items-center justify-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md text-slate-800 flex flex-col items-center justify-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
                 <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden border-4 border-slate-800 relative shrink-0">
                     
                     {/* Rank Stamp */}

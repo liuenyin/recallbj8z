@@ -13,21 +13,21 @@ interface EventModalProps {
 const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm }) => {
     return (
         <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 z-20 animate-fadeIn">
-               <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 md:p-8 max-w-xl w-full border border-slate-200 dark:border-slate-700 max-h-[85vh] overflow-y-auto custom-scroll transition-colors">
+               <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-xl w-full border border-slate-200 max-h-[85vh] overflow-y-auto custom-scroll transition-colors">
                   {!eventResult ? (
                     <>
                       <div className="flex justify-between items-start mb-4">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">{event.title}</h2>
-                          {state.eventQueue.length > 0 && <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap">+{state.eventQueue.length} 更多</span>}
+                          <h2 className="text-xl md:text-2xl font-black text-slate-800">{event.title}</h2>
+                          {state.eventQueue.length > 0 && <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap">+{state.eventQueue.length} 更多</span>}
                       </div>
-                      <p className="text-slate-600 dark:text-slate-300 mb-8 text-base md:text-lg leading-relaxed">
+                      <p className="text-slate-600 mb-8 text-base md:text-lg leading-relaxed">
                           {typeof event.description === 'function' 
                             ? event.description(state) 
                             : event.description}
                       </p>
                       <div className="space-y-3">
                          {event.choices?.map((c, i) => (
-                           <button key={i} onClick={(e) => onChoice(c, e)} className="w-full text-left p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white border border-slate-200 dark:border-slate-600 transition-all font-bold group flex justify-between items-center active:scale-95 text-slate-800 dark:text-slate-200">
+                           <button key={i} onClick={(e) => onChoice(c, e)} className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-indigo-600 hover:text-white border border-slate-200 transition-all font-bold group flex justify-between items-center active:scale-95 text-slate-800">
                               {c.text}
                               <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all"></i>
                            </button>
@@ -36,12 +36,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                     </>
                   ) : (
                     <div className="text-center py-4">
-                      <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
-                      <h2 className="text-xl font-black text-slate-800 dark:text-white mb-2 italic">"{eventResult.choice.text}"</h2>
+                      <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
+                      <h2 className="text-xl font-black text-slate-800 mb-2 italic">"{eventResult.choice.text}"</h2>
                       {eventResult.diff.length > 0 && (
                         <div className="flex flex-wrap justify-center gap-2 mb-8 mt-4">
                            {eventResult.diff.map((d, i) => (
-                             <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold ${d.includes('+') ? 'bg-emerald-50 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : d.includes('-') ? 'bg-rose-50 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300' : 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'}`}>{d}</span>
+                             <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold ${d.includes('+') ? 'bg-emerald-50 text-emerald-700' : d.includes('-') ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'}`}>{d}</span>
                            ))}
                         </div>
                       )}

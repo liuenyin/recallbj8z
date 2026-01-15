@@ -164,30 +164,30 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   };
 
   return (
-    <div className="bg-slate-900 rounded-3xl p-8 text-white h-full flex flex-col shadow-2xl overflow-hidden relative">
+    <div className="bg-white rounded-3xl p-8 h-full flex flex-col shadow-2xl overflow-hidden relative border border-slate-200">
       <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 animate-pulse"></div>
       
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-          <i className="fas fa-file-signature text-indigo-400"></i>
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3 text-slate-800">
+          <i className="fas fa-file-signature text-indigo-500"></i>
           {title}
         </h2>
-        <div className="px-4 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-sm font-mono">
+        <div className="px-4 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-sm font-mono">
           STATUS: {isFinished ? 'COMPLETED' : 'IN_PROGRESS'}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 font-mono text-sm custom-scroll pr-4">
+      <div className="flex-1 overflow-y-auto space-y-4 font-mono text-sm custom-scroll pr-4 bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
         {examLogs.map((log, i) => (
           <div key={i} className="flex gap-4 items-start animate-fadeIn">
-            <span className="text-slate-500">[{new Date().toLocaleTimeString()}]</span>
-            <span className="text-indigo-300">{log}</span>
+            <span className="text-slate-400">[{new Date().toLocaleTimeString()}]</span>
+            <span className="text-slate-700">{log}</span>
           </div>
         ))}
         {examStep < subjectsToTest.length && (
           <div className="flex gap-4 items-center">
-            <span className="text-slate-500">[{new Date().toLocaleTimeString()}]</span>
-            <span className="text-white">
+            <span className="text-slate-400">[{new Date().toLocaleTimeString()}]</span>
+            <span className="text-slate-500 font-bold">
                {state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM 
                   ? `正在攻克 ${oiProblems[examStep]?.name || 'Unknown Problem'}...` 
                   : `正在进行 ${SUBJECT_NAMES[subjectsToTest[examStep] as SubjectKey]} 考试...`}
@@ -197,19 +197,19 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
         )}
       </div>
 
-      <div className="mt-8 grid grid-cols-3 md:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mb-8">
         {subjectsToTest.map((sub, idx) => (
-          <div key={sub} className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-            <div className="text-[10px] text-slate-500 uppercase truncate">
+          <div key={sub} className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm text-center">
+            <div className="text-[10px] text-slate-500 uppercase truncate mb-1">
                 {state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM ? oiProblems[idx]?.name : SUBJECT_NAMES[sub as SubjectKey]}
             </div>
-            <div className="text-xl font-bold text-indigo-400">{currentScores[sub] ?? '--'}</div>
+            <div className="text-xl font-black text-indigo-600">{currentScores[sub] ?? '--'}</div>
           </div>
         ))}
       </div>
       
       {isFinished && (
-          <button onClick={handleFinishConfirm} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-lg shadow-xl transition-all animate-fadeIn flex items-center justify-center gap-2">
+          <button onClick={handleFinishConfirm} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl transition-all animate-fadeIn flex items-center justify-center gap-2 active:scale-95">
               查看排名 / 继续 <i className="fas fa-arrow-right"></i>
           </button>
       )}
