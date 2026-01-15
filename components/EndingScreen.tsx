@@ -82,7 +82,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                              <span>{stat.val > 100 ? 'MAX' : Math.floor(stat.val)}</span>
                                          </div>
                                          <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                             <div className={`h-full ${stat.color} transition-all duration-1000`} style={{ width: `${Math.min(100, stat.val)}%` }}></div>
+                                             <div className={`h-full ${stat.color} transition-all duration-1000`} style={{ width: `${Math.max(0, Math.min(100, stat.val))}%` }}></div>
                                          </div>
                                      </div>
                                  ))}
