@@ -137,7 +137,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   }, [examStep, state, currentScores, isFinished, subjectsToTest, oiProblems]);
 
   const handleFinishConfirm = () => {
-      const total = Object.values(currentScores).reduce((a: number, b: number) => a + b, 0);
+      const total = (Object.values(currentScores) as number[]).reduce((a, b) => a + b, 0);
       
       let comment = "继续努力。";
       if (state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM) {

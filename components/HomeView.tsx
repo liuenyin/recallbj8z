@@ -20,6 +20,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
     const [showSponsor, setShowSponsor] = React.useState(false);
     const [showSettings, setShowSettings] = React.useState(false);
     const [showAchievements, setShowAchievements] = React.useState(false);
+    const [showQQGroup, setShowQQGroup] = React.useState(false);
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-4 md:p-8 flex items-center justify-center">
@@ -166,6 +167,9 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                         </div>
 
                         <div className="flex gap-3 w-full md:w-auto">
+                            <button onClick={() => setShowQQGroup(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 transition-colors text-sm" title="群号: 1080382240">
+                                <i className="fab fa-qq"></i> 玩家群
+                            </button>
                             <a href="https://v.wjx.cn/vm/exSyEK0.aspx" target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-50 text-emerald-700 font-bold hover:bg-emerald-100 transition-colors text-sm">
                                 <i className="fas fa-poll-h"></i> 反馈
                             </a>
@@ -262,6 +266,30 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  </div>
              )}
 
+             {showQQGroup && (
+                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowQQGroup(false)}>
+                     <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center relative" onClick={e => e.stopPropagation()}>
+                         <button onClick={() => setShowQQGroup(false)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
+                         
+                         <h2 className="text-2xl font-black text-slate-800 mb-2">加入玩家组织</h2>
+                         <p className="text-slate-500 text-sm mb-6">与其他八中人一起摸鱼聊天</p>
+                         
+                         <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm mb-6 w-full">
+                            <img src="https://cdn.luogu.com.cn/upload/image_hosting/8ie1u0ux.png" alt="QQ群二维码" className="w-full h-auto rounded-lg" />
+                         </div>
+
+                         <div className="bg-slate-50 rounded-xl p-3 w-full mb-4 flex justify-between items-center border border-slate-100">
+                            <span className="text-xs text-slate-400 font-bold uppercase">群号</span>
+                            <span className="text-lg font-black text-slate-700 font-mono select-all">1080382240</span>
+                         </div>
+
+                         <a href="https://qm.qq.com/q/q2BmOLORHy" target="_blank" rel="noopener noreferrer" className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                             <i className="fab fa-qq"></i> 一键加群
+                         </a>
+                     </div>
+                 </div>
+             )}
+
              {showSettings && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSettings(false)}>
                      <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -280,6 +308,16 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                      <p>Tech Stack: React, Tailwind, TypeScript</p>
                                  </div>
                              </div>
+                             
+                             {/* Added Formula Section */}
+                             <div className="space-y-4">
+                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">游戏机制</h3>
+                                 <div className="text-sm text-slate-600 space-y-2">
+                                     <p><span className="font-bold text-slate-800">最终得分计算公式：</span><br/>
+                                     得分 = 心态 + 健康 + (效率 × 5) + (成就数 × 50)</p>
+                                 </div>
+                             </div>
+
                              <div className="space-y-4">
                                  <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">FAQ</h3>
                                  <div className="text-sm text-slate-600 space-y-2">

@@ -57,7 +57,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                  <div className="flex-1">
                                      <div className="text-xs text-slate-500 mb-1">期末考试</div>
                                      <div className="text-xl font-black text-indigo-600">
-                                         {state.examResult?.title === '期末考试' && state.examResult.rank ? `Top ${state.examResult.rank}` : 'N/A'}
+                                         {(state.examResult?.title === Phase.FINAL_EXAM || state.examResult?.title === '期末考试') && state.examResult.rank ? `Top ${state.examResult.rank}` : 'N/A'}
                                      </div>
                                  </div>
                              </div>
