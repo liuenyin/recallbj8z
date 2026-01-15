@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Difficulty, GeneralStats, Talent, Phase, GameState } from './types';
 import { DIFFICULTY_PRESETS } from './data/constants';
@@ -31,12 +32,14 @@ const App: React.FC = () => {
   const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
   const spawnFloatingText = (text: string, x: number, y: number, type: string) => {
       let color = '#374151';
-      if (type === 'mindset') color = '#3b82f6';
-      else if (type === 'health') color = text.includes('+') ? '#10b981' : '#ef4444';
-      else if (type === 'money') color = '#fbbf24';
-      else if (type === 'efficiency') color = '#a855f7';
-      else if (type === 'romance') color = '#f43f5e';
-      else if (type === 'oi') color = '#6366f1';
+      if (type === 'mindset') color = '#3b82f6'; // Blue
+      else if (type === 'health') color = text.includes('+') ? '#10b981' : '#ef4444'; // Green/Red
+      else if (type === 'money') color = '#fbbf24'; // Yellow
+      else if (type === 'efficiency') color = '#a855f7'; // Purple
+      else if (type === 'romance') color = '#f43f5e'; // Rose
+      else if (type === 'experience') color = '#f97316'; // Orange
+      else if (type === 'luck') color = '#8b5cf6'; // Violet
+      else if (type === 'oi') color = '#6366f1'; // Indigo
       
       const newText: FloatingTextItem = { id: Date.now() + Math.random(), text, x, y, color };
       setFloatingTexts(prev => [...prev, newText]);
@@ -48,7 +51,9 @@ const App: React.FC = () => {
       const check = (key: keyof GeneralStats, label: string, colorType: string) => {
            const delta = newState.general[key] - oldState.general[key];
            if (Math.abs(delta) >= 1) {
-               const val = Math.floor(delta);
+               // Fix precision issues
+               const val = Math.round(delta * 10) / 10;
+               if (val === 0) return;
                const text = `${label} ${val > 0 ? '+' : ''}${val}`;
                diffs.push(text);
                setTimeout(() => spawnFloatingText(text, (x || window.innerWidth/2) + (Math.random() * 40 - 20), (y || window.innerHeight/2) + (Math.random() * 40 - 20), colorType), diffs.length * 100);
@@ -59,6 +64,8 @@ const App: React.FC = () => {
        check('money', '金钱', 'money');
        check('romance', '魅力', 'romance');
        check('efficiency', '效率', 'efficiency');
+       check('experience', '经验', 'experience');
+       check('luck', '运气', 'luck');
        return diffs;
   };
 
