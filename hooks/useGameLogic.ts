@@ -124,6 +124,51 @@ export const useGameLogic = () => {
         });
     }, []);
 
+    // --- Achievement Check Effect ---
+    useEffect(() => {
+        if (!state.difficulty || state.difficulty !== 'REALITY') return; // Only verify in Reality mode usually, or allow all? User didn't specify. Let's allow all for fun but maybe highlight difficulty.
+
+        const newUnlocked: string[] = [];
+        const add = (id: string) => { 
+            if (!state.unlockedAchievements.includes(id) && !newUnlocked.includes(id)) {
+                newUnlocked.push(id);
+            }
+        };
+
+        if (state.general.money >= 200) add('rich');
+        if (state.general.money <= -250) add('in_debt');
+        if (state.sleepCount >= 10) add('sleep_god');
+        if (state.rejectionCount >= 5) add('nice_person');
+        if (state.general.health < 10 && state.phase === Phase.SEMESTER_1 && state.week > 10) add('survival');
+
+        // Check Exam Results (Happens when exam result is present)
+        if (state.examResult) {
+            // Rank 1
+            if (state.examResult.rank === 1) add('top_rank');
+            // Last Rank
+            if (state.examResult.totalStudents && state.examResult.rank === state.examResult.totalStudents) add('bottom_rank');
+            
+            // Nerd: Check if any subject is max score (100 or 150)
+            const isFullScore = Object.entries(state.examResult.scores).some(([subj, score]) => {
+                const max = ['chinese', 'math', 'english'].includes(subj) ? 150 : 100;
+                return score >= max;
+            });
+            if (isFullScore) add('nerd');
+        }
+
+        if (newUnlocked.length > 0) {
+            const lastId = newUnlocked[newUnlocked.length - 1];
+            setState(prev => ({
+                ...prev,
+                unlockedAchievements: [...prev.unlockedAchievements, ...newUnlocked],
+                achievementPopup: ACHIEVEMENTS[lastId]
+            }));
+            
+            setTimeout(() => setState(prev => ({ ...prev, achievementPopup: null })), 3000);
+        }
+    }, [state.general, state.sleepCount, state.rejectionCount, state.examResult, state.difficulty, state.unlockedAchievements]);
+
+
     // --- MAIN GAME LOOP ---
     useEffect(() => {
         if (!state.isPlaying || state.currentEvent || state.isWeekend || state.weekendProcessed) return;
@@ -142,12 +187,34 @@ export const useGameLogic = () => {
                 return;
             }
 
-            // 2. Special Fixed Trigger: Midterm at Week 11
+            // 2a. Fixed Trigger: CSP Exam (Week 7, OI)
+            if (state.phase === Phase.SEMESTER_1 && state.week === 7 && state.competition === 'OI' && !state.triggeredEvents.includes('csp_exam_trigger')) {
+                setState(prev => ({
+                    ...prev,
+                    phase: Phase.CSP_EXAM,
+                    isPlaying: false,
+                    triggeredEvents: [...prev.triggeredEvents, 'csp_exam_trigger']
+                }));
+                return;
+            }
+
+            // 2b. Fixed Trigger: Midterm at Week 11
             if (state.phase === Phase.SEMESTER_1 && state.week === 11 && !state.midtermRank) {
                 setState(prev => ({
                     ...prev,
                     phase: Phase.MIDTERM_EXAM,
                     isPlaying: false
+                }));
+                return;
+            }
+
+            // 2c. Fixed Trigger: NOIP Exam (Week 13, OI)
+            if (state.phase === Phase.SEMESTER_1 && state.week === 13 && state.competition === 'OI' && !state.triggeredEvents.includes('noip_exam_trigger')) {
+                 setState(prev => ({
+                    ...prev,
+                    phase: Phase.NOIP_EXAM,
+                    isPlaying: false,
+                    triggeredEvents: [...prev.triggeredEvents, 'noip_exam_trigger']
                 }));
                 return;
             }
@@ -519,7 +586,7 @@ export const useGameLogic = () => {
         
         // Z-score simulation: Mean = 0.68, Std = 0.15
         const mean = 0.68;
-        const std = 0.10;
+        const std = 0.1;
         const z = (percentage - mean) / std;
         
         // Approx percentile from Z
@@ -575,9 +642,9 @@ export const useGameLogic = () => {
             
             // For other exams (CSP/NOIP) that happen mid-semester or separate phases
             if ([Phase.CSP_EXAM, Phase.NOIP_EXAM].includes(prev.phase)) {
-                // If it was an interrupt, we might need to go back
-                // But simplified logic usually just advances
-                 return { ...nextState, phase: Phase.SEMESTER_1, isPlaying: true };
+                // Return to Semester 1, +1 week from previous state (stored in prev.week)
+                // We MUST restore totalWeeksInPhase because we went back to Semester 1
+                 return { ...nextState, phase: Phase.SEMESTER_1, week: prev.week + 1, totalWeeksInPhase: 21, isPlaying: true };
             }
 
             return { ...nextState, isPlaying: true };
