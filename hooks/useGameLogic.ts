@@ -171,8 +171,8 @@ export const useGameLogic = () => {
                 (!e.once || !state.triggeredEvents.includes(e.id)) &&
                 e.condition && e.condition(state)
             );
-            // If there are conditional events, maybe pick one to add? Or add all?
-            // To prevent spam, let's pick 1 conditional event max per week if not fixed
+            
+            // To prevent spam, pick 1 conditional event max per week if not fixed
             if (conditionalEvents.length > 0) {
                  const picked = conditionalEvents[Math.floor(Math.random() * conditionalEvents.length)];
                  // Only add if not already added by fixed logic
@@ -223,7 +223,6 @@ export const useGameLogic = () => {
             }
 
             // Mark fixed/conditional events as triggered
-            // Note: We only mark 'once' events as triggered
             const eventsToMark = weekEvents.filter(e => e.once || e.triggerType === 'FIXED').map(e => e.id);
 
             // Set the first event and queue the rest
@@ -267,6 +266,8 @@ export const useGameLogic = () => {
 
             return {
                 ...prev,
+                currentEvent: null, // CRITICAL FIX: Ensure previous event is cleared
+                eventResult: null,  // CRITICAL FIX: Ensure previous result is cleared
                 isWeekend: true,
                 isPlaying: false,
                 weekendActionPoints: 2,
@@ -470,7 +471,7 @@ export const useGameLogic = () => {
                 // @ts-ignore
                 updates.subjects = modifySub(oldState, ['math', 'chinese', 'english', 'physics'], 3);
             } else if (roll < 0.75 && oldState.romancePartner) {
-                resultText = `【春梦了无痕】梦里，${oldState.romancePartner}对你笑了。醒来时嘴角还挂着口水。`;
+                resultText = `梦里，${oldState.romancePartner}和你在一起了。醒来时嘴角还挂着口水。`;
                 // @ts-ignore
                 updates.general.romance += 10; updates.general.mindset += 10;
             } else {
