@@ -104,9 +104,14 @@ export const STATUSES: Record<string, Omit<GameStatus, 'duration'>> = {
     'in_love': { id: 'in_love', name: '恋爱', description: '甜，太甜了。', type: 'BUFF', icon: 'fa-heartbeat', effectDescription: '每周心态 +5' },
     'heartbroken': { id: 'heartbroken', name: '失恋', description: '心如刀绞，这就是青春的代价吗？', type: 'DEBUFF', icon: 'fa-heart-broken', effectDescription: '每周心态 -3, 效率 -1' },
     'exhausted': { id: 'exhausted', name: '透支', description: '你需要休息。', type: 'DEBUFF', icon: 'fa-bed', effectDescription: '健康无法自然恢复' },
-    'debt': { id: 'debt', name: '负债', description: '身无分文甚至欠了外债，这让你非常焦虑。', type: 'DEBUFF', icon: 'fa-file-invoice-dollar', effectDescription: '每周心态 -5，魅力 -3' },
     'crush_pending': { id: 'crush_pending', name: '恋人未满', description: '虽然还没捅破窗户纸，但这种暧昧的感觉真好。', type: 'BUFF', icon: 'fa-comments', effectDescription: '每周运气 +2，经验 +2' },
-    'sleep_compulsion': { id: 'sleep_compulsion', name: '让我睡觉！', description: '每周不睡觉就会死。', type: 'DEBUFF', icon: 'fa-dizzy', effectDescription: '每周必须进行一次睡觉事件' }
+    'sleep_compulsion': { id: 'sleep_compulsion', name: '让我睡觉！', description: '每周不睡觉就会死。', type: 'DEBUFF', icon: 'fa-dizzy', effectDescription: '每周必须进行一次睡觉事件' },
+    // --- Graded Debt Statuses ---
+    'debt_1': { id: 'debt_1', name: '负债 I', description: '这点钱下个月就能还上……吧？', type: 'DEBUFF', icon: 'fa-file-invoice', effectDescription: '心态-5, 魅力-3 /周' },
+    'debt_2': { id: 'debt_2', name: '负债 II', description: '债务像滚雪球一样变大了。', type: 'DEBUFF', icon: 'fa-file-invoice-dollar', effectDescription: '心态-10, 魅力-6 /周' },
+    'debt_3': { id: 'debt_3', name: '负债 III', description: '你开始躲避任何敲门声。', type: 'DEBUFF', icon: 'fa-sack-dollar', effectDescription: '心态-20, 魅力-12 /周' },
+    'debt_4': { id: 'debt_4', name: '负债 IV', description: '能欠下来这么多也是有实力的……', type: 'DEBUFF', icon: 'fa-skull', effectDescription: '心态-40, 魅力-24 /周' },
+    'debt_4': { id: 'debt_5', name: '负债 V', description: '还有高手？', type: 'DEBUFF', icon: 'fa-skull', effectDescription: '心态-80, 魅力-48 /周' }
 };
 
 // --- Clubs ---
