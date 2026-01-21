@@ -266,7 +266,7 @@ export const useGameLogic = () => {
 
             return {
                 ...prev,
-                currentEvent: null, // CRITICAL FIX: Ensure previous event is cleared
+                currentEvent: null, // CRITICAL FIX: Ensure previous event is cleared to prevent infinite loop
                 eventResult: null,  // CRITICAL FIX: Ensure previous result is cleared
                 isWeekend: true,
                 isPlaying: false,
@@ -459,7 +459,7 @@ export const useGameLogic = () => {
                 // @ts-ignore
                 updates.subjects = modifySub(oldState, ['math'], 10);
             } else if (roll < 0.3) {
-                resultText = "【庄周梦蝶】不知是庄周做梦变成了蝴蝶，还是蝴蝶做梦变成了庄周。你感悟到了生命的真谛。";
+                resultText = "不知是庄周做梦变成了蝴蝶，还是蝴蝶做梦变成了庄周。你感悟到了生命的真谛。";
                 // @ts-ignore
                 updates.general.mindset += 15; updates.general.efficiency += 5;
             } else if (roll < 0.45 && !oldState.dreamtExam) {
@@ -467,11 +467,15 @@ export const useGameLogic = () => {
                 // @ts-ignore
                 updates.general.luck += 20; updates.dreamtExam = true;
             } else if (roll < 0.6) {
-                resultText = "【盗梦空间】你在梦里又睡着了，进入了第二层梦境。在这里，一小时等于现实的一天。你利用这漫长的时间复习了全科内容。";
+                resultText = "你在梦里又睡着了，进入了第二层梦境。在这里，一小时等于现实的一天。你利用这漫长的时间复习了全科内容。";
                 // @ts-ignore
                 updates.subjects = modifySub(oldState, ['math', 'chinese', 'english', 'physics'], 3);
             } else if (roll < 0.75 && oldState.romancePartner) {
-                resultText = `梦里，${oldState.romancePartner}和你在一起了。醒来时嘴角还挂着口水。`;
+                resultText = `梦里，${oldState.romancePartner}和你在一起啦。醒来时嘴角还挂着口水。`;
+                // @ts-ignore
+                updates.general.romance += 10; updates.general.mindset += 10;
+            }else if (roll<0.65){
+                resultText = `嘿嘿嘿嘿嘿嘿嘿三月七~ 啊喂，怎么醒来时有点湿，一定是太热了流太多汗了，对吧……`;
                 // @ts-ignore
                 updates.general.romance += 10; updates.general.mindset += 10;
             } else {
@@ -503,27 +507,30 @@ export const useGameLogic = () => {
     
     // Rank Calculation Helper
     const calculateRank = (score: number, phase: Phase) => {
-        // Simplified Logic: Total roughly 750 (450 main + 300 sub) for selection phases, or 1050 if 9 subjects
-        // Placement exam uses 6 subjects = 750 max
+        // Correct Max Score Logic
         let maxScore = 750;
-        if (phase === Phase.FINAL_EXAM) maxScore = 1050; // Assume all 9 subjects or 3+3+3
+        // Adjust for OI Exams which have different max scores (usually 400 for CSP/NOIP)
+        if (phase === Phase.CSP_EXAM || phase === Phase.NOIP_EXAM) {
+            maxScore = 400; 
+        }
         
         const percentage = score / maxScore;
         const totalStudents = 633;
         
         // Z-score simulation: Mean = 0.68, Std = 0.15
         const mean = 0.68;
-        const std = 0.15;
+        const std = 0.10;
         const z = (percentage - mean) / std;
         
-        // Approx percentile from Z (Error function approximation)
-        // This is a rough estimation
+        // Approx percentile from Z
         let percentile = 0.5 * (1 + Math.sign(z) * Math.sqrt(1 - Math.exp(-2 * z * z / Math.PI)));
-        if (percentage < 0.1) percentile = 0; // clamp low end
-        if (percentage > 0.99) percentile = 0.999;
         
-        // Higher score = Higher percentile (closer to 1.0)
-        // Rank 1 is top. 
+        if (percentage < 0.1) percentile = 0; 
+        
+        // Fix: Ensure 100% score gets Rank 1
+        if (score >= maxScore * 0.99) percentile = 1;
+        else if (percentage > 0.999) percentile = 0.999;
+        
         const rank = Math.max(1, Math.floor(totalStudents * (1 - percentile)));
         return rank;
     };
@@ -534,8 +541,8 @@ export const useGameLogic = () => {
         
         let newClassName = state.className;
         if (state.phase === Phase.PLACEMENT_EXAM) {
-             if (rank <= 40) newClassName = "一类实验班";
-             else if (rank <= 80) newClassName = "二类实验班";
+             if (rank <= 180) newClassName = "一类实验班";
+             else if (rank <= 400) newClassName = "二类实验班";
              else newClassName = "普通班";
         }
 
