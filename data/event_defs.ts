@@ -4,6 +4,65 @@ import { modifySub } from './utils';
 import { STATUSES } from './mechanics';
 import { Phase } from '../types';
 
+export const CHAINED_EVENTS: Record<string, GameEvent> = {
+    'sum_confess_success': {
+        id: 'sum_confess_success',
+        title: '表白成功',
+        description: '对方竟然答应了！你们约定在高中互相鼓励，共同进步。',
+        type: 'positive',
+        choices: [{ text: '太棒了', action: (s) => ({ 
+            general: { ...s.general, mindset: s.general.mindset + 20, romance: s.general.romance + 20 }, 
+            romancePartner: 'TA',
+            activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 10 }] 
+        }) }]
+    },
+    'sum_confess_fail': {
+        id: 'sum_confess_fail',
+        title: '被发好人卡',
+        description: '“你是个好人，但我现在只想好好学习。”',
+        type: 'negative',
+        choices: [{ 
+            text: '心碎满地', 
+            action: (s) => ({ 
+                general: { ...s.general, mindset: s.general.mindset - 20 },
+                rejectionCount: (s.rejectionCount || 0) + 1,
+                log: [...s.log, { message: "被发好人卡了... ", type: 'warning', timestamp: Date.now() }] 
+            }) 
+        }]   
+    },
+    'mil_star_performance': {
+        id: 'mil_star_performance',
+        title: '军训标兵',
+        description: '教官在全连队面前表扬了你。',
+        type: 'positive',
+        choices: [{ text: '倍感光荣', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 10, experience: s.general.experience + 5 } }) }]
+    },
+    'evt_red_packet': {
+        id: 'evt_red_packet',
+        title: '新年红包',
+        description: '过年了，亲戚们最关心的果然还是考试的成绩...',
+        type: 'positive',
+        choices: [{
+            text: '收下红包',
+            action: (s) => {
+                let amount = 20;
+                let msg = "成绩平平，长辈勉励了几句。";
+                if (s.general.efficiency >= 25 || s.general.experience >= 60) {
+                    amount = 80;
+                    msg = "因为表现优异，在这个寒冬你收获颇丰！";
+                } else if (s.general.efficiency >= 15) {
+                    amount = 50;
+                    msg = "表现尚可，拿到了标准的压岁钱。";
+                }
+                return {
+                    general: { ...s.general, money: s.general.money + amount, mindset: s.general.mindset + 5 },
+                    log: [...s.log, { message: `【新年】${msg} 金钱+${amount}`, type: 'success', timestamp: Date.now() }]
+                };
+            }
+        }]
+    }
+};
+
 export const SCIENCE_FESTIVAL_EVENT: GameEvent = {
     id: 'evt_sci_fest',
     title: '科技节',
@@ -100,64 +159,5 @@ export const BASE_EVENTS: Record<string, GameEvent> = {
                 }) 
             }
         ]
-    }
-};
-
-export const CHAINED_EVENTS: Record<string, GameEvent> = {
-    'sum_confess_success': {
-        id: 'sum_confess_success',
-        title: '表白成功',
-        description: '对方竟然答应了！你们约定在高中互相鼓励，共同进步。',
-        type: 'positive',
-        choices: [{ text: '太棒了', action: (s) => ({ 
-            general: { ...s.general, mindset: s.general.mindset + 20, romance: s.general.romance + 20 }, 
-            romancePartner: 'TA',
-            activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 10 }] 
-        }) }]
-    },
-    'sum_confess_fail': {
-        id: 'sum_confess_fail',
-        title: '被发好人卡',
-        description: '“你是个好人，但我现在只想好好学习。”',
-        type: 'negative',
-        choices: [{ 
-            text: '心碎满地', 
-            action: (s) => ({ 
-                general: { ...s.general, mindset: s.general.mindset - 20 },
-                rejectionCount: (s.rejectionCount || 0) + 1,
-                log: [...s.log, { message: "被发好人卡了... ", type: 'warning', timestamp: Date.now() }] 
-            }) 
-        }]   
-    },
-    'mil_star_performance': {
-        id: 'mil_star_performance',
-        title: '军训标兵',
-        description: '教官在全连队面前表扬了你。',
-        type: 'positive',
-        choices: [{ text: '倍感光荣', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 10, experience: s.general.experience + 5 } }) }]
-    },
-    'evt_red_packet': {
-        id: 'evt_red_packet',
-        title: '新年红包',
-        description: '过年了，亲戚们最关心的果然还是考试的成绩...',
-        type: 'positive',
-        choices: [{
-            text: '收下红包',
-            action: (s) => {
-                let amount = 20;
-                let msg = "成绩平平，长辈勉励了几句。";
-                if (s.general.efficiency >= 25 || s.general.experience >= 60) {
-                    amount = 80;
-                    msg = "因为表现优异，在这个寒冬你收获颇丰！";
-                } else if (s.general.efficiency >= 15) {
-                    amount = 50;
-                    msg = "表现尚可，拿到了标准的压岁钱。";
-                }
-                return {
-                    general: { ...s.general, money: s.general.money + amount, mindset: s.general.mindset + 5 },
-                    log: [...s.log, { message: `【新年】${msg} 金钱+${amount}`, type: 'success', timestamp: Date.now() }]
-                };
-            }
-        }]
     }
 };

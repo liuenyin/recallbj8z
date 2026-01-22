@@ -60,7 +60,7 @@ export interface CompetitionResultData {
 
 // --- New Features Interfaces ---
 
-export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY';
+export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' | 'AI_STORY';
 
 export interface Achievement {
   id: string;
@@ -134,11 +134,40 @@ export interface Challenge {
     };
 }
 
+// --- AI Type Definitions ---
+export interface SerializableEffect {
+    mindset?: number;
+    health?: number;
+    money?: number;
+    efficiency?: number;
+    romance?: number;
+    experience?: number;
+    luck?: number;
+    subjects?: Partial<Record<SubjectKey, number>>; // Adds to level
+    oiStats?: Partial<OIStats>;
+}
+
+export interface AiGeneratedEventChoice {
+    text: string;
+    effect: SerializableEffect;
+    resultDescription: string;
+}
+
+export interface AiGeneratedEvent {
+    title: string;
+    description: string;
+    type: 'positive' | 'negative' | 'neutral';
+    choices: AiGeneratedEventChoice[];
+}
+
 // ------------------------------
 
 export interface GameState {
   isPlaying: boolean; // Controls the time flow
-  eventQueue: GameEvent[]; // Queue for multiple events per week
+  isAiGenerating?: boolean; // New: Pauses game while Gemini thinks
+  eventQueue: GameEvent[]; // Queue for multiple events per week (Chained / Sequence)
+  aiBuffer: GameEvent[]; // NEW: Buffer for batched AI events (Next weeks)
+  recentEventIds: string[]; // NEW: Anti-repetition buffer
 
   phase: Phase;
   week: number;
@@ -241,6 +270,7 @@ export interface EventChoice {
 
 export interface ExamResult {
   title: string;
+  type?: 'ACADEMIC' | 'COMPETITION'; // NEW: To distinguish for achievements
   scores: Record<string, number>;
   totalScore: number;
   rank?: number;

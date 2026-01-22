@@ -117,10 +117,11 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <div className="flex flex-wrap gap-3">
                                  {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof DIFFICULTY_PRESETS['NORMAL']][]).map(([key, config]) => (
                                      <button key={key} onClick={() => onDifficultyChange(key)}
-                                         className={`px-5 py-2.5 rounded-2xl border-2 transition-all flex items-center gap-2 font-bold text-sm ${selectedDifficulty === key ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-100 ring-offset-1' : 'border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-300 hover:bg-white'}`}
+                                         className={`px-5 py-2.5 rounded-2xl border-2 transition-all flex items-center gap-2 font-bold text-sm ${selectedDifficulty === key ? `border-indigo-600 ${key === 'AI_STORY' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700'} shadow-sm ring-2 ring-indigo-100 ring-offset-1` : 'border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-300 hover:bg-white'}`}
                                      >
-                                         <div className={`w-2.5 h-2.5 rounded-full ${config.color}`}></div>
+                                         <div className={`w-2.5 h-2.5 rounded-full ${key === 'AI_STORY' && selectedDifficulty === key ? 'bg-white' : config.color}`}></div>
                                          {config.label}
+                                         {key === 'AI_STORY' && <i className="fas fa-sparkles text-xs animate-pulse"></i>}
                                      </button>
                                  ))}
                                  <button onClick={() => onDifficultyChange('CUSTOM')}
@@ -157,9 +158,14 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              )}
                          </div>
 
-                         {selectedDifficulty !== 'REALITY' && (
+                         {selectedDifficulty !== 'REALITY' && selectedDifficulty !== 'AI_STORY' && (
                              <div className="mt-4 text-xs text-amber-500 font-bold flex items-center gap-1.5 bg-amber-50 w-fit px-3 py-1 rounded-full">
                                  <i className="fas fa-exclamation-triangle"></i> 仅在【现实】难度下可解锁成就
+                             </div>
+                         )}
+                         {selectedDifficulty === 'AI_STORY' && (
+                             <div className="mt-4 text-xs text-indigo-600 font-bold flex items-center gap-1.5 bg-indigo-50 w-fit px-3 py-1 rounded-full border border-indigo-100">
+                                 <i className="fas fa-robot"></i> 实验性功能：事件将由 Deepseek ver3.2 实时生成，请确保网络通畅。
                              </div>
                          )}
                      </div>

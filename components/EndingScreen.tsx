@@ -18,6 +18,13 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
 
     const handleUpload = async () => {
         if (!playerName.trim()) return;
+        
+        // Strict check: Only Reality or Challenge Mode
+        const isEligible = state.difficulty === 'REALITY' || !!state.activeChallengeId;
+        if (!isEligible) {
+            return;
+        }
+
         setUploadStatus('UPLOADING');
         try {
             await uploadScore({
@@ -37,6 +44,8 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
             setUploadStatus('ERROR');
         }
     };
+
+    const isScoreEligible = state.difficulty === 'REALITY' || !!state.activeChallengeId;
 
     return (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md text-slate-800 flex flex-col items-center justify-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
@@ -191,7 +200,11 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                      <i className="fas fa-redo-alt"></i> 再来一年
                                  </button>
                                  
-                                 {uploadStatus === 'SUCCESS' ? (
+                                 {!isScoreEligible ? (
+                                    <button disabled className="px-6 bg-slate-100 text-slate-400 border border-slate-200 rounded-2xl font-bold flex items-center gap-2 cursor-not-allowed" title="仅现实/挑战模式可上传">
+                                         <i className="fas fa-ban"></i> 娱乐模式
+                                     </button>
+                                 ) : uploadStatus === 'SUCCESS' ? (
                                       <button disabled className="px-6 bg-emerald-100 text-emerald-600 rounded-2xl font-bold flex items-center gap-2 cursor-default">
                                          <i className="fas fa-check"></i> 已上传
                                       </button>

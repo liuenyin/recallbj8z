@@ -21,7 +21,6 @@ const CHALLENGE_SLEEP_CHOICE: EventChoice = {
 // Helper to inject the choice
 const injectSleep = (events: GameEvent[]): GameEvent[] => {
     return events.map(e => {
-        // If event already has a sleep option (heuristic: text contains '睡'), skip adding the challenge one to avoid clutter
         const hasSleep = e.choices?.some(c => c.text.includes('睡') || c.text.includes('梦'));
         if (hasSleep) return e;
 
@@ -72,6 +71,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '出去走走吧！',
         description: '去学校周边转转，顺便干点啥？',
         type: 'positive',
+        triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { 
                 text: '花几块钱买点吃的？', 
@@ -101,6 +101,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '新生群潜水',
         description: '你加入了2028届八中新生群。群里消息99+，有人在爆照，有人在装弱，似乎还有学长学姐。',
         type: 'neutral',
+        triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { text: '膜拜大佬', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 0.5, experience: s.general.experience + 2, mindset: s.general.mindset - 2 } }) },
             { text: '龙王喷水', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 2, mindset: s.general.mindset + 3, experience: s.general.experience - 1 } }) },
@@ -113,6 +114,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '预习衔接课程',
         description: '你翻开了崭新的高中教材。看着《必修一》，你决定...',
         type: 'neutral',
+        triggerType: 'RANDOM',
         choices: [
             { text: '报名衔接班', action: (s) => ({ subjects: modifySub(s, ['math', 'physics', 'chemistry', 'english'], 2), general: { ...s.general, money: s.general.money - 5, experience: s.general.experience + 4, mindset: s.general.mindset - 1 } }) },
             { text: '在家自学', action: (s) => {
@@ -138,6 +140,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '暑期数学衔接班',
         description: 'woc，我咋不知道我还要上数学课？',
         type: 'neutral',
+        triggerType: 'RANDOM',
         choices: [
             { text: '全神贯注', action: (s) => ({ subjects: modifySub(s, ['math'], 8), general: { ...s.general, mindset: s.general.mindset - 3 } }) },
             { text: '随便听听', action: (s) => ({ subjects: modifySub(s, ['math'], 2), general: { ...s.general, mindset: s.general.mindset + 2 } }) },
@@ -149,6 +152,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '预习英语',
         description: '单词背得怎么样了？abandon, abandon, abandon...',
         type: 'neutral',
+        triggerType: 'RANDOM',
         choices: [
             { text: '狂背单词', action: (s) => ({ subjects: modifySub(s, ['english'], 8), general: { ...s.general, health: s.general.health - 2 } }) },
             { text: '看美剧练习', action: (s) => ({ subjects: modifySub(s, ['english'], 4), general: { ...s.general, mindset: s.general.mindset + 5 } }) }
@@ -159,6 +163,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '物理讲座',
         description: '你被拉去听一场科普讲座。',
         type: 'positive',
+        triggerType: 'RANDOM',
         choices: [
             { text: '这也太酷了', action: (s) => ({ subjects: modifySub(s, ['physics'], 6), general: { ...s.general, experience: s.general.experience + 5 } }) },
             { text: '听睡着了', action: (s) => ({ general: { ...s.general, health: s.general.health + 3 }, sleepCount: (s.sleepCount || 0) + 1 }) }
@@ -180,6 +185,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         description: '你收到了一封夏令营的邮件。',
         type: 'positive',
         once: true,
+        triggerType: 'RANDOM',
         choices: [
             { text: '报名参加 (-10金钱)', action: (s) => ({ general: { ...s.general, experience: s.general.experience + 15, money: s.general.money - 10 } }) },
             { text: '太贵了', action: (s) => ({ general: { ...s.general, money: s.general.money + 5 } }) }
@@ -191,6 +197,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         description: '曾经的同学们聚在一起，有人欢喜有人愁。你看到了那个熟悉的身影。',
         type: 'neutral',
         once: true,
+        triggerType: 'RANDOM',
         choices: [
             { 
                 text: '趁机表白！', 
@@ -208,6 +215,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '家庭出游',
         description: '父母计划去郊区玩两天，放松一下中考后的神经。',
         type: 'positive',
+        triggerType: 'RANDOM',
         choices: [
             { text: '欣然前往', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 15, romance: s.general.romance + 5 } }) },
             { text: '在家宅着', action: (s) => ({ subjects: modifySub(s, ['english'], 3), general: { ...s.general, efficiency: s.general.efficiency + 1 } }) },
@@ -221,6 +229,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '酷暑难耐',
         description: '说好的季风气候雨热同期，我咋只看到了热？',
         type: 'negative',
+        triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { text: '空调续命', action: (s) => ({ general: { ...s.general, money: s.general.money - 5, health: s.general.health + 2 } }) },
             { text: '心静自然凉', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, health: s.general.health - 5 } }) }
@@ -231,6 +240,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '雪糕刺客',
         description: '走进便利店想买根冰棍，结账时发现要18。 欸等等，你这雪糕怎么烤不化？',
         type: 'neutral',
+        triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { text: '忍痛付款', action: (s) => ({ general: { ...s.general, money: s.general.money - 20, mindset: s.general.mindset -1 } }) },
             { text: '默默放回', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 4 } }) }
@@ -241,6 +251,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         title: '蚊子的夜袭',
         description: '嗡嗡嗡……啪！没打着。',
         type: 'negative',
+        triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { text: '通宵对峙', action: (s) => ({ general: { ...s.general, health: s.general.health - 5, mindset: s.general.mindset - 5, efficiency: s.general.efficiency - 2 } }) },
             { text: '点蚊香睡大觉', action: (s) => ({ general: { ...s.general, health: s.general.health - 1 }, log: [...s.log, { message: "虽然有点呛，但至少睡着了。", type: 'info', timestamp: Date.now() }] }) }
@@ -264,6 +275,7 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
         title: '叠军被',
         description: '教官要求把被子叠成“豆腐块”。你看着软趴趴的被子发愁。',
         type: 'neutral',
+        triggerType: 'RANDOM',
         choices: [
             { 
                 text: '精益求精', 
@@ -281,6 +293,7 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
         title: '拉歌环节',
         description: '晚上休息时，各个班级开始拉歌。',
         type: 'positive',
+        triggerType: 'RANDOM',
         choices: [
             { text: '大声吼出来', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 2, romance: s.general.romance + 2 } }) },
             { text: '默默鼓掌', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 2 } }) },
@@ -292,6 +305,7 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
         title: '深夜卧谈',
         description: '熄灯了，但是大家都睡不着，开始聊起了天。',
         type: 'positive',
+        triggerType: 'RANDOM',
         choices: [
             { text: '聊八卦', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 5 } }) },
             { text: '聊理想', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, experience: s.general.experience + 5 } }) },
@@ -301,9 +315,28 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
 ];
 
 const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
-    // Include Fixed Events in the list
     SCIENCE_FESTIVAL_EVENT,
     NEW_YEAR_GALA_EVENT,
+    {
+        id: 'evt_crush_encounter',
+        title: '偶遇',
+        description: '在去食堂的路上，你撞见了一个特别的身影。只是一瞬间的对视，你的心跳好像漏了一拍。',
+        condition: (s) => !s.romancePartner && !s.activeStatuses.find(st => st.id === 'crush') && s.general.romance >= 10,
+        triggerType: 'CONDITIONAL',
+        once: true,
+        type: 'positive',
+        choices: [
+            { 
+                text: '是心动的感觉', 
+                action: (s) => ({ 
+                    general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset - 2 },
+                    activeStatuses: [...s.activeStatuses, { ...STATUSES['crush'], duration: 4 }],
+                    log: [...s.log, { message: "你获得状态【暗恋】。效率-2，魅力+2。", type: 'event', timestamp: Date.now() }]
+                }) 
+            },
+            { text: '无视', action: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 1 } }) }
+        ]
+    },
     {
         id: 'evt_confession_generic',
         title: '心动的信号',
@@ -319,7 +352,14 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
                     return { chainedEvent: success ? CHAINED_EVENTS['sum_confess_success'] : CHAINED_EVENTS['sum_confess_fail'] };
                 }
             },
-            { text: '就，再多看一眼嘛…… 真好看', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 1 } }) },
+            { 
+                text: '就，再多看一眼嘛…… 真好看', 
+                action: (s) => ({ 
+                    general: { ...s.general, mindset: s.general.mindset + 1, romance: s.general.romance + 2 },
+                    activeStatuses: !s.activeStatuses.find(st => st.id === 'crush') ? [...s.activeStatuses, { ...STATUSES['crush'], duration: 2 }] : s.activeStatuses,
+                    log: [...s.log, { message: "你选择默默暗恋，这种感觉也不错。", type: 'info', timestamp: Date.now() }]
+                }) 
+            },
             { text: '回班睡觉', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 0 }, sleepCount: (s.sleepCount || 0) + 1 }) }
         ]
     },
@@ -385,25 +425,25 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         ]
     },
     {
-            id: 'evt_betrayal',
-            title: '背叛',
-            description: '你发现TA最近总是躲着你回消息，直到你看到了不该看到的一幕。',
-            condition: (s) => !!s.romancePartner,
-            triggerType: 'RANDOM',
-            once: true,
-            type: 'negative',
-            choices: [
-                { 
-                    text: '分手！', 
-                    action: (s) => ({ 
-                        romancePartner: null,
-                        general: { ...s.general, mindset: s.general.mindset - 40, health: s.general.health - 10 },
-                        activeStatuses: s.activeStatuses.filter(st => st.id !== 'in_love'),
-                        log: [...s.log, { message: "这段感情画上了句号。", type: 'error', timestamp: Date.now() }]
-                    }) 
-                }
-            ]
-        },
+        id: 'evt_betrayal',
+        title: '背叛',
+        description: '你发现TA最近总是躲着你回消息，直到你看到了不该看到的一幕。',
+        condition: (s) => !!s.romancePartner,
+        triggerType: 'RANDOM',
+        once: true,
+        type: 'negative',
+        choices: [
+            { 
+                text: '分手！', 
+                action: (s) => ({ 
+                    romancePartner: null,
+                    general: { ...s.general, mindset: s.general.mindset - 40, health: s.general.health - 10 },
+                    activeStatuses: s.activeStatuses.filter(st => st.id !== 'in_love'),
+                    log: [...s.log, { message: "这段感情画上了句号。", type: 'error', timestamp: Date.now() }]
+                }) 
+            }
+        ]
+    },
     {
         id: 'evt_oi_steal_learn',
         title: '卷王时刻',

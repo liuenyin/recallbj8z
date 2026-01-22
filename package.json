@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "openai":"^4.28.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

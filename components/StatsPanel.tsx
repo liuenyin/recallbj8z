@@ -70,6 +70,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
               <i className="fas fa-user-circle"></i> {isReality ? "自我认知" : "个人档案"}
             </h3>
+            {/* AI Status Indicator */}
+            {state.isAiGenerating && (
+                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold border border-indigo-100 animate-pulse">
+                     <i className="fas fa-robot"></i> 正在生成事件...
+                 </div>
+            )}
             {isReality && onShowGuide && (
                 <button onClick={onShowGuide} className="text-slate-400 hover:text-indigo-600 transition-colors" title="查看状态说明">
                     <i className="fas fa-question-circle"></i>

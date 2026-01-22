@@ -2,6 +2,7 @@
 import { Difficulty, GeneralStats } from '../types';
 
 export const CHANGELOG_DATA = [
+    { version: 'v1.3/beta', date: '2026-1-22', content: ['新增【无限重开 AI版】，接入 Gemini API 实现动态事件。', '优化了负债逻辑，现在负债会有分级 Debuff。'] },
     { version: 'v1.2/testing', date: '2026-1-21', content: ['实装了每日挑战','修复了已知问题'] },
     { version: 'v1.1.2/testing', date: '2026-1-15', content: ['1.2试运行','修改了主页','增加了深色模式和存档功能（可能会有若干bug）','添加了若干事件和成就'] },
     { version: 'v1.1.1', date: '2026-1-11', content: ['修bug，增加金主位，欢迎赞助','感谢大家的反馈，大更新预计在1.20左右上线（截至该版本上线，已收到来自15+省区的~50份反馈问卷，真的感谢大家的支持，给大家磕一个）'] },
@@ -57,6 +58,20 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, { label: 
             health: 60,
             money: 20,
             efficiency: 8
+        }
+    },
+    'AI_STORY': {
+        label: 'AI 叙事',
+        desc: '事件由 AI 实时生成，包含更丰富的 NPC 互动。',
+        color: 'bg-indigo-600',
+        stats: {
+            mindset: 50,
+            experience: 20,
+            luck: 50,
+            romance: 40,
+            health: 30,
+            money: 60,
+            efficiency: 7
         }
     }
 };
