@@ -18,45 +18,47 @@ export const generateBatchGameEvents = async (state: GameState) => {
     .join(', ');
   
   const statusStr = state.activeStatuses.map(s => s.name).join(',');
-  
+   const talentsStr = state.talents.map(t => t.name).join(', ');
   // Use history for context
   const recentHistory = state.history.slice(-5).map(h => `[Week ${h.week}] ${h.eventTitle}: ${h.resultSummary}`).join('\n');
-  const recentTitles = state.history.slice(-5).map(h => h.eventTitle).join('¡¢');
+  const recentTitles = state.history.slice(-5).map(h => h.eventTitle).join('ã€');
 
   const systemPrompt = `
-    ÄãÊÇÒ»¸ö¡¾±±¾©°ËÖĞÖØ¿ªÄ£ÄâÆ÷¡¿µÄÊÂ¼şÉú³ÉÒıÇæ¡£
+    ä½ æ˜¯ä¸€ä¸ªã€åŒ—äº¬å…«ä¸­é‡å¼€æ¨¡æ‹Ÿå™¨ã€‘çš„äº‹ä»¶ç”Ÿæˆå¼•æ“ã€‚
     
-    Íæ¼ÒÊÇÒ»Ãû°ËÖĞµÄ¸ßÒ»ĞÂÉú¡£
-    ¡¾µ±Ç°×´Ì¬¡¿
-    - Éí·İ: ${state.competition === 'OI' ? 'ĞÅ¾ºÉú (OIer)' : '¸ß¿¼Éú'}
-    - ½×¶Î: ${state.phase} (µÚ ${state.week} ÖÜ)
-    - ÊôĞÔ: ĞÄÌ¬${state.general.mindset}, ¾«Á¦${state.general.health}, Ç®${state.general.money}, Ğ§ÂÊ${state.general.efficiency}
-    - ¹ØÏµ: ${state.romancePartner ? `¶ÔÏó:${state.romancePartner}` : 'µ¥Éí'}
-    - ×´Ì¬: [${statusStr}]
+    ç©å®¶æ˜¯ä¸€åå…«ä¸­çš„é«˜ä¸€æ–°ç”Ÿã€‚æ¸¸æˆåˆ†ä¸ºä¸‰ä¸ªé˜¶æ®µï¼šæš‘å‡/å†›è®­/é«˜ä¸€ä¸Šå­¦æœŸï¼ˆç¬¬11å‘¨æœŸä¸­è€ƒè¯•ï¼Œ21å‘¨æœŸæœ«è€ƒè¯•ï¼‰
+    ã€å½“å‰çŠ¶æ€ã€‘
+    - èº«ä»½: ${state.competition === 'OI' ? 'ä¿¡ç«ç”Ÿ (OIer)' : 'é«˜è€ƒç”Ÿ'}
+    - å¤©èµ‹: [${talentsStr || "æ— "}]
+    - é˜¶æ®µ: ${state.phase} (ç¬¬ ${state.week} å‘¨)
+    - å±æ€§: å¿ƒæ€${state.general.mindset}, å¥åº·${state.general.health}, é’±${state.general.money}, æ•ˆç‡${state.general.efficiency},é­…åŠ›${state.general.romance}
+    - å…³ç³»: ${state.romancePartner ? `å¯¹è±¡:${state.romancePartner}` : 'å•èº«'}
+    - çŠ¶æ€: [${statusStr}]
     
-    ¡¾×î½ü¾çÇé¡¿:
-    ${recentHistory || "ÔİÎŞ£¬ĞÂÑ§ÆÚ¿ªÊ¼¡£"}
+    ã€æœ€è¿‘å‰§æƒ…ã€‘:
+    ${recentHistory || "æš‚æ— ï¼Œæ–°å­¦æœŸå¼€å§‹ã€‚"}
 
-    ¡¾ÈÎÎñ¡¿
-    Éú³É **3¸ö** »¥²»Ïà¹Ø¡¢·ç¸ñåÄÒìµÄ±¾ÖÜËæ»úÍ»·¢ÊÂ¼ş (JSON Array)¡£
-    ½ûÖ¹Éú³ÉÓë "${recentTitles}" À×Í¬µÄÖ÷Ìâ¡£
+    ã€ä»»åŠ¡ã€‘
+    è¯·ä½ æ ¹æ®ç©å®¶çš„çŠ¶æ€ï¼Œç”Ÿæˆä¸‰ä¸ªé£æ ¼ä¸åŒï¼Œå…·æœ‰åŒ—äº¬é«˜ä¸­ç”Ÿæ´»ç‰¹è‰²çš„çªå‘äº‹ä»¶ã€‚
+    è¯·æ ¹æ®ç©å®¶çš„ã€å¤©èµ‹ã€‘å’Œã€çŠ¶æ€ã€‘è°ƒæ•´äº‹ä»¶é£æ ¼ï¼ˆä¾‹å¦‚ï¼šæœ‰â€œéé…‹â€å¤©èµ‹åˆ™å¤šç”Ÿæˆå€’éœ‰äº‹ï¼Œæœ‰â€œä¸‡äººè¿·â€åˆ™å¤šç”Ÿæˆæƒ…æ„Ÿç±»äº‹ä»¶ï¼‰ã€‚
+    ç¦æ­¢ç”Ÿæˆä¸ "${recentTitles}" é›·åŒçš„ä¸»é¢˜ã€‚
 
-    ¡¾¸ñÊ½ÒªÇó¡¿
-    ÑÏ¸ñ·µ»Ø JSON Êı×é£¬²»Òª Markdown ´úÂë¿é¡£¸ñÊ½ÈçÏÂ£º
+    ã€æ ¼å¼è¦æ±‚ã€‘
+    ä¸¥æ ¼è¿”å› JSON æ•°ç»„ï¼Œä¸è¦ Markdown ä»£ç å—ã€‚æ ¼å¼å¦‚ä¸‹ï¼š
     [
       {
-        "title": "ÊÂ¼ş±êÌâ",
-        "description": "ÊÂ¼şÃèÊö£¨¿ÚÓï»¯£¬Éú¶¯£¬´øµãºÚÉ«ÓÄÄ¬£©",
+        "title": "äº‹ä»¶æ ‡é¢˜",
+        "description": "äº‹ä»¶æè¿°ï¼ˆå£è¯­åŒ–ï¼Œç”ŸåŠ¨ï¼Œå¸¦ç‚¹é»‘è‰²å¹½é»˜ï¼‰",
         "type": "positive/negative/neutral",
         "choices": [
           {
-            "text": "Ñ¡ÏîÎÄ±¾",
-            "resultDescription": "½á¹û·´À¡ÎÄ±¾",
+            "text": "é€‰é¡¹æ–‡æœ¬",
+            "resultDescription": "ç»“æœåé¦ˆæ–‡æœ¬",
             "effect": {
               "mindset": 0, "health": 0, "money": 0, "efficiency": 0, 
               "romance": 0, "experience": 0, "luck": 0,
-              "subjects": {"math": 0}, // ¿ÉÑ¡
-              "oiStats": {"dp": 0} // ¿ÉÑ¡
+              "subjects": {"math": 0}, // å¯é€‰
+              "oiStats": {"dp": 0} // å¯é€‰
             }
           }
         ]
@@ -75,7 +77,7 @@ export const generateBatchGameEvents = async (state: GameState) => {
         model: MODEL_NAME,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "Éú³É3¸öËæ»úÊÂ¼ş¡£" }
+          { role: "user", content: "ç”Ÿæˆ3ä¸ªéšæœºäº‹ä»¶ã€‚" }
         ],
         temperature: 1.1,
         response_format: { type: "json_object" } // DeepSeek supports JSON mode
@@ -114,11 +116,11 @@ export const generateBatchGameEvents = async (state: GameState) => {
   } catch (error) {
     console.error("AI API Error:", error);
     return [{
-      title: "Áé¸Ğ¿İ½ß",
-      description: "ÕâÒ»ÖÜ¹ıµÃÆ½Æ½µ­µ­£¬Ê²Ã´Ò²Ã»·¢Éú¡££¨AI Á¬½ÓÊ§°Ü£¬Çë¼ì²éÍøÂç»ò API Key£©",
+      title: "çµæ„Ÿæ¯ç«­",
+      description: "è¿™ä¸€å‘¨è¿‡å¾—å¹³å¹³æ·¡æ·¡ï¼Œä»€ä¹ˆä¹Ÿæ²¡å‘ç”Ÿã€‚ï¼ˆAI è¿æ¥å¤±è´¥ï¼Œè¯·æ£€æŸ¥ç½‘ç»œæˆ– API Keyï¼‰",
       type: "neutral",
       choices: [
-        { text: "¼ÌĞø", resultDescription: "ÈÕ×Ó»¹µÃ¹ı¡£", effect: { } }
+        { text: "ç»§ç»­", resultDescription: "æ—¥å­è¿˜å¾—è¿‡ã€‚", effect: { } }
       ]
     }];
   }
