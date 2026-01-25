@@ -18,12 +18,19 @@ interface HomeViewProps {
     unlockedAchievements: string[];
 }
 
+const SPONSORS = [
+    { name: '爱发电用户_258c7', avatar: 'https://pic1.afdiancdn.com/default/avatar/avatar-purple.png', label: '发电榜一', id: 's1' },
+    { name: 'Anby_', avatar: 'https://pic1.afdiancdn.com/user/dc3ad9282ab911ed94aa52540025c377/avatar/e41d1c836b39710f71c42c3d8c03985b_w3000_h3000_s863.jpeg?imageView2/1/w/240/h/240', label: '发电榜二', id: 's2' },
+    { name: '爱发电用户_s45p', avatar: 'https://pic1.afdiancdn.com/default/avatar/avatar-blue.png', label: '发电榜三', id: 's3' },
+];
+
 const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements }) => {
     const [showChangelog, setShowChangelog] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
     const [showSettings, setShowSettings] = React.useState(false);
     const [showAchievements, setShowAchievements] = React.useState(false);
     const [showQQGroup, setShowQQGroup] = React.useState(false);
+    const [showVideo, setShowVideo] = React.useState(false);
     
     // Leaderboard State
     const [showLeaderboard, setShowLeaderboard] = React.useState(false);
@@ -165,7 +172,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          )}
                          {selectedDifficulty === 'AI_STORY' && (
                              <div className="mt-4 text-xs text-indigo-600 font-bold flex items-center gap-1.5 bg-indigo-50 w-fit px-3 py-1 rounded-full border border-indigo-100">
-                                 <i className="fas fa-robot"></i> 实验性功能：事件将由 Deepseek ver3.2 实时生成，请确保网络通畅。
+                                 <i className="fas fa-robot"></i> 实验性功能：事件将由 DeepSeek API 实时生成，请确保网络通畅。
                              </div>
                          )}
                      </div>
@@ -248,6 +255,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                         <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 w-full md:w-auto no-scrollbar">
                              <UtilityButton icon="fa-trophy" label="成就墙" onClick={() => setShowAchievements(true)} color="text-yellow-600 bg-yellow-50 hover:bg-yellow-100" />
                              <UtilityButton icon="fa-list-ol" label="排行榜" onClick={() => openLeaderboard(null)} color="text-purple-600 bg-purple-50 hover:bg-purple-100" />
+                             <UtilityButton icon="fa-video" label="宣传片" onClick={() => setShowVideo(true)} color="text-pink-600 bg-pink-50 hover:bg-pink-100" />
                              <UtilityButton icon="fa-history" label="日志" onClick={() => setShowChangelog(true)} color="text-indigo-600 bg-indigo-50 hover:bg-indigo-100" />
                              <UtilityButton icon="fa-heart" label="赞助" onClick={() => setShowSponsor(true)} color="text-rose-600 bg-rose-50 hover:bg-rose-100" />
                              <UtilityButton icon="fa-cog" label="关于" onClick={() => setShowSettings(true)} color="text-slate-600 bg-slate-50 hover:bg-slate-100" />
@@ -286,6 +294,25 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                      </div>
                  </div>
              )}
+             
+             {/* Bilibili Video Modal */}
+             {showVideo && (
+                 <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowVideo(false)}>
+                     <div className="w-full max-w-5xl aspect-video bg-black rounded-3xl shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                         <button onClick={() => setShowVideo(false)} className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white flex items-center justify-center transition-colors">
+                             <i className="fas fa-times"></i>
+                         </button>
+                         <iframe 
+                            src="//player.bilibili.com/player.html?isOutside=true&aid=115953580973453&bvid=BV1TEzDBDEPg&cid=35597586008&p=1&autoplay=0" 
+                            scrolling="no" 
+                            style={{ border: 0 }}
+                            frameBorder="0" 
+                            allowFullScreen={true} 
+                            className="w-full h-full"
+                         ></iframe>
+                     </div>
+                 </div>
+             )}
 
              {showAchievements && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowAchievements(false)}>
@@ -319,7 +346,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
              
              {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} initialChallengeId={leaderboardInitId} />}
              
-             {/* ... Other modals remain unchanged ... */}
+             {/* ... Other modals ... */}
              
              {showChangelog && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowChangelog(false)}>
@@ -354,16 +381,18 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <h2 className="text-2xl font-black text-slate-800">赞助商展示</h2>
                              <button onClick={() => setShowSponsor(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
-                         <div className="overflow-y-auto custom-scroll space-y-4 pr-2 text-center">
-                             <div className="p-4 bg-white rounded-2xl border border-indigo-100 shadow-sm mb-2 flex items-center gap-4">
-                                <img src="https://pic1.afdiancdn.com/user/dc3ad9282ab911ed94aa52540025c377/avatar/e41d1c836b39710f71c42c3d8c03985b_w3000_h3000_s863.jpeg?imageView2/1/w/240/h/240" 
-                                     alt="Anby_" className="w-12 h-12 rounded-full border-2 border-indigo-200 shadow-sm"/>
-                                <div className="text-left">
-                                    <div className="font-bold text-slate-800">Anby_</div>
-                                    <div className="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded-full w-fit">发电榜一</div>
-                                </div>
-                             </div>
-                             <p className="text-xs text-slate-400 mb-6">金主列表每周更新一次，可能有时间延迟</p>
+                         <div className="overflow-y-auto custom-scroll space-y-3 pr-2 text-center">
+                             {SPONSORS.map((sponsor, idx) => (
+                                 <div key={sponsor.id} className={`p-4 rounded-2xl border shadow-sm flex items-center gap-4 ${idx === 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-indigo-100'}`}>
+                                    <img src={sponsor.avatar} alt={sponsor.name} className="w-12 h-12 rounded-full border-2 border-white shadow-md flex-shrink-0 bg-slate-200"/>
+                                    <div className="text-left flex-1 min-w-0">
+                                        <div className="font-bold text-slate-800 truncate">{sponsor.name}</div>
+                                        <div className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit mt-1 ${idx === 0 ? 'bg-amber-200 text-amber-800' : 'bg-indigo-50 text-indigo-500'}`}>{sponsor.label}</div>
+                                    </div>
+                                 </div>
+                             ))}
+                             
+                             <p className="text-xs text-slate-400 mt-4 mb-6">金主列表每周更新一次，可能有时间延迟</p>
                              <a href="https://afdian.com/a/liuenyin?tab=home" target="_blank" rel="noopener noreferrer" className="block w-full bg-amber-500 text-white py-3 rounded-xl font-bold hover:bg-amber-600 transition-colors shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
                                  <i className="fas fa-bolt mr-2"></i> 前往爱发电支持作者
                              </a>
