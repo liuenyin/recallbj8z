@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { GameState, SUBJECT_NAMES, SubjectKey } from '../types';
+import { getEffectiveEfficiency } from '../data/utils';
 
 interface StatsPanelProps {
   state: GameState;
@@ -9,6 +10,7 @@ interface StatsPanelProps {
 
 const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
   const isReality = state.difficulty === 'REALITY';
+  const effectiveEfficiency = getEffectiveEfficiency(state);
 
   // Helper to generate fuzzy description based on stats
   const getFuzzyDesc = (val: number, type: 'general' | 'subject' | 'efficiency') => {
@@ -24,12 +26,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
 
       // 2. Map to Text
       if (type === 'efficiency') {
-          // Efficiency scale roughly -5 to 25
+          // Efficiency scale roughly -5 to 25+
           if (perceivedVal < 0) return { t: "极度涣散", c: "text-rose-500" };
           if (perceivedVal < 5) return { t: "心不在焉", c: "text-orange-500" };
           if (perceivedVal < 10) return { t: "普普通通", c: "text-slate-500" };
           if (perceivedVal < 15) return { t: "专注", c: "text-indigo-500" };
-          if (perceivedVal < 20) return { t: "高效", c: "text-emerald-500" };
+          if (perceivedVal < 25) return { t: "高效", c: "text-emerald-500" };
           return { t: "心流", c: "text-amber-500 font-black" };
       }
       
@@ -90,7 +92,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
                 <StatText icon="fa-heart" label="魅力" fuzzy={getFuzzyDesc(state.general.romance, 'general')} />
                 <StatText icon="fa-medkit" label="健康" fuzzy={getFuzzyDesc(state.general.health, 'general')} />
                 {/* Money is always visible */}
-                <StatMini icon="fa-coins" label="金钱" value={state.general.money} color="text-yellow-600" />
+                <StatMini icon="fa-coins" label="金钱" value={state.general.money} color={state.general.money < 0 ? "text-rose-600" : "text-yellow-600"} />
                 <StatText icon="fa-clover" label="运气" fuzzy={getFuzzyDesc(state.general.luck, 'general')} />
               </>
           ) : (
@@ -99,7 +101,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
                 <StatMini icon="fa-book-open" label="经验" value={state.general.experience} color="text-amber-500" />
                 <StatMini icon="fa-heart" label="魅力" value={state.general.romance} color="text-rose-500" />
                 <StatMini icon="fa-medkit" label="健康" value={state.general.health} color="text-emerald-500" />
-                <StatMini icon="fa-coins" label="金钱" value={state.general.money} color="text-yellow-600" />
+                <StatMini icon="fa-coins" label="金钱" value={state.general.money} color={state.general.money < 0 ? "text-rose-600" : "text-yellow-600"} />
                 <StatMini icon="fa-clover" label="运气" value={state.general.luck} color="text-purple-500" />
               </>
           )}
@@ -111,16 +113,19 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-indigo-800">班级: {state.className || '待分班'}</span>
           {isReality ? (
-              <span className={`text-xs font-bold ${getFuzzyDesc(state.general.efficiency, 'efficiency').c}`}>
-                  状态: {getFuzzyDesc(state.general.efficiency, 'efficiency').t}
+              <span className={`text-xs font-bold ${getFuzzyDesc(effectiveEfficiency, 'efficiency').c}`}>
+                  状态: {getFuzzyDesc(effectiveEfficiency, 'efficiency').t}
               </span>
           ) : (
-              <span className="text-xs font-bold text-indigo-800">效率: {state.general.efficiency.toFixed(1)}</span>
+              <span className="text-xs font-bold text-indigo-800">
+                  效率: {effectiveEfficiency.toFixed(1)} 
+                  {effectiveEfficiency > state.general.efficiency && <span className="text-emerald-500 text-[10px] ml-1">(+{ (effectiveEfficiency - state.general.efficiency).toFixed(0) })</span>}
+              </span>
           )}
         </div>
         {!isReality && (
             <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, state.general.efficiency * 5)}%` }}></div>
+              <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, effectiveEfficiency * 5)}%` }}></div>
             </div>
         )}
       </div>
@@ -184,7 +189,7 @@ const StatMini = ({ icon, label, value, color }: { icon: string, label: string, 
   <div className="bg-slate-50 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 hover:border-indigo-200 transition-colors">
     <i className={`fas ${icon} ${color} text-sm mb-1`}></i>
     <span className="text-[10px] text-slate-500">{label}</span>
-    <span className="text-xs font-bold text-slate-800">{value.toFixed(0)}</span>
+    <span className={`text-xs font-bold ${color}`}>{value.toFixed(0)}</span>
   </div>
 );
 

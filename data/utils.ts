@@ -17,6 +17,18 @@ export const modifyOI = (s: GameState, changes: Partial<OIStats>) => {
     return newOI;
 };
 
+export const getEffectiveEfficiency = (state: GameState): number => {
+    let eff = state.general.efficiency;
+    
+    // Debt King Challenge: +1 Efficiency per 15 Debt
+    if (state.activeChallengeId === 'c_debt_king' && state.general.money < 0) {
+        const debt = Math.abs(state.general.money);
+        eff += Math.floor(debt / 15);
+    }
+    
+    return eff;
+};
+
 // --- Helper for AI Event Effects ---
 export const applyAiEffect = (s: GameState, effect: SerializableEffect): Partial<GameState> => {
     const updates: Partial<GameState> = {
@@ -68,7 +80,7 @@ export const mapAiEventToGameEvent = (aiEvent: any): GameEvent => {
                 return {
                     ...stateUpdates,
                     log: [...s.log, { 
-                        message: c.resultDescription || `AI ÊÂ¼þ: ÄãÑ¡ÔñÁË "${c.text}"`, 
+                        message: c.resultDescription || `AI äº‹ä»¶: ä½ é€‰æ‹©äº† "${c.text}"`, 
                         type: aiEvent.type === 'negative' ? 'warning' : 'success', 
                         timestamp: Date.now() 
                     }]

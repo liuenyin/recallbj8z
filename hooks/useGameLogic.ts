@@ -12,6 +12,7 @@ import { modifyOI, modifySub, mapAiEventToGameEvent } from '../data/utils';
 import { generateBatchGameEvents } from '../lib/gemini';
 
 const STORAGE_KEY = 'recall_save_v1';
+const ACHIEVEMENTS_KEY = 'recall_achievements_global';
 
 const getInitialSubjects = (): Record<SubjectKey, { aptitude: number; level: number }> => ({
     chinese: { aptitude: 0, level: 0 },
@@ -28,6 +29,16 @@ const getInitialSubjects = (): Record<SubjectKey, { aptitude: number; level: num
 const getInitialOIStats = (): OIStats => ({
     dp: 0, ds: 0, math: 0, string: 0, graph: 0, misc: 0
 });
+
+const getGlobalAchievements = (): string[] => {
+    try {
+        const stored = localStorage.getItem(ACHIEVEMENTS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error("Error loading global achievements", e);
+        return [];
+    }
+};
 
 const getInitialGameState = (): GameState => ({
     isPlaying: false,
@@ -82,7 +93,16 @@ const getInitialGameState = (): GameState => ({
 });
 
 export const useGameLogic = () => {
-    const [state, setState] = useState<GameState>(getInitialGameState());
+    // Initialize state with global achievements merged in
+    const [state, setState] = useState<GameState>(() => {
+        const initial = getInitialGameState();
+        const globalAchievements = getGlobalAchievements();
+        return {
+            ...initial,
+            unlockedAchievements: globalAchievements
+        };
+    });
+    
     const [weekendResult, setWeekendResult] = useState<{ activity: WeekendActivity; resultText: string; diff: string[] } | null>(null);
     const [hasSave, setHasSave] = useState(false);
 
@@ -164,9 +184,15 @@ export const useGameLogic = () => {
 
         if (newUnlocked.length > 0) {
             const lastId = newUnlocked[newUnlocked.length - 1];
+            
+            // Update Global Storage
+            const globalAch = getGlobalAchievements();
+            const merged = Array.from(new Set([...globalAch, ...newUnlocked]));
+            localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(merged));
+
             setState(prev => ({
                 ...prev,
-                unlockedAchievements: [...prev.unlockedAchievements, ...newUnlocked],
+                unlockedAchievements: merged,
                 achievementPopup: ACHIEVEMENTS[lastId]
             }));
             
@@ -328,6 +354,11 @@ export const useGameLogic = () => {
     }, [state.isPlaying, state.currentEvent, state.isWeekend, state.week, state.phase, state.eventQueue.length, state.midtermRank, advancePhase, state.competition, state.triggeredEvents, state.isAiGenerating, state.aiBuffer, state.recentEventIds]);
 
     const calculateWeeklyUpdates = (prevState: GameState) => {
+        let moneyChange = 2; // Base weekly money
+        if (prevState.activeChallengeId === 'c_debt_king') {
+            moneyChange -= 25; // Debt King Challenge: -25 money per week
+        }
+
         const currentMoney = prevState.general.money;
         let debtLevel = 0;
         if (currentMoney < -800) debtLevel = 5;
@@ -352,7 +383,7 @@ export const useGameLogic = () => {
 
         const updatedGeneral = {
             ...prevState.general,
-            money: prevState.general.money + 2, 
+            money: prevState.general.money + moneyChange, 
             mindset: Math.max(0, prevState.general.mindset - penaltyMindset),
             romance: Math.max(0, prevState.general.romance - penaltyRomance)
         };
@@ -424,7 +455,13 @@ export const useGameLogic = () => {
         if (saved) {
             try {
                 const loaded = JSON.parse(saved);
-                setState(loaded);
+                const globalAchievements = getGlobalAchievements();
+                // Merge persisted global achievements with saved state to ensure no loss
+                const mergedAchievements = Array.from(new Set([...loaded.unlockedAchievements, ...globalAchievements]));
+                setState({
+                    ...loaded,
+                    unlockedAchievements: mergedAchievements
+                });
                 return true;
             } catch (e) {
                 console.error("Failed to load save", e);
@@ -466,6 +503,9 @@ export const useGameLogic = () => {
             if (effectiveDifficulty === 'NORMAL' || difficulty === 'AI_STORY') { rolledSubjects[k].aptitude += 15; rolledSubjects[k].level += 5; }
         });
 
+        // Ensure achievements are carried over to new game
+        const globalAchievements = getGlobalAchievements();
+
         let tempState: GameState = {
             ...getInitialGameState(),
             subjects: rolledSubjects,
@@ -476,7 +516,8 @@ export const useGameLogic = () => {
             oiStats: getInitialOIStats(),
             difficulty: difficulty, 
             activeChallengeId: activeChallenge ? activeChallenge.id : null,
-            hasSleptThisWeek: false
+            hasSleptThisWeek: false,
+            unlockedAchievements: globalAchievements // Keep existing achievements
         };
         
         selectedTalents.forEach(t => {
@@ -492,7 +533,7 @@ export const useGameLogic = () => {
         const firstEvent = PHASE_EVENTS[Phase.SUMMER].find(e => e.id === 'sum_goal_selection');
         setState({
             ...tempState,
-            unlockedAchievements: state.unlockedAchievements, 
+            unlockedAchievements: tempState.unlockedAchievements, 
             phase: Phase.SUMMER,
             week: 1,
             totalWeeksInPhase: 8,
@@ -503,13 +544,17 @@ export const useGameLogic = () => {
         });
         
         // Only grant First Blood if eligible
-        if (!activeChallenge && !state.unlockedAchievements.includes('first_blood') && difficulty === 'REALITY') {
+        if (!activeChallenge && !tempState.unlockedAchievements.includes('first_blood') && difficulty === 'REALITY') {
             setTimeout(() => {
                 setState(prev => ({
                     ...prev,
                     unlockedAchievements: [...prev.unlockedAchievements, 'first_blood'],
                     achievementPopup: ACHIEVEMENTS['first_blood']
                 }));
+                // Persist new achievement immediately
+                const currentGlobals = getGlobalAchievements();
+                localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify([...currentGlobals, 'first_blood']));
+
                 setTimeout(() => setState(prev => ({ ...prev, achievementPopup: null })), 3000);
             }, 100);
         }
@@ -585,14 +630,15 @@ export const useGameLogic = () => {
         let updates = activity.action(state);
         let resultText = typeof activity.resultText === 'function' ? activity.resultText(state) : activity.resultText;
 
+        // Challenge Check for Sleep King
         if (state.activeChallengeId === 'c_sleep_king' && (activity.id === 'w_sleep' || activity.name.includes('睡'))) {
             updates = { 
                 ...updates, hasSleptThisWeek: true,
                 general: { ...updates.general, health: (updates.general?.health || oldState.general.health || 0) + 5, mindset: (updates.general?.mindset || oldState.general.mindset || 0) + 3 } as GeneralStats
             };
             
-            const roll = Math.random();
-            if (roll < 0.15) {
+             const roll = Math.random();
+             if (roll < 0.15) {
                 resultText = "梦里那个公式... e^(π√163) 居然是整数？你的数学直觉大幅提升！";
                 updates.oiStats = modifyOI(oldState, { math: 15, misc: 10 });
                 // @ts-ignore
@@ -653,7 +699,7 @@ export const useGameLogic = () => {
         const totalStudents = 633;
         
         const mean = 0.68;
-        const std = 0.12;
+        const std = 0.15;
         const z = (percentage - mean) / std;
         
         let percentile = 0.5 * (1 + Math.sign(z) * Math.sqrt(1 - Math.exp(-2 * z * z / Math.PI)));
@@ -674,8 +720,8 @@ export const useGameLogic = () => {
         
         let newClassName = state.className;
         if (state.phase === Phase.PLACEMENT_EXAM) {
-             if (rank <= 200) newClassName = "一类实验班";
-             else if (rank <= 400) newClassName = "二类实验班";
+             if (rank <= 160) newClassName = "一类实验班"; // Updated threshold from 40
+             else if (rank <= 380) newClassName = "二类实验班"; // Updated threshold from 80
              else newClassName = "普通班";
         }
 

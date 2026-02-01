@@ -6,7 +6,7 @@ const API_URL = "https://api.deepseek.com/chat/completions";
 const MODEL_NAME = "deepseek-chat"; 
 
 export const generateBatchGameEvents = async (state: GameState) => {
-  const apiKey = (import.meta as any).env?.VITE_API_KEY || (process as any).env?.API_KEY;
+  const apiKey = "sk-9340cd8251f8405c8d21fe45c5164909";
   if (!apiKey) {
     console.error("API Key is missing!");
     throw new Error("API Key is missing");

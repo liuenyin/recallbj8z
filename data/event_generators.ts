@@ -1,6 +1,6 @@
 
 import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats } from '../types';
-import { modifySub, modifyOI } from './utils';
+import { modifySub, modifyOI, getEffectiveEfficiency } from './utils';
 import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS } from './event_defs';
 
@@ -11,6 +11,7 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
 
     const subject = pool[Math.floor(Math.random() * pool.length)];
     const subName = SUBJECT_NAMES[subject];
+    const efficiency = getEffectiveEfficiency(state);
 
     return {
         id: `study_weekly_${Date.now()}`,
@@ -21,14 +22,14 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
             { 
                 text: '认真听讲', 
                 action: (s) => ({ 
-                    subjects: modifySub(s, [subject], 2 + s.general.efficiency * 0.1),
+                    subjects: modifySub(s, [subject], 2 + efficiency * 0.1),
                     general: { ...s.general, mindset: s.general.mindset - 1 }
                 }) 
             },
             { 
                 text: '偷偷刷题', 
                 action: (s) => ({ 
-                    subjects: modifySub(s, [subject], 4 + s.general.efficiency * 0.1),
+                    subjects: modifySub(s, [subject], 4 + efficiency * 0.1),
                     general: { ...s.general, health: s.general.health - 2 }
                 }) 
             },

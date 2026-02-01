@@ -68,10 +68,10 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, { label: 
             mindset: 50,
             experience: 20,
             luck: 50,
-            romance: 40,
-            health: 30,
-            money: 60,
-            efficiency: 7
+            romance: 20,
+            health: 80,
+            money: 100,
+            efficiency: 12
         }
     }
 };
