@@ -2,7 +2,8 @@
 import { GameState, SUBJECT_NAMES, SubjectKey } from '../types';
 
 // DeepSeek API Configuration
-const API_URL = "https://api.deepseek.com/chat/completions";
+// const API_URL = "https://api.deepseek.com/chat/completions";
+const API_URL = "https://api.chatanywhere.tech/v1/chat/completions";
 const MODEL_NAME = "deepseek-chat"; 
 
 export const generateBatchGameEvents = async (state: GameState) => {
@@ -46,7 +47,7 @@ export const generateBatchGameEvents = async (state: GameState) => {
     请你根据玩家的状态，生成三个风格不同，具有北京高中生活特色的突发事件。
     请根据玩家的【天赋】和【状态】调整事件风格（例如：有“非酋”天赋则多生成倒霉事，有“万人迷”则多生成情感类事件）。
     禁止生成与 "${recentTitles}" 雷同的主题。
-
+    
     【格式要求】
     严格返回 JSON 数组，不要 Markdown 代码块。格式如下：
     [
@@ -118,6 +119,7 @@ export const generateBatchGameEvents = async (state: GameState) => {
     return parsed;
 
   } catch (error) {
+    console.log("Using API Key:", apiKey ? ` ${apiKey}...` : "EMPTY!");
     console.error("AI API Error:", error);
     return [{
       title: "灵感枯竭",

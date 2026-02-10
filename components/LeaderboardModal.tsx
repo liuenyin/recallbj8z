@@ -71,12 +71,13 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, initialCha
                 </div>
 
                 <div className="flex-1 bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-200 bg-slate-100/50 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        <div className="col-span-1 text-center">#</div>
-                        <div className="col-span-3">玩家</div>
-                        <div className="col-span-2 text-right">分数</div>
-                        <div className="col-span-3">称号</div>
-                        <div className="col-span-3 text-right">时间</div>
+                    <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-200 bg-slate-100/50 text-xs font-bold text-slate-500 uppercase">
+                        <div className="col-span-1 text-center" style={{ marginLeft: '6px' }}>#</div>
+                        <div className="col-span-2 text-center" style={{ marginLeft: '68px' }}>玩家</div>
+                        <div className="col-span-3 text-center" style={{ marginLeft: '64px' }}>分数</div>
+                        <div className="col-span-1 text-center" style={{ marginRight: '5px' }}>评级</div>
+                        <div className="col-span-3 text-center" style={{ marginRight: '10px' }}>评价</div>
+                        <div className="col-span-1 text-center" style={{ marginRight: '15px' }}>时间</div>
                     </div>
                     <div className="overflow-y-auto custom-scroll flex-1 p-2">
                         {loading ? (
@@ -96,21 +97,23 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, initialCha
                             </div>
                         ) : (
                             entries.map((entry, idx) => (
-                                <div key={entry.id} className="grid grid-cols-12 gap-4 p-3 hover:bg-white rounded-xl transition-colors items-center text-sm border-b border-slate-100 last:border-0 group">
+                                <div key={entry.id} className="grid grid-cols-12 gap-4 p-3 hover:bg-white rounded-xl transition-colors text-sm border-b border-slate-100 last:border-0 group">
                                     <div className="col-span-1 text-center font-black text-slate-300 group-hover:text-indigo-500">
                                         {idx + 1}
                                     </div>
-                                    <div className="col-span-3 font-bold text-slate-700 truncate">
+                                    <div className="col-span-3 text-center font-bold text-slate-700 truncate">
                                         {entry.player_name}
                                     </div>
-                                    <div className="col-span-2 text-right font-mono font-bold text-indigo-600">
+                                    <div className="col-span-2 text-center font-mono font-bold text-indigo-600">
                                         {Math.floor(entry.score)}
                                     </div>
-                                    <div className="col-span-3 text-xs text-slate-500 truncate">
-                                        <span className="px-2 py-0.5 bg-slate-200 rounded text-[10px] mr-2">{entry.details?.rank || 'B'}</span>
+                                    <div className="col-span-1 text-center text-xs text-slate-500 truncate">
+                                        <span className="px-2 py-0.5 bg-slate-200 rounded text-[10px]">{entry.details?.rank || 'B'}</span>
+                                    </div>
+                                    <div className="col-span-3 text-center">
                                         {entry.details?.title}
                                     </div>
-                                    <div className="col-span-3 text-right text-xs text-slate-400 font-mono">
+                                    <div className="col-start-11 col-span-1 text-center text-xs text-slate-400 font-mono">
                                         {new Date(entry.created_at).toLocaleDateString()}
                                     </div>
                                 </div>

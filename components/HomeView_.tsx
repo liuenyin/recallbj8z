@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { Difficulty, GeneralStats, Challenge } from '../types';
 import { DIFFICULTY_PRESETS, CHANGELOG_DATA } from '../data/constants';
 import { ACHIEVEMENTS } from '../data/mechanics';
-import { IRREGULAR_CHALLENGES } from '../data/challenges';
+import { WEEKLY_CHALLENGES as LOCAL_CHALLENGES } from '../data/challenges';
 import { supabase, getLeaderboard, LeaderboardEntry } from '../lib/supabase';
 import LeaderboardModal from './LeaderboardModal';
 
@@ -23,20 +24,6 @@ const SPONSORS = [
     { name: '爱发电用户_s45p', avatar: 'https://pic1.afdiancdn.com/default/avatar/avatar-blue.png', label: '发电榜三', id: 's3' },
 ];
 
-// 高按钮版本
-// const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void, color: string }> = ({ icon, label, onClick, color }) => (
-//     <button onClick={onClick} className={`flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl transition-all active:scale-95 shadow-sm ${color}`}>
-//         <i className={`fas ${icon} text-lg md:text-xl mb-1`}></i>
-//         <span className="text-[10px] md:text-xs font-bold">{label}</span>
-//     </button>
-// );
-// 矮按钮版本
-const UtilityButton = ({ icon, label, onClick, color }: { icon: string, label: string, onClick: () => void, color: string }) => (
-    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap ${color}`}>
-        <i className={`fas ${icon}`}></i> {label}
-    </button>
-);
-
 const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements }) => {
     const [showChangelog, setShowChangelog] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
@@ -51,19 +38,21 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
     const [topScores, setTopScores] = useState<LeaderboardEntry[]>([]);
 
     // Challenges State
-    const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
-    const [showPastChallenges, setShowPastChallenges] = useState(false);
+    const [challenges, setChallenges] = useState<Challenge[]>(LOCAL_CHALLENGES);
     const [loadingChallenges, setLoadingChallenges] = useState(true);
 
-    const activeChallenge = IRREGULAR_CHALLENGES[showPastChallenges ? Math.max(1, currentChallengeIndex) : 0];
-
     useEffect(() => {
-        const fetchScores = async () => {
+        const fetchChallengesAndScores = async () => {
             setLoadingChallenges(true);
             try {
-                // Fetch Top Scores for the active challenge
-                if (activeChallenge) {
-                    const { data } = await getLeaderboard(activeChallenge.id, (selectedDifficulty === 'CUSTOM' ? 7 : 5));
+                // 1. Fetch Challenges
+                // In a real app we might fetch from DB, here we stick to local or simple DB check
+                // For now, we use the local list which contains the Sleep Challenge
+                setChallenges(LOCAL_CHALLENGES);
+
+                // 2. Fetch Top Scores for the first challenge (Sleep King)
+                if (LOCAL_CHALLENGES.length > 0) {
+                    const { data } = await getLeaderboard(LOCAL_CHALLENGES[0].id, 5);
                     if (data) {
                         // @ts-ignore
                         setTopScores(data);
@@ -75,25 +64,12 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                 setLoadingChallenges(false);
             }
         };
-        fetchScores();
-    }, [activeChallenge, selectedDifficulty]);
+        fetchChallengesAndScores();
+    }, []);
 
     const openLeaderboard = (id: string | null) => {
         setLeaderboardInitId(id);
         setShowLeaderboard(true);
-    };
-
-    const handleChallengeCycle = () => {
-        if (!showPastChallenges) return;
-        // Cycle through past challenges (indices 1 to length-1)
-        if (IRREGULAR_CHALLENGES.length <= 1) return;
-        
-        const nextIndex = currentChallengeIndex + 1;
-        if (nextIndex >= IRREGULAR_CHALLENGES.length) {
-            setCurrentChallengeIndex(1);
-        } else {
-            setCurrentChallengeIndex(nextIndex);
-        }
     };
 
     return (
@@ -107,8 +83,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  
                  {/* 1. Hero Card */}
                  <div className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 md:p-10 shadow-xl shadow-indigo-100/50 border border-slate-100 flex flex-col justify-between min-h-[420px] relative overflow-hidden group">
-                     {/* ... Hero Content ... */}
-                      <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-50 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+                     <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-50 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
                      <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-50 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
 
                      <div className="relative z-10">
@@ -123,6 +98,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  </div>
                              </div>
                              
+                             {/* Visitor Badge */}
                              <div className="hidden md:flex flex-col items-end">
                                  <div className="bg-white/80 backdrop-blur-sm border border-slate-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2">
                                      <span className="relative flex h-2 w-2">
@@ -142,6 +118,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                      </div>
 
                      <div className="relative z-10 mt-10">
+                         {/* Difficulty Select */}
                          <div className="mb-8">
                              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">选择开局难度</h3>
                              <div className="flex flex-wrap gap-3">
@@ -162,24 +139,19 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              </div>
                          </div>
 
-                        {selectedDifficulty === 'CUSTOM' && (
-                            <div className="mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 grid grid-cols-2 gap-x-8 gap-y-3 shadow-inner">
-                               {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
-                                   <div key={key} className="flex items-center">
-                                       <span className="text-[10px] font-bold text-slate-500 w-16 text-right uppercase shrink-0">{key}</span>
-                                       <input 
-                                           type="range" 
-                                           min="0" 
-                                           max="100" 
-                                           value={customStats[key]} 
-                                           onChange={(e) => onCustomStatsChange({...customStats, [key]: parseInt(e.target.value)})} 
-                                           className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 ml-3"
-                                       />
-                                       <span className="text-xs font-bold text-indigo-600 w-8 text-left shrink-0 ml-2">{customStats[key]}</span>
-                                   </div>
-                               ))}
-                           </div>
-                        )}
+                         {selectedDifficulty === 'CUSTOM' && (
+                             <div className="mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 grid grid-cols-2 gap-x-8 gap-y-3 shadow-inner">
+                                 {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
+                                     <div key={key} className="flex items-center gap-3">
+                                         <span className="text-[10px] font-bold text-slate-500 w-12 uppercase">{key}</span>
+                                         <input type="range" min="0" max="100" value={customStats[key]} onChange={(e) => onCustomStatsChange({...customStats, [key]: parseInt(e.target.value)})} 
+                                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                         />
+                                         <span className="text-xs font-bold text-indigo-600 w-8 text-right">{customStats[key]}</span>
+                                     </div>
+                                 ))}
+                             </div>
+                         )}
 
                          <div className="flex gap-4">
                              <button onClick={() => onStart()} className="flex-1 md:w-auto bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-3 active:scale-95">
@@ -192,8 +164,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  </button>
                              )}
                          </div>
-                         
-                         {/* Hints */}
+
                          {selectedDifficulty !== 'REALITY' && selectedDifficulty !== 'AI_STORY' && (
                              <div className="mt-4 text-xs text-amber-500 font-bold flex items-center gap-1.5 bg-amber-50 w-fit px-3 py-1 rounded-full">
                                  <i className="fas fa-exclamation-triangle"></i> 仅在【现实】难度下可解锁成就
@@ -207,28 +178,22 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                      </div>
                  </div>
 
-                 {/* 2. Irregular Challenge (DYNAMIC) */}
-                 <div className={`lg:col-span-4 rounded-[2.5rem] p-8 shadow-xl text-white flex flex-col justify-between relative overflow-hidden group min-h-[300px] transition-colors duration-500 ${showPastChallenges ? 'bg-slate-800' : 'bg-gradient-to-br from-indigo-600 to-violet-700 shadow-indigo-200'}`}>
+                 {/* 2. Weekly Challenge (DYNAMIC) */}
+                 <div className="lg:col-span-4 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2.5rem] p-8 shadow-xl shadow-indigo-200 text-white flex flex-col justify-between relative overflow-hidden group min-h-[300px]">
                      <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl transform translate-x-1/2 -translate-y-1/2"></div>
                      
                      <div className="flex-1 flex flex-col z-10 relative">
                          <div className="flex items-center justify-between mb-6">
-                             <h3 className="font-black opacity-80 uppercase tracking-widest text-xs flex items-center gap-2">
-                                 {showPastChallenges ? <><i className="fas fa-history"></i> 往期挑战</> : <><i className="fas fa-bolt"></i> 不定期挑战</>}
-                             </h3>
+                             <h3 className="font-black text-indigo-200 uppercase tracking-widest text-xs">Weekly Challenge</h3>
                              <div className="flex gap-2 items-center">
                                  <button 
-                                    onClick={() => setShowPastChallenges(!showPastChallenges)}
+                                    onClick={() => openLeaderboard(challenges[0]?.id || null)}
                                     className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-3 py-1 rounded-lg text-[10px] font-bold border border-white/10 transition-colors flex items-center gap-1 active:scale-95"
+                                    title="查看本期榜单"
                                  >
-                                     {showPastChallenges ? '返回最新' : '往期挑战'}
+                                     <i className="fas fa-list-ol"></i> 完整榜单
                                  </button>
-                                 <button 
-                                    onClick={() => openLeaderboard(activeChallenge?.id || null)}
-                                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-3 py-1 rounded-lg text-[10px] font-bold border border-white/10 transition-colors flex items-center gap-1 active:scale-95"
-                                 >
-                                     <i className="fas fa-list-ol"></i>
-                                 </button>
+                                 <span className="bg-white/20 px-2 py-1 rounded-lg text-[10px] font-bold backdrop-blur-sm border border-white/10">S1 赛季</span>
                              </div>
                          </div>
                          
@@ -236,39 +201,32 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <div className="flex-1 flex items-center justify-center">
                                  <i className="fas fa-spinner fa-spin text-2xl opacity-50"></i>
                              </div>
-                         ) : activeChallenge ? (
+                         ) : challenges.length > 0 ? (
                              <>
                                  <div className="mb-6">
-                                     <div className="flex justify-between items-start">
-                                         <h2 className="text-2xl font-black mb-1 truncate flex-1">{activeChallenge.title}</h2>
-                                         {showPastChallenges && IRREGULAR_CHALLENGES.length > 2 && (
-                                             <button onClick={handleChallengeCycle} className="ml-2 opacity-50 hover:opacity-100">
-                                                 <i className="fas fa-chevron-right"></i>
-                                             </button>
-                                         )}
-                                     </div>
-                                     <p className="opacity-80 text-xs line-clamp-3 leading-relaxed">{activeChallenge.description}</p>
+                                     <h2 className="text-2xl font-black mb-1 truncate">{challenges[0].title}</h2>
+                                     <p className="text-indigo-200 text-xs opacity-80 line-clamp-2">{challenges[0].description}</p>
                                  </div>
                                  
                                  <div className="flex-1 bg-black/20 rounded-2xl p-4 backdrop-blur-md border border-white/10 overflow-hidden flex flex-col">
                                      <div className="flex justify-between items-center mb-3 border-b border-white/10 pb-2">
-                                         <span className="text-xs font-bold opacity-80 uppercase">Top {selectedDifficulty === 'CUSTOM' ? 7 : 5} Players</span>
+                                         <span className="text-xs font-bold text-indigo-200 uppercase">Top 5 Players</span>
                                          <i className="fas fa-crown text-yellow-400 text-xs"></i>
                                      </div>
                                      <div className="space-y-3 overflow-y-auto custom-scroll-light pr-1">
                                          {topScores.length > 0 ? topScores.map((entry, idx) => (
                                              <div key={idx} className="flex items-center justify-between text-xs">
                                                  <div className="flex items-center gap-3">
-                                                     <span className={`font-black w-4 text-center ${idx === 0 ? 'text-yellow-300' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-600' : 'opacity-60'}`}>{idx + 1}</span>
+                                                     <span className={`font-black w-4 text-center ${idx === 0 ? 'text-yellow-300' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-600' : 'text-indigo-300'}`}>{idx + 1}</span>
                                                      <div className="flex flex-col">
-                                                         <span className="font-bold text-white truncate max-w-[130px]">{entry.player_name}</span>
-                                                         <span className="text-[10px] opacity-60 truncate max-w-[130px]">{entry.details.rank}</span>
+                                                         <span className="font-bold text-white truncate max-w-[80px]">{entry.player_name}</span>
+                                                         <span className="text-[10px] text-white/50">{entry.details.rank}</span>
                                                      </div>
                                                  </div>
-                                                 <span className="font-mono font-bold opacity-90">{Math.floor(entry.score)}</span>
+                                                 <span className="font-mono font-bold text-indigo-100">{Math.floor(entry.score)}</span>
                                              </div>
                                          )) : (
-                                             <div className="text-center py-4 opacity-50 text-xs">
+                                             <div className="text-center py-4 text-indigo-300/50 text-xs">
                                                  暂无记录，等你来挑战！
                                              </div>
                                          )}
@@ -283,8 +241,10 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          )}
                      </div>
 
-                     {activeChallenge && (
-                        <button onClick={() => onStart(activeChallenge)} className="mt-4 w-full py-4 bg-white text-indigo-900 rounded-xl font-bold hover:bg-indigo-50 transition-colors shadow-lg flex items-center justify-center gap-2 active:scale-95 relative z-20">
+                     {challenges.length > 0 && (
+                        //            修改这里可以修改挑战按钮的链接，目前是默认第一个挑战（欠债挑战）
+                        //            你可以根据需要调整为特定挑战的 ID，欠债挑战可以使用challenges[0]来挑战，睡王是challenges[1]，如果你添加了新的挑战，可以在WEEKLY_CHALLENGES里找到对应的ID来设置
+                        <button onClick={() => onStart(challenges[0])} className="mt-4 w-full py-4 bg-white text-indigo-700 rounded-xl font-bold hover:bg-indigo-50 transition-colors shadow-lg flex items-center justify-center gap-2 active:scale-95 relative z-20">
                             <i className="fas fa-bolt"></i> 立即挑战
                         </button>
                      )}
@@ -319,7 +279,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
 
              </div>
 
-             {/* Modals ... (Rest is largely same but omitting for brevity, assuming standard imports work) */}
+             {/* Modals */}
              
              {showQQGroup && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowQQGroup(false)}>
@@ -337,6 +297,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  </div>
              )}
              
+             {/* Bilibili Video Modal */}
              {showVideo && (
                  <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowVideo(false)}>
                      <div className="w-full max-w-5xl aspect-video bg-black rounded-3xl shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -386,6 +347,8 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
              )}
              
              {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} initialChallengeId={leaderboardInitId} />}
+             
+             {/* ... Other modals ... */}
              
              {showChangelog && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowChangelog(false)}>
@@ -481,5 +444,11 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
         </div>
     );
 };
+
+const UtilityButton = ({ icon, label, onClick, color }: { icon: string, label: string, onClick: () => void, color: string }) => (
+    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap ${color}`}>
+        <i className={`fas ${icon}`}></i> {label}
+    </button>
+);
 
 export default HomeView;
