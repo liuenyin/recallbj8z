@@ -113,7 +113,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          
                          <p className="mt-8 text-lg text-slate-600 leading-relaxed max-w-lg font-medium">
                              如果是你，能在这所学校里活得更精彩吗？<br/>
-                             <span className="text-sm text-slate-400 font-normal">体验真实的高中生活，做出你的选择。</span>
+                             <span className="text-sm text-slate-400 font-normal">体验真实的高中生活，做出你的选择。|| 作者最近事情比较多可能无法更新/维护，欢迎自行来github.com/liuenyin/recallbj8z提交commit参与开发与更新（）</span>
                          </p>
                      </div>
 
