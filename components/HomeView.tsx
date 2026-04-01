@@ -23,7 +23,7 @@ const SPONSORS = [
     { name: '爱发电用户_s45p', avatar: 'https://pic1.afdiancdn.com/default/avatar/avatar-blue.png', label: '发电榜三', id: 's3' },
 ];
 
-// 高按钮版本
+// 
 // const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void, color: string }> = ({ icon, label, onClick, color }) => (
 //     <button onClick={onClick} className={`flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl transition-all active:scale-95 shadow-sm ${color}`}>
 //         <i className={`fas ${icon} text-lg md:text-xl mb-1`}></i>
