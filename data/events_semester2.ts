@@ -47,7 +47,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
                 text: '买一份精致的礼物 (花费 ¥50)',
                 condition: (s) => s.general.money >= 50,
                 action: (s) => ({
-                    general: { ...s.general, money: s.general.money - 50, romance: s.general.romance + 15, charisma: s.general.charisma + 10 },
+                    general: { ...s.general, money: s.general.money - 50, romance: s.general.romance + 15 },
                     log: [...s.log, { message: '同桌收到礼物非常开心，你们的关系更进了一步！', type: 'success', timestamp: Date.now() }]
                 })
             },
@@ -153,7 +153,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.debate_joined && s.week === 11,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.debate_joined && s.week === 12,
         choices: [
             { 
                 text: '逻辑碾压', 

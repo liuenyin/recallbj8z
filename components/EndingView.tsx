@@ -9,7 +9,7 @@ const EndingView: React.FC<EndingViewProps> = ({ state }) => {
 
   const { rank, title, message, details } = useMemo(() => {
     // Calculate score from subject levels (main academic measure)
-    const subjectAvg = Object.values(state.subjects).reduce((sum, s) => sum + s.level, 0) / Object.keys(state.subjects).length;
+    const subjectAvg = (Object.values(state.subjects) as Array<{ level: number }>).reduce((sum, s) => sum + s.level, 0) / Object.keys(state.subjects).length;
     // Combine with general stats
     let score = subjectAvg * 1.5 + state.general.experience * 0.3 + state.general.efficiency * 0.4;
     // Exam performance bonus

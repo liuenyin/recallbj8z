@@ -6,6 +6,7 @@ const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
     title: e.title,
     description: e.description,
     type: e.type,
+    triggerType: e.triggerType || 'RANDOM',
     choices: e.choices.map((c: any) => ({
         text: c.text,
         action: (s: GameState) => {

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Difficulty, GeneralStats, Talent, Phase, GameState, Challenge } from './types';
+import { AiConfig, Difficulty, GeneralStats, Talent, Phase, GameState, Challenge } from './types';
 import { DIFFICULTY_PRESETS } from './data/constants';
 import { CLUBS, SHOP_ITEMS, ACHIEVEMENTS, TALENTS } from './data/mechanics';
 import { useGameLogic } from './hooks/useGameLogic';
@@ -9,7 +9,6 @@ import { useGameLogic } from './hooks/useGameLogic';
 import StatsPanel from './components/StatsPanel';
 import TimetableModal from './components/TimetableModal';
 import ContestHistoryModal from './components/ContestHistoryModal';
-import HistoricalTicker from "./components/HistoricalTicker";
 import ExamView from './components/ExamView';
 import HomeView from './components/HomeView';
 import TalentView from './components/TalentView';
@@ -17,6 +16,7 @@ import EndingScreen from './components/EndingScreen';
 import EventModal from './components/EventModal';
 import FloatingTextLayer, { FloatingTextItem } from './components/FloatingTextLayer';
 import RealityGuideModal from './components/RealityGuideModal';
+import { loadAiConfig, saveAiConfig } from './lib/gemini';
 
 import { SUBJECT_NAMES, SubjectKey } from './types';
 
@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showContestHistory, setShowContestHistory] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState<Challenge | null>(null);
+  const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadAiConfig());
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
@@ -71,9 +72,16 @@ const App: React.FC = () => {
        check('money', '金钱', 'money');
        check('romance', '魅力', 'romance');
        check('efficiency', '效率', 'efficiency');
-       check('experience', '经验', 'experience');
-       check('luck', '运气', 'luck');
-       return diffs;
+      check('experience', '经验', 'experience');
+      check('luck', '运气', 'luck');
+      const fatigueDelta = newState.fatigue - oldState.fatigue;
+      if (Math.abs(fatigueDelta) >= 1) {
+          const val = Math.round(fatigueDelta * 10) / 10;
+          const text = `疲劳 ${val > 0 ? '+' : ''}${val}`;
+          diffs.push(text);
+          setTimeout(() => spawnFloatingText(text, (x || window.innerWidth / 2) + (Math.random() * 40 - 20), (y || window.innerHeight / 2) + (Math.random() * 40 - 20), val > 0 ? 'health' : 'mindset'), diffs.length * 100);
+      }
+      return diffs;
   };
 
   const { 
@@ -81,7 +89,7 @@ const App: React.FC = () => {
       startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
       executeTimetable, handleExamFinish, closeCompetitionPopup, closeExamResult, closeMiniGame,
       weekendOptions 
-  } = useGameLogic();
+  } = useGameLogic(aiConfig);
 
   React.useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,6 +138,11 @@ const App: React.FC = () => {
       if (loadGame()) setView('GAME');
   };
 
+  const handleAiConfigChange = (config: AiConfig) => {
+      setAiConfig(config);
+      saveAiConfig(config);
+  };
+
   const calculateProgress = () => state.totalWeeksInPhase === 0 ? 0 : Math.min(100, (state.week / state.totalWeeksInPhase) * 100);
   
   const getEndingData = () => {
@@ -138,9 +151,17 @@ const App: React.FC = () => {
      }
 
       // Calculate score from subject levels (main academic measure)
-      const subjectAvg = Object.values(state.subjects).reduce((sum, s) => sum + s.level, 0) / Object.keys(state.subjects).length;
-      // Combine with general stats
+      const subjectAvg = (Object.values(state.subjects) as Array<{ level: number }>).reduce((sum, s) => sum + s.level, 0) / Object.keys(state.subjects).length;
+      const projectCount = state.completedProjects.length;
+      const oiPower = Object.entries(state.oiStats)
+        .filter(([key]) => key !== 'history')
+        .reduce((sum, [, value]) => sum + Number(value || 0), 0);
+      // Academic performance remains the backbone, while completed experiences make
+      // different routes matter in the final report.
       let score = subjectAvg * 1.5 + state.general.experience * 0.3 + state.general.efficiency * 0.4;
+      score += Math.min(8, projectCount * 3);
+      if (state.club && state.club !== 'none') score += 3;
+      if (state.flags.rival_resolved) score += 3;
       // Exam performance bonus
       if (state.examResult?.totalScore) score += state.examResult.totalScore / 20;
       // Clamp to 0-100 range
@@ -148,6 +169,11 @@ const App: React.FC = () => {
 
      let noiMedal = state.flags.noi_medal;
      let provincialTeam = state.flags.provincial_team;
+     const overworked = state.general.health <= 0 || (state.fatigue >= 90 && state.general.health < 35);
+     const balancedLife = !!state.romancePartner && state.general.health >= 60 && state.fatigue <= 60;
+     const clubOrganizer = !!state.club && state.club !== 'none' && state.general.experience >= 50;
+     const projectFinisher = projectCount > 0;
+     const rivalGrowth = !!state.flags.rival_resolved;
 
      let rank = 'C';
      let title = '普通高中生';
@@ -165,6 +191,30 @@ const App: React.FC = () => {
        rank = 'S';
        title = '省队巨佬';
        comment = '你能冲入省队，已经在八中的历史上留下了浓墨重彩的一笔。前面的路，以后再来探索吧。';
+     } else if (overworked) {
+       rank = 'F';
+       title = '过劳警告';
+       comment = '你把太多时间交给了成绩，却没有给身体留下恢复的余地。学年结束时，健康和疲劳一起亮起了红灯。';
+     } else if (balancedLife) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '平衡生活者';
+       comment = `你在${state.romancePartner}的陪伴、学业和健康之间找到了自己的节奏。成绩不是唯一答案，但你确实把这一年过得很完整。`;
+     } else if (state.competition === 'OI' && oiPower >= 12) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = 'OI 探索者';
+       comment = '你没有把竞赛只当成一张奖状，而是沿着算法、思维和一次次调试走出了自己的方向。下一枚奖牌，还在更远的赛场。';
+     } else if (clubOrganizer) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '社团组织者';
+       comment = '你把时间投入到一群人和一件具体的事里，学会了组织、沟通，也留下了课堂分数之外的作品和记忆。';
+     } else if (projectFinisher) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '项目完成者';
+       comment = `你完成了${projectCount}个长期项目。真正的成长不是“想做什么”，而是把它推进到可以交付的那一天。`;
+     } else if (rivalGrowth) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '竞争与成长';
+       comment = '你没有把对手变成敌人，而是在一次次较量和和解里看见了自己的边界。有人同行，成长会更清晰。';
      } else if (score >= 90) {
        rank = 'S';
        title = '年级学神';
@@ -201,6 +251,7 @@ const App: React.FC = () => {
             customStats={customStats} onCustomStatsChange={setCustomStats}
             onStart={prepareGame} hasSave={hasSave} onLoadGame={handleLoadGame}
             unlockedAchievements={state.unlockedAchievements}
+            aiConfig={aiConfig} onAiConfigChange={handleAiConfigChange}
           />
       );
   }
@@ -235,23 +286,6 @@ const App: React.FC = () => {
       <div className={`fixed inset-0 pointer-events-none z-[50] transition-all duration-1000 ${state.general.health < 30 ? 'opacity-100' : 'opacity-0'}`} style={{ boxShadow: 'inset 0 0 100px rgba(255, 0, 0, 0.3)' }}></div>
       <FloatingTextLayer items={floatingTexts} />
       
-      <HistoricalTicker
-          events={state.pendingHistoricalEvents}
-          onEventClick={(e) => {
-              setState(prev => ({
-                  ...prev,
-                  pendingHistoricalEvents: prev.pendingHistoricalEvents.filter(he => he.id !== e.id),
-                  currentEvent: e,
-                  isPlaying: false
-              }));
-          }}
-          onAnimationEnd={(id) => {
-              setState(prev => ({
-                  ...prev,
-                  pendingHistoricalEvents: prev.pendingHistoricalEvents.filter(he => he.id !== id)
-              }));
-          }}
-       />
       {showRealityGuide && <RealityGuideModal onClose={() => setShowRealityGuide(false)} />}
       
       
@@ -535,7 +569,7 @@ const App: React.FC = () => {
             <EndingScreen 
                 state={state}
                 endingData={getEndingData()}
-                onRestart={() => setView('HOME')}
+                onRestart={() => { localStorage.removeItem('recall_save_v1'); setView('HOME'); window.location.reload(); }}
                 onViewHistory={() => setShowHistory(true)}
             />
         )}

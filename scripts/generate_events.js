@@ -1,7 +1,7 @@
 import fs from 'fs';
 import https from 'https';
 
-const API_KEY = "sk-9340cd8251f8405c8d21fe45c5164909";
+const API_KEY = process.env.DEEPSEEK_API_KEY;
 const API_URL = "https://api.deepseek.com/chat/completions";
 const TOTAL_BATCHES = 50; // Each batch generates ~10 events, totaling ~500
 const OUTPUT_FILE = './data/ai_generated_events.json';
@@ -79,6 +79,9 @@ async function callAPI() {
 }
 
 async function run() {
+    if (!API_KEY) {
+        throw new Error('DEEPSEEK_API_KEY is required to generate events.');
+    }
     let allEvents = [];
     if (fs.existsSync(OUTPUT_FILE)) {
         try { allEvents = JSON.parse(fs.readFileSync(OUTPUT_FILE, 'utf8')); } catch (e) {}

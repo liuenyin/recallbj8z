@@ -31,8 +31,11 @@ export const getEffectiveEfficiency = (state: GameState): number => {
         const debt = Math.abs(state.general.money);
         eff += Math.floor(debt / 15);
     }
+
+    const fatiguePenalty = state.fatigue >= 90 ? 6 : state.fatigue >= 75 ? 3 : state.fatigue >= 50 ? 1 : 0;
+    eff -= fatiguePenalty;
     
-    return eff;
+    return Math.max(0, eff);
 };
 
 // --- Helper for AI Event Effects ---
@@ -50,10 +53,12 @@ export const applyAiEffect = (s: GameState, effect: SerializableEffect): Partial
     if (effect.romance) updates.general!.romance = Math.min(150, Math.max(0, s.general.romance + effect.romance));
     if (effect.experience) updates.general!.experience = Math.min(150, Math.max(0, s.general.experience + effect.experience));
     if (effect.luck) updates.general!.luck = Math.min(150, Math.max(0, s.general.luck + effect.luck));
+    if (effect.fatigue) updates.fatigue = Math.min(100, Math.max(0, (s.fatigue || 0) + effect.fatigue));
 
     // AI Romance Logic
     if (effect.romancePartner) {
         updates.romancePartner = effect.romancePartner;
+        updates.flags = { ...s.flags, relationship_name: effect.romancePartner };
     }
 
     if (effect.subjects) {

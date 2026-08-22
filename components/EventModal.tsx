@@ -12,6 +12,19 @@ interface EventModalProps {
 }
 
 const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm }) => {
+    const formatStoryText = (text: string) => text.replace(/\bTA\b/g, state.flags.relationship_name || 'TA');
+    const getDiffClass = (diff: string) => {
+        if (diff.startsWith('疲劳 ')) {
+            return diff.includes('+')
+                ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                : 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+        }
+        return diff.includes('+')
+            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+            : diff.includes('-')
+                ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                : 'bg-blue-50 text-blue-600 border border-blue-100';
+    };
     // Filter choices: Show if no condition OR condition is met
     const visibleChoices = event.choices?.filter(c => !c.condition || c.condition(state)) || [];
 
@@ -37,9 +50,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                           {state.eventQueue.length > 0 && <span className="bg-rose-100/80 backdrop-blur text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm">+{state.eventQueue.length} 更多</span>}
                       </div>
                       <p className="text-slate-700 mb-8 text-base md:text-lg leading-relaxed font-medium">
-                          {typeof event.description === 'function' 
+                          {formatStoryText(typeof event.description === 'function'
                             ? event.description(state) 
-                            : event.description}
+                            : event.description)}
                       </p>
                       <div className="space-y-3">
                          {visibleChoices.map((c, i) => (
@@ -49,10 +62,16 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                              key={i} onClick={(e: any) => onChoice(c, e)} 
                              className={`w-full text-left p-4 rounded-2xl border transition-all font-bold group flex justify-between items-center shadow-sm ${c.text.includes('【睡神】') ? 'bg-indigo-50/80 border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-200/50 hover:shadow-lg' : 'bg-white/60 border-white/50 text-slate-800 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-indigo-200/50 hover:shadow-lg'}`}
                            >
-                              {c.text}
+                              {formatStoryText(c.text)}
                               <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0"></i>
                            </motion.button>
                          ))}
+                         {visibleChoices.length === 0 && (
+                           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center text-sm font-bold text-amber-700">
+                             当前没有可用选项，已跳过此事件。
+                             <button type="button" onClick={onConfirm} className="ml-3 underline">继续</button>
+                           </div>
+                         )}
                       </div>
                     </motion.div>
                   ) : (
@@ -65,7 +84,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                       >
                         <i className="fas fa-check"></i>
                       </motion.div>
-                      <h2 className="text-2xl font-black text-slate-800 mb-3 italic">"{eventResult.choice.text}"</h2>
+                      <h2 className="text-2xl font-black text-slate-800 mb-3 italic">"{formatStoryText(eventResult.choice.text)}"</h2>
+                      {eventResult.choice.resultDescription && (
+                        <p className="text-slate-600 leading-relaxed text-sm md:text-base max-w-lg mx-auto mb-5">
+                          {formatStoryText(eventResult.choice.resultDescription)}
+                        </p>
+                      )}
                       {eventResult.diff.length > 0 && (
                         <div className="flex flex-wrap justify-center gap-2 mb-10 mt-6">
                            {eventResult.diff.map((d, i) => (
@@ -73,7 +97,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                                initial={{ opacity: 0, y: 10 }}
                                animate={{ opacity: 1, y: 0 }}
                                transition={{ delay: i * 0.1 }}
-                               key={i} className={`px-4 py-2 rounded-full text-xs font-black shadow-sm ${d.includes('+') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : d.includes('-') ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}
+                               key={i} className={`px-4 py-2 rounded-full text-xs font-black shadow-sm ${getDiffClass(d)}`}
                              >
                                {d}
                              </motion.span>

@@ -111,8 +111,11 @@ let currentLoadedCityCode = '';
 
 export const loadCityEvents = async (code: string, regionName: string) => {
     if (currentLoadedCityCode === code) return;
+    loadedCityEvents = [];
+    currentLoadedCityCode = '';
     try {
-        const res = await fetch(`/cities/${code}.json`);
+        const res = await fetch(new URL(`cities/${code}.json`, document.baseURI).toString());
+        if (!res.ok) throw new Error(`City event request failed: ${res.status}`);
         const data = await res.json();
         
         const mapped: HistoricalEventDef[] = data.events.map((e: any) => ({
@@ -153,6 +156,7 @@ export const loadCityEvents = async (code: string, regionName: string) => {
         console.log(`Loaded ${mapped.length} events for ${regionName} (${code})`);
     } catch (e) {
         console.error("Failed to load city events", e);
+        loadedCityEvents = [];
     }
 };
 

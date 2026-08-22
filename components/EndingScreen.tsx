@@ -72,10 +72,11 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                              <h3 className="font-black text-slate-400 uppercase text-xs">综合能力评估</h3>
                              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                  {/* Simple Stat Bars */}
-                                 {[
-                                     { label: '心态', val: state.general.mindset, max: 100, color: 'bg-blue-500' },
-                                     { label: '健康', val: state.general.health, max: 100, color: 'bg-emerald-500' },
-                                     { label: '效率', val: state.general.efficiency * 5, max: 100, color: 'bg-purple-500' },
+                                     {[
+                                         { label: '心态', val: state.general.mindset, max: 100, color: 'bg-blue-500' },
+                                         { label: '健康', val: state.general.health, max: 100, color: 'bg-emerald-500' },
+                                         { label: '疲劳', val: state.fatigue, max: 100, color: 'bg-rose-500' },
+                                         { label: '效率', val: state.general.efficiency * 5, max: 100, color: 'bg-purple-500' },
                                      { label: '魅力', val: state.general.romance, max: 100, color: 'bg-rose-500' },
                                      { label: 'OI实力', val: (state.oiStats.dp + state.oiStats.ds + state.oiStats.math + state.oiStats.string + state.oiStats.graph + state.oiStats.misc) * 5, max: 100, color: 'bg-indigo-500' },
                                      { label: '财富', val: Math.max(0, Math.min(100, state.general.money / 5)), max: 100, color: 'bg-yellow-500' },
@@ -130,7 +131,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                         <div className="mt-8 pt-6 border-t border-slate-100">
                              <div className="flex justify-between items-end mb-4">
                                  <div>
-                                     <div className="text-xs font-bold text-slate-400 uppercase">本局成就</div>
+                                     <div className="text-xs font-bold text-slate-400 uppercase">累计成就</div>
                                      <div className="text-2xl font-black text-slate-800">{state.unlockedAchievements.length} 个</div>
                                  </div>
                                  <div className="text-right">
@@ -143,7 +144,9 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                  <button onClick={onRestart} className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center justify-center gap-2">
                                      <i className="fas fa-redo-alt"></i> 再来一年
                                  </button>
-                                 
+                                 <button onClick={onViewHistory} className="px-5 bg-white text-slate-700 border-2 border-slate-200 py-4 rounded-2xl font-black hover:border-indigo-300 hover:text-indigo-600 transition-all" title="查看本局经历">
+                                     <i className="fas fa-history"></i>
+                                 </button>
                                  
                              </div>
                         </div>

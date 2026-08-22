@@ -213,7 +213,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
                 resultDescription: '在零点钟声敲响的那一刻，你们紧紧相拥。在这所高中里，你不再是孤单一人了。（确立关系！）',
                 action: (s) => ({
                     general: { ...s.general, mindset: Math.min(200, s.general.mindset + 100), health: s.general.health + 20, efficiency: s.general.efficiency + 3, romance: s.general.romance + 20, luck: s.general.luck + 10 },
-                    romancePartner: 'TA'
+                    romancePartner: s.flags.relationship_name || 'TA'
                 })
             },
             {
@@ -259,7 +259,9 @@ export const ROMANCE_EVENTS: GameEvent[] = [
         description: '春暖花开，TA提议周末一起去玉渊潭看樱花。',
         type: 'positive',
         triggerType: 'RANDOM',
-        condition: (s) => !!s.romancePartner && s.phase === Phase.SEMESTER_2 && s.week > 4 && s.week < 8 && s.isWeekend,
+        // Weekend planning is opened after weekly events, so this route event
+        // must be eligible during the week that schedules the date.
+        condition: (s) => !!s.romancePartner && s.phase === Phase.SEMESTER_2 && s.week > 4 && s.week < 8,
         choices: [
             {
                 text: '欣然前往，准备相机（花费50金钱）',

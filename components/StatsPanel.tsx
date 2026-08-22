@@ -2,6 +2,7 @@
 import React from 'react';
 import { GameState, SUBJECT_NAMES, SubjectKey } from '../types';
 import { getEffectiveEfficiency } from '../data/utils';
+import { getRelationshipStage, RELATIONSHIP_PROFILES } from '../data/relationships';
 
 interface StatsPanelProps {
   state: GameState;
@@ -18,9 +19,9 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
         {state.worldContext && (
             <div className="mb-4 p-3 bg-gradient-to-r from-slate-800 to-indigo-900 rounded-xl text-white shadow-inner flex flex-col gap-1 relative overflow-hidden">
                 <i className="fas fa-globe-asia absolute -right-2 -bottom-4 text-6xl text-white/10"></i>
-                <div className="text-[10px] text-indigo-200 font-bold tracking-widest uppercase mb-1">World Context</div>
+                <div className="text-[10px] text-indigo-200 font-bold tracking-widest uppercase mb-1">背景城市 / 时代</div>
                 <div className="flex items-center justify-between z-10">
-                    <span className="font-black text-sm">{state.worldContext.region}</span>
+                    <span className="font-black text-sm">来自{state.worldContext.region} · 就读八中</span>
                     <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">{state.worldContext.yearStart} - {state.worldContext.yearEnd}</span>
                 </div>
             </div>
@@ -36,6 +37,24 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
             )}
         </div>
       </div>
+
+      {state.relationshipProfileId && (() => {
+        const profile = RELATIONSHIP_PROFILES.find(item => item.id === state.relationshipProfileId);
+        if (!profile) return null;
+        return (
+          <div className="bg-rose-50 rounded-xl p-3 border border-rose-100">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-xs font-black text-rose-800 flex items-center gap-2">
+                <i className="fas fa-user-friends"></i> 重要同学
+              </span>
+              <span className="text-[10px] font-bold text-rose-500">{getRelationshipStage(state)}</span>
+            </div>
+            <div className="text-sm font-black text-slate-800">{profile.name} · {profile.role}</div>
+            <div className="text-[11px] leading-relaxed text-slate-600 mt-1">{profile.personality}</div>
+            <div className="text-[10px] leading-relaxed text-rose-600 mt-1">路线提示：{profile.routeHint}</div>
+          </div>
+        );
+      })()}
 
       {/* 学业背景 */}
       <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
@@ -54,7 +73,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
       {/* 6大基础属性 */}
       <div>
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <i className="fas fa-chart-bar"></i> 基础属性
+            <i className="fas fa-chart-bar"></i> 身心状态
         </h3>
         <div className="grid grid-cols-2 gap-2">
             <StatMini icon="fa-brain" label="心态" value={state.general.mindset} color="text-indigo-500" hideValue={state.difficulty === 'REALITY'} />
@@ -63,6 +82,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
             <StatMini icon="fa-book" label="经验" value={state.general.experience} color="text-blue-500" hideValue={state.difficulty === 'REALITY'} />
             <StatMini icon="fa-star" label="幸运" value={state.general.luck} color="text-amber-500" hideValue={state.difficulty === 'REALITY'} />
             <StatMini icon="fa-heart" label="桃花" value={state.general.romance} color="text-pink-500" hideValue={state.difficulty === 'REALITY'} />
+            <StatMini icon="fa-battery-quarter" label="疲劳" value={state.fatigue} color="text-rose-500" hideValue={state.difficulty === 'REALITY'} />
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { SEMESTER_2_EVENTS, WINTER_BREAK_EVENTS } from "./events_semester2";
 import { STUDY_TOUR_EVENTS } from "./events_study_tour";
 import { OI_EVENTS } from "./events_oi";
 import { ROMANCE_EVENTS } from "./events_romance";
+import { RIVAL_EVENTS } from "./events_character";
 
 import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats, EventChoice, Phase } from '../types';
 import { modifySub, modifyOI, mapAiEventToGameEvent } from './utils';
@@ -104,7 +105,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_water_group',
         title: '新生群潜水',
-        description: '你加入了2028届八中新生群。群里消息99+，有人在爆照，有人在装弱，似乎还有学长学姐。',
+        description: '你加入了本届八中新生群。群里消息99+，有人在爆照，有人在装弱，似乎还有学长学姐。',
         type: 'neutral',
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
@@ -651,7 +652,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.INIT]: [],
     [Phase.SUMMER]: injectSleep(SUMMER_EVENTS_RAW),
     [Phase.MILITARY]: injectSleep(MILITARY_EVENTS_RAW),
-    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.SELECTION]: [],
     [Phase.PLACEMENT_EXAM]: [],
     [Phase.MIDTERM_EXAM]: [],
@@ -664,7 +665,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.ENDING]: [],
     [Phase.WITHDRAWAL]: [],
     [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...ROMANCE_EVENTS]),
-    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...RIVAL_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.WC_EXAM]: [],
     [Phase.PROVINCIAL_EXAM]: [],

@@ -1,20 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Difficulty, GeneralStats, Challenge } from '../types';
+import React from 'react';
+import { AiConfig, Difficulty, GeneralStats } from '../types';
 import { DIFFICULTY_PRESETS, CHANGELOG_DATA } from '../data/constants';
 import { ACHIEVEMENTS } from '../data/mechanics';
-import { IRREGULAR_CHALLENGES } from '../data/challenges';
 import { motion } from 'framer-motion';
 import AchievementDesk from './AchievementDesk';
+import AiSettingsModal from './AiSettingsModal';
 
 interface HomeViewProps {
     selectedDifficulty: Difficulty;
     onDifficultyChange: (diff: Difficulty) => void;
     customStats: GeneralStats;
     onCustomStatsChange: (stats: GeneralStats) => void;
-    onStart: (challenge?: Challenge) => void; 
+    onStart: () => void;
     hasSave: boolean;
     onLoadGame: () => void;
     unlockedAchievements: string[];
+    aiConfig: AiConfig;
+    onAiConfigChange: (config: AiConfig) => void;
 }
 
 const SPONSORS = [
@@ -30,38 +32,16 @@ const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void
     </button>
 );
 
-const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements }) => {
+const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements, aiConfig, onAiConfigChange }) => {
     const [showChangelog, setShowChangelog] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
     const [showSettings, setShowSettings] = React.useState(false);
+    const [showAiSettings, setShowAiSettings] = React.useState(false);
     const [showAchievements, setShowAchievements] = React.useState(false);
     const [showQQGroup, setShowQQGroup] = React.useState(false);
     const [showVideo, setShowVideo] = React.useState(false);
     
                 
-    // Challenges State
-    const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
-    const [showPastChallenges, setShowPastChallenges] = useState(false);
-    const [loadingChallenges, setLoadingChallenges] = useState(true);
-
-    const activeChallenge = IRREGULAR_CHALLENGES[showPastChallenges ? Math.max(1, currentChallengeIndex) : 0];
-
-    
-
-    
-    const handleChallengeCycle = () => {
-        if (!showPastChallenges) return;
-        // Cycle through past challenges (indices 1 to length-1)
-        if (IRREGULAR_CHALLENGES.length <= 1) return;
-        
-        const nextIndex = currentChallengeIndex + 1;
-        if (nextIndex >= IRREGULAR_CHALLENGES.length) {
-            setCurrentChallengeIndex(1);
-        } else {
-            setCurrentChallengeIndex(nextIndex);
-        }
-    };
-
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-4 md:p-8 flex items-center justify-center">
              <div className="fixed top-0 left-0 w-full h-full opacity-5 pointer-events-none overflow-hidden z-0">
@@ -144,9 +124,14 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          
                          {/* Achievement Meta Progression */}
                          <div className="mt-8">
-                             <button onClick={() => setShowAchievements(true)} className="px-6 py-3 bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 rounded-xl font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
-                                 <i className="fas fa-trophy text-yellow-500"></i> 查看成就墙 ({unlockedAchievements.length} / {Object.keys(ACHIEVEMENTS).length})
-                             </button>
+                             <div className="flex flex-wrap gap-3">
+                                 <button onClick={() => setShowAchievements(true)} className="px-6 py-3 bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 rounded-xl font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+                                     <i className="fas fa-trophy text-yellow-500"></i> 查看成就墙 ({unlockedAchievements.length} / {Object.keys(ACHIEVEMENTS).length})
+                                 </button>
+                                 <button onClick={() => setShowAiSettings(true)} className={`px-6 py-3 border rounded-xl font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 ${aiConfig.enabled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'}`}>
+                                     <i className="fas fa-robot"></i> {aiConfig.enabled ? 'AI 模式已启用' : 'AI 模式设置'}
+                                 </button>
+                             </div>
                          </div>
 
                          <div className="flex gap-4 mt-8">
@@ -198,6 +183,10 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          <p className="text-center text-xs text-slate-400">点击图片或长按保存扫描</p>
                      </div>
                  </div>
+             )}
+
+             {showAiSettings && (
+                 <AiSettingsModal config={aiConfig} onSave={onAiConfigChange} onClose={() => setShowAiSettings(false)} />
              )}
              
              {showVideo && (

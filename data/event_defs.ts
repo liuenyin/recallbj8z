@@ -15,7 +15,7 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
         type: 'positive',
         choices: [{ text: '太棒了', action: (s) => ({ 
             general: { ...s.general, mindset: s.general.mindset + 20, romance: s.general.romance + 20 }, 
-            romancePartner: 'TA',
+            romancePartner: s.flags.relationship_name || 'TA',
             activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 10 }] 
         }) }]
     },

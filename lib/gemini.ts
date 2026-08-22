@@ -1,135 +1,247 @@
+import {
+  AiConfig,
+  AiGeneratedEvent,
+  AiGeneratedEventChoice,
+  GameState,
+  OIStats,
+  SerializableEffect,
+  SubjectKey,
+  SUBJECT_NAMES
+} from '../types';
 
-import { GameState, SUBJECT_NAMES, SubjectKey } from '../types';
+export const DEFAULT_AI_CONFIG: AiConfig = {
+  enabled: false,
+  apiUrl: 'https://api.deepseek.com/chat/completions',
+  apiKey: '',
+  model: 'deepseek-chat'
+};
 
-// DeepSeek API Configuration
-const API_URL = "https://api.deepseek.com/chat/completions";
-const MODEL_NAME = "deepseek-chat"; 
+const AI_CONFIG_STORAGE_KEY = 'recall_ai_config_v1';
+const GENERAL_EFFECT_KEYS = ['mindset', 'health', 'money', 'efficiency', 'romance', 'experience', 'luck', 'fatigue'] as const;
+const OI_EFFECT_KEYS = ['dp', 'ds', 'math', 'string', 'graph', 'misc'] as const;
 
-export const generateBatchGameEvents = async (state: GameState) => {
-  const apiKey = "sk-9340cd8251f8405c8d21fe45c5164909";
-  if (!apiKey) {
-    console.error("API Key is missing!");
-    throw new Error("API Key is missing");
+const getEnvironmentApiKey = (): string => {
+  try {
+    return typeof process !== 'undefined' ? process.env.DEEPSEEK_API_KEY || '' : '';
+  } catch {
+    return '';
   }
+};
 
-  // 1. Context Construction
-  const subjectsStr = (Object.entries(state.subjects) as [SubjectKey, { level: number }][])
-    .map(([k, v]) => `${SUBJECT_NAMES[k]}:Lv${Math.floor(v.level)}`)
-    .join(', ');
-  
-  const statusStr = state.activeStatuses.map(s => s.name).join(',');
-   const talentsStr = state.talents.map(t => t.name).join(', ');
-  // Use history for context
-  const recentHistory = state.history.slice(-5).map(h => `[Week ${h.week}] ${h.eventTitle}: ${h.resultSummary}`).join('\n');
-  const recentTitles = state.history.slice(-5).map(h => h.eventTitle).join('、');
+const getEnvironmentConfig = (): AiConfig => ({
+  ...DEFAULT_AI_CONFIG,
+  enabled: Boolean(getEnvironmentApiKey()),
+  apiKey: getEnvironmentApiKey()
+});
 
-  const systemPrompt = `
-    你是一个【北京八中重开模拟器】的事件生成引擎。
-    
-    玩家是一名八中的高一新生。游戏分为三个阶段：暑假/军训/高一上学期（第11周期中考试，21周期末考试）
-    【当前状态】
-    - 身份: ${state.competition === 'OI' ? '信竞生 (OIer)' : '高考生'}
-    - 天赋: [${talentsStr || "无"}]
-    - 阶段: ${state.phase} (第 ${state.week} 周)
-    - 属性: 心态${state.general.mindset}, 健康${state.general.health}, 钱${state.general.money}, 效率${state.general.efficiency},魅力${state.general.romance}
-    - 关系: ${state.romancePartner ? `对象:${state.romancePartner}` : '单身'}
-    - 状态: [${statusStr}]
-    
-    【重要属性说明 - 请严格遵守】
-    1. **效率 (efficiency)**: 范围 0-20。通常 +1 或 -1。极少数情况 +2,+3。**绝对不要**一次性增加 >5。
-    2. **其他属性 (心态/健康/魅力等)**: 范围 0-100。通常变动幅度在 2-10 之间。
-    3. **恋爱关系**: 
-       - 如果你判定某个选项导致玩家表白成功，或者遇到了命定之人，请在 effect 中设置 "romancePartner": "对方名字"。
-       - 如果玩家魅力较高 (>30) 或有相关天赋，可以生成恋爱相关事件。
-
-    【最近剧情】:
-    ${recentHistory || "暂无，新学期开始。"}
-
-    【任务】
-    请你根据玩家的状态，生成三个风格不同，具有北京高中生活特色的突发事件。
-    请根据玩家的【天赋】和【状态】调整事件风格（例如：有“非酋”天赋则多生成倒霉事，有“万人迷”则多生成情感类事件）。
-    禁止生成与 "${recentTitles}" 雷同的主题。
-
-    【格式要求】
-    严格返回 JSON 数组，不要 Markdown 代码块。格式如下：
-    [
-      {
-        "title": "事件标题",
-        "description": "事件描述（口语化，生动，带点黑色幽默）",
-        "type": "positive/negative/neutral",
-        "choices": [
-          {
-            "text": "选项文本",
-            "resultDescription": "结果反馈文本",
-            "effect": {
-              "mindset": 0, "health": 0, "money": 0, "efficiency": 0, 
-              "romance": 0, "experience": 0, "luck": 0,
-              "romancePartner": "名字", // 可选，仅在确立关系时使用
-              "subjects": {"math": 0}, // 可选
-              "oiStats": {"dp": 0} // 可选
-            }
-          }
-        ]
-      }
-    ]
-  `;
+export const loadAiConfig = (): AiConfig => {
+  const fallback = getEnvironmentConfig();
+  if (typeof window === 'undefined') return fallback;
 
   try {
-    const response = await fetch(API_URL, {
+    const raw = window.localStorage.getItem(AI_CONFIG_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<AiConfig>;
+    return {
+      enabled: Boolean(parsed.enabled),
+      apiUrl: typeof parsed.apiUrl === 'string' && parsed.apiUrl.trim() ? parsed.apiUrl.trim() : fallback.apiUrl,
+      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : fallback.apiKey,
+      model: typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model.trim() : fallback.model
+    };
+  } catch {
+    return fallback;
+  }
+};
+
+export const saveAiConfig = (config: AiConfig): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(AI_CONFIG_STORAGE_KEY, JSON.stringify({
+      enabled: Boolean(config.enabled),
+      apiUrl: config.apiUrl.trim(),
+      apiKey: config.apiKey,
+      model: config.model.trim()
+    }));
+  } catch (error) {
+    console.warn('Unable to persist AI configuration', error);
+  }
+};
+
+export const normalizeAiEndpoint = (rawUrl: string): string => {
+  const value = rawUrl.trim().replace(/\/+$/, '');
+  if (!value) throw new Error('请先填写 API 地址');
+  if (/\/chat\/completions$/i.test(value)) return value;
+  if (/\/v\d+$/i.test(value)) return `${value}/chat/completions`;
+  if (/deepseek\.com/i.test(value)) return `${value}/chat/completions`;
+  return `${value}/v1/chat/completions`;
+};
+
+const readCompletionText = (data: any): string => {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map(part => typeof part === 'string' ? part : part?.text || '').join('');
+  }
+  throw new Error('API 返回中没有可读取的 message.content');
+};
+
+const requestCompletion = async (
+  config: AiConfig,
+  messages: Array<{ role: 'system' | 'user'; content: string }>,
+  options: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> => {
+  const endpoint = normalizeAiEndpoint(config.apiUrl);
+  const model = config.model.trim();
+  if (!model) throw new Error('请先填写模型名称');
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (config.apiKey.trim()) headers.Authorization = `Bearer ${config.apiKey.trim()}`;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
+      headers,
+      signal: controller.signal,
       body: JSON.stringify({
-        model: MODEL_NAME,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: "生成3个随机事件。" }
-        ],
-        temperature: 1.1,
-        response_format: { type: "json_object" } // DeepSeek supports JSON mode
+        model,
+        messages,
+        temperature: options.temperature ?? 1,
+        max_tokens: options.maxTokens ?? 1400
       })
     });
-
     if (!response.ok) {
-        throw new Error(`DeepSeek API Error: ${response.status} ${response.statusText}`);
+      const detail = await response.text().catch(() => '');
+      throw new Error(`API 请求失败 (${response.status})${detail ? `: ${detail.slice(0, 180)}` : ''}`);
     }
-
-    const data = await response.json();
-    let jsonText = data.choices?.[0]?.message?.content || "[]";
-
-    // Cleaning logic
-    jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-    
-    // Sometimes DeepSeek might wrap the array in a key like {"events": [...]}, try to extract if needed
-    // But with strict prompting it usually returns the array or object correctly.
-    // If it returns an object { "events": [...] }, we need to handle it.
-    let parsed = JSON.parse(jsonText);
-    
-    if (!Array.isArray(parsed)) {
-        // Try to find an array value
-        const values = Object.values(parsed);
-        const foundArray = values.find(v => Array.isArray(v));
-        if (foundArray) {
-            parsed = foundArray;
-        } else {
-            // If it's a single object, wrap it
-            parsed = [parsed];
-        }
-    }
-
-    return parsed;
-
-  } catch (error) {
-    console.error("AI API Error:", error);
-    return [{
-      title: "灵感枯竭",
-      description: "这一周过得平平淡淡，什么也没发生。（AI 连接失败，请检查网络或 API Key）",
-      type: "neutral",
-      choices: [
-        { text: "继续", resultDescription: "日子还得过。", effect: { } }
-      ]
-    }];
+    return readCompletionText(await response.json());
+  } catch (error: any) {
+    if (error?.name === 'AbortError') throw new Error('API 请求超时（30 秒）');
+    if (error instanceof TypeError) throw new Error('无法连接 API，可能是地址错误或服务端未允许浏览器跨域访问');
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
+};
+
+const toFiniteNumber = (value: unknown): number | undefined => {
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) ? number : undefined;
+};
+
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+const sanitizeEffect = (raw: any): SerializableEffect => {
+  const effect: SerializableEffect = {};
+  const generalLimits: Record<(typeof GENERAL_EFFECT_KEYS)[number], [number, number]> = {
+    mindset: [-15, 15], health: [-20, 20], money: [-100, 100], efficiency: [-3, 3],
+    romance: [-15, 15], experience: [-20, 20], luck: [-15, 15], fatigue: [-25, 25]
+  };
+  GENERAL_EFFECT_KEYS.forEach(key => {
+    const value = toFiniteNumber(raw?.[key]);
+    if (value !== undefined) (effect as any)[key] = clamp(value, ...generalLimits[key]);
+  });
+
+  if (raw?.romancePartner !== undefined && raw.romancePartner !== null) {
+    const partner = String(raw.romancePartner).trim().slice(0, 24);
+    if (partner) effect.romancePartner = partner;
+  }
+
+  const subjects: Partial<Record<SubjectKey, number>> = {};
+  if (raw?.subjects && typeof raw.subjects === 'object') {
+    (Object.keys(SUBJECT_NAMES) as SubjectKey[]).forEach(key => {
+      const value = toFiniteNumber(raw.subjects[key]);
+      if (value !== undefined) subjects[key] = clamp(value, -5, 5);
+    });
+  }
+  if (Object.keys(subjects).length > 0) effect.subjects = subjects;
+
+  const oiStats: Partial<OIStats> = {};
+  if (raw?.oiStats && typeof raw.oiStats === 'object') {
+    OI_EFFECT_KEYS.forEach(key => {
+      const value = toFiniteNumber(raw.oiStats[key]);
+      if (value !== undefined) (oiStats as any)[key] = clamp(value, -5, 5);
+    });
+  }
+  if (Object.keys(oiStats).length > 0) effect.oiStats = oiStats;
+  return effect;
+};
+
+const sanitizeEvents = (rawEvents: any[]): AiGeneratedEvent[] => rawEvents
+  .map((raw): AiGeneratedEvent | null => {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = typeof raw.title === 'string' ? raw.title.trim().slice(0, 80) : '';
+    const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, 1200) : '';
+    if (!title || !description || !Array.isArray(raw.choices)) return null;
+    const choices: AiGeneratedEventChoice[] = raw.choices
+      .map((choice: any) => {
+        if (!choice || typeof choice.text !== 'string') return null;
+        return {
+          text: choice.text.trim().slice(0, 160),
+          resultDescription: typeof choice.resultDescription === 'string' ? choice.resultDescription.trim().slice(0, 500) : '事情暂时告一段落。',
+          effect: sanitizeEffect(choice.effect || {})
+        };
+      })
+      .filter((choice: AiGeneratedEventChoice | null): choice is AiGeneratedEventChoice => !!choice && !!choice.text)
+      .slice(0, 4);
+    if (choices.length === 0) return null;
+    return { title, description, type: raw.type === 'positive' || raw.type === 'negative' ? raw.type : 'neutral', choices };
+  })
+  .filter((event): event is AiGeneratedEvent => !!event)
+  .slice(0, 3);
+
+const parseEvents = (text: string): AiGeneratedEvent[] => {
+  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const indexes = [cleaned.indexOf('['), cleaned.indexOf('{')].filter(index => index >= 0);
+    const start = indexes.length > 0 ? Math.min(...indexes) : -1;
+    const end = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
+    if (start < 0 || end <= start) throw new Error('AI 返回的内容不是有效 JSON');
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
+  }
+  const candidates = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.events) ? parsed.events : Object.values(parsed || {}).find(value => Array.isArray(value));
+  if (!Array.isArray(candidates)) throw new Error('AI 返回中没有事件数组');
+  const events = sanitizeEvents(candidates);
+  if (events.length === 0) throw new Error('AI 返回的事件格式不完整');
+  return events;
+};
+
+const buildPrompt = (state: GameState): string => {
+  const subjects = (Object.entries(state.subjects) as [SubjectKey, { level: number }][]).map(([key, value]) => `${SUBJECT_NAMES[key]}:${Math.floor(value.level)}`).join('、');
+  const recentHistory = state.history.slice(-5).map(entry => `[第${entry.week}周] ${entry.eventTitle}: ${entry.resultSummary}`).join('\n');
+  const relationshipName = state.flags.relationship_name || '重要同学';
+  const region = state.worldContext?.region || '未知城市';
+  const year = state.worldContext?.yearStart || '当代';
+  return `你是一个高中生活模拟游戏的事件编剧。玩家来自${region}，在八中背景学校就读，入学年份约为${year}。
+当前阶段：${state.phase}，第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : '课内综合'}。
+当前属性：心态${Math.round(state.general.mindset)}、健康${Math.round(state.general.health)}、疲劳${Math.round(state.fatigue)}、金钱${Math.round(state.general.money)}、效率${Math.round(state.general.efficiency)}、桃花${Math.round(state.general.romance)}、经验${Math.round(state.general.experience)}。
+学科水平：${subjects}。
+重要同学：${relationshipName}；关系状态：${state.romancePartner ? '已确立关系' : '尚未确立关系'}。
+天赋：${state.talents.map(talent => talent.name).join('、') || '无'}。
+最近剧情：\n${recentHistory || '暂无，这是新的学期。'}
+
+请生成 2-3 个彼此主题不同、贴近中国高中校园的事件。事件要让玩家在学习、健康、关系、金钱、社团或竞赛之间做取舍，避免空泛鸡汤和重复最近剧情。
+每个事件需要 2-4 个选项。每个选项必须有 resultDescription 和 effect。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、romancePartner、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 在 -15 到 +15。
+只在确实确立恋爱关系时填写 romancePartner；不要返回 flags、代码、Markdown 或解释文字。
+
+严格返回 JSON 数组，格式：
+[{"title":"事件标题","description":"事件描述","type":"positive|negative|neutral","choices":[{"text":"选项文本","resultDescription":"选择后的结果反馈","effect":{"mindset":0,"health":0,"fatigue":0}}]}]`;
+};
+
+export const generateBatchGameEvents = async (state: GameState, config: AiConfig = getEnvironmentConfig()): Promise<AiGeneratedEvent[]> => {
+  if (!config.enabled) throw new Error('AI 模式未开启');
+  const content = await requestCompletion(config, [
+    { role: 'system', content: buildPrompt(state) },
+    { role: 'user', content: '请根据当前状态生成本周事件。' }
+  ], { temperature: 1.05, maxTokens: 2200 });
+  return parseEvents(content);
+};
+
+export const testAiConnection = async (config: AiConfig): Promise<void> => {
+  if (!config.apiUrl.trim()) throw new Error('请先填写 API 地址');
+  await requestCompletion({ ...config, enabled: true }, [{ role: 'user', content: '只回复 OK，不要输出其他内容。' }], { temperature: 0, maxTokens: 8 });
 };

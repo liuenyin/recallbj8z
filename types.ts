@@ -79,6 +79,13 @@ export interface CompetitionResultData {
 
 export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' ;
 
+export interface AiConfig {
+  enabled: boolean;
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 export interface Achievement {
   id: string;
   title: string;
@@ -157,6 +164,7 @@ export interface SerializableEffect {
     romance?: number;
     experience?: number;
     luck?: number;
+    fatigue?: number;
     subjects?: Partial<Record<SubjectKey, number>>; 
     oiStats?: Partial<OIStats>;
     romancePartner?: string; 
@@ -197,6 +205,14 @@ export interface WorldContext {
   characterTemplateId: string;
 }
 
+export interface RelationshipProfile {
+  id: string;
+  name: string;
+  role: string;
+  personality: string;
+  routeHint: string;
+}
+
 export interface CharacterTemplate {
   id: string;
   name: string;
@@ -218,6 +234,7 @@ export interface GameState {
   totalWeeksInPhase: number;
   subjects: Record<SubjectKey, SubjectStats>;
   general: GeneralStats;
+  fatigue: number;
   initialGeneral: GeneralStats; 
   oiStats: OIStats; 
   selectedSubjects: SubjectKey[];
@@ -226,6 +243,7 @@ export interface GameState {
   club: ClubId | null; 
   hasSelectedClub: boolean; 
   romancePartner: string | null;
+  relationshipProfileId: string | null;
   className: string; 
   log: GameLogEntry[];
   currentEvent: GameEvent | null;
@@ -267,7 +285,7 @@ export interface GameLogEntry {
   timestamp: number;
 }
 
-export type EventTriggerType = 'RANDOM' | 'CONDITIONAL' | 'FIXED';
+export type EventTriggerType = 'RANDOM' | 'CONDITIONAL' | 'FIXED' | 'CHAINED';
 
 export interface GameEvent {
   id: string;
