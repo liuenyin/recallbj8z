@@ -11,6 +11,25 @@ interface StatsPanelProps {
 
 const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
   const effectiveEfficiency = getEffectiveEfficiency(state);
+  const oiRouteLabel = state.flags.oi_setter_followup === 'accepted'
+    ? '继续参与公开赛出题'
+    : state.flags.oi_problem_feedback === 'positive' || state.flags.oi_problem_feedback === 'resolved'
+      ? '完成了一次公开赛出题'
+      : state.flags.oi_problem_published
+        ? '题目已经上线，等待反馈'
+          : state.flags.oi_problem_drafted
+            ? '题面已经写完，正在验题'
+          : state.flags.oi_recap_reviewed === true
+            ? '按游记补过错题'
+            : state.flags.oi_setter === true
+          ? '正在准备第一道题'
+          : state.flags.oi_external_training
+            ? '参加过外校集训'
+            : state.flags.oi_training_group === true
+              ? '加入了训练小组'
+              : state.flags.oi_training_group === false
+                ? '暂时独自刷题'
+                : '还在找适合自己的节奏';
 
   return (
     <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-5 space-y-6 h-full border border-white/40 overflow-y-auto custom-scroll flex flex-col transition-colors duration-300">
@@ -68,9 +87,14 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
         <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
           <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, effectiveEfficiency * 5)}%` }}></div>
         </div>
+        {state.competition === 'OI' && (
+          <div className="mt-2 text-[10px] font-bold text-indigo-600 truncate" title={oiRouteLabel}>
+            OI 路线 · {oiRouteLabel}
+          </div>
+        )}
       </div>
 
-      {/* 6大基础属性 */}
+      {/* 基础属性 */}
       <div>
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
             <i className="fas fa-chart-bar"></i> 身心状态
@@ -83,6 +107,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
             <StatMini icon="fa-star" label="幸运" value={state.general.luck} color="text-amber-500" hideValue={state.difficulty === 'REALITY'} />
             <StatMini icon="fa-heart" label="桃花" value={state.general.romance} color="text-pink-500" hideValue={state.difficulty === 'REALITY'} />
             <StatMini icon="fa-battery-quarter" label="疲劳" value={state.fatigue} color="text-rose-500" hideValue={state.difficulty === 'REALITY'} />
+            <StatMini icon="fa-fire" label="兴奋" value={state.general.excitement ?? 0} color="text-orange-500" hideValue={state.difficulty === 'REALITY'} />
         </div>
       </div>
 

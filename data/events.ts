@@ -1,5 +1,7 @@
 import { SEMESTER_2_EVENTS, WINTER_BREAK_EVENTS } from "./events_semester2";
 import { STUDY_TOUR_EVENTS } from "./events_study_tour";
+import { OI_ROUTE_EVENTS } from './events_oi_route';
+import { MO_EVENTS } from './events_mo';
 import { OI_EVENTS } from "./events_oi";
 import { ROMANCE_EVENTS } from "./events_romance";
 import { RIVAL_EVENTS } from "./events_character";
@@ -55,6 +57,15 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
                 general: { ...s.general, experience: s.general.experience + 10 },
                 oiStats: { ...s.oiStats, misc: 5 }
                 }) 
+            },
+            {
+                text: '数学竞赛(MO)',
+                action: (s) => ({
+                    competition: 'MO',
+                    log: [...s.log, { message: '你选择了数学竞赛(MO)。接下来会遇到训练、组队和命题的取舍。', type: 'info', timestamp: Date.now() }],
+                    general: { ...s.general, experience: s.general.experience + 8 },
+                    subjects: modifySub(s, ['math'], 3)
+                })
             },
             {
                 text: '专注课内综合', 
@@ -377,6 +388,40 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
             { text: '太棒了，去玩！', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 20 } }) }
         ]
     },
+    {
+        id: 'evt_homework_spot_check',
+        title: '作业抽查',
+        description: '几周前那份侥幸交上去的作业被抽到了。老师没有立刻点名，只是把名单放在讲台上。',
+        condition: (s) => s.flags.copied_homework === true && Number(s.flags.copied_homework_week || s.week) <= s.week - 2,
+        triggerType: 'CONDITIONAL',
+        once: true,
+        type: 'negative',
+        choices: [
+            {
+                text: '主动补做',
+                tags: ['study'],
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset - 2, experience: s.general.experience + 3 },
+                    flags: { ...s.flags, copied_homework: false, homework_check_resolved: true },
+                    log: [...s.log, { message: '你承认了之前的侥幸，补做作业到很晚，但心里轻松了一点。', type: 'info', timestamp: Date.now() }]
+                })
+            },
+            {
+                text: '装作没事',
+                tags: ['risky'],
+                action: (s) => {
+                    const caught = Math.random() < Math.max(0.25, 0.65 - s.general.luck / 200);
+                    return {
+                        general: caught
+                            ? { ...s.general, mindset: s.general.mindset - 8, health: s.general.health - 3 }
+                            : { ...s.general, experience: s.general.experience + 2 },
+                        flags: { ...s.flags, copied_homework: false, homework_check_resolved: true },
+                        log: [...s.log, { message: caught ? '老师抽出你的名字，你只能留下来重写。' : '名单被放回抽屉，你又侥幸躲过了一次。', type: caught ? 'warning' : 'info', timestamp: Date.now() }]
+                    };
+                }
+            }
+        ]
+    },
     SCIENCE_FESTIVAL_EVENT,
     NEW_YEAR_GALA_EVENT,
     {
@@ -529,7 +574,7 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         choices: [
             { text: '大杀四方', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 2, experience: s.general.experience - 1 } }) },
             { text: '被虐了', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 1 } }) },
-            { text: '被教练抓包', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 5 }, isGrounded: true }) }
+            { text: '被老师抓包', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 5 }, isGrounded: true }) }
         ]
     },
     {
@@ -652,7 +697,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.INIT]: [],
     [Phase.SUMMER]: injectSleep(SUMMER_EVENTS_RAW),
     [Phase.MILITARY]: injectSleep(MILITARY_EVENTS_RAW),
-    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.SELECTION]: [],
     [Phase.PLACEMENT_EXAM]: [],
     [Phase.MIDTERM_EXAM]: [],
@@ -664,8 +709,8 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.FINAL_EXAM_2]: [],
     [Phase.ENDING]: [],
     [Phase.WITHDRAWAL]: [],
-    [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...ROMANCE_EVENTS]),
-    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...RIVAL_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...RIVAL_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.WC_EXAM]: [],
     [Phase.PROVINCIAL_EXAM]: [],

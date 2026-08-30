@@ -7,7 +7,9 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:balance": "node --experimental-strip-types --test scripts/balance.test.ts",
+    "test:oi": "node --test scripts/oi_route.test.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",

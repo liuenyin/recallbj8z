@@ -61,8 +61,8 @@ export const TALENTS: Talent[] = [
 
 // --- Shop Items ---
 export const SHOP_ITEMS: Item[] = [
-    { id: 'red_bull', name: '红牛', description: '精力充沛！效率+2，健康-1。', price: 15, icon: 'fa-bolt', 
-      effect: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 2, health: s.general.health - 1, money: s.general.money - 15 } }) },
+    { id: 'red_bull', name: '兴奋剂', description: '短时间兴奋：效率+2、兴奋+25，但疲劳+8、健康-1。售价150。', price: 150, icon: 'fa-bolt',
+      effect: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 2, health: s.general.health - 1, money: s.general.money - 150, excitement: Math.min(100, (s.general.excitement ?? 0) + 25) }, fatigue: Math.min(100, s.fatigue + 8) }) },
     { id: 'coffee', name: '瑞幸生椰拿铁', description: '我咖啡怎么变了？心态+3，效率+1。', price: 20, icon: 'fa-coffee',
       effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 1, money: s.general.money - 20 } }) },
     { id: 'five_three', name: '五年高考三年模拟', description: '全科水平+0.5，心态-8。', price: 45, icon: 'fa-book',
@@ -110,6 +110,9 @@ export const STATUSES: Record<string, Omit<GameStatus, 'duration'>> = {
     'exhausted': { id: 'exhausted', name: '透支', description: '你需要休息。', type: 'DEBUFF', icon: 'fa-bed', effectDescription: '健康无法自然恢复' },
     'crush_pending': { id: 'crush_pending', name: '恋人未满', description: '虽然还没捅破窗户纸，但这种暧昧的感觉真好。', type: 'BUFF', icon: 'fa-comments', effectDescription: '每周运气 +2，经验 +2' },
     'sleep_compulsion': { id: 'sleep_compulsion', name: '让我睡觉！', description: '每周不睡觉就会死。', type: 'DEBUFF', icon: 'fa-dizzy', effectDescription: '每周必须进行一次睡觉事件' },
+    'fatigued': { id: 'fatigued', name: '疲惫', description: '身体开始向你索要休息，硬撑会越来越难。', type: 'DEBUFF', icon: 'fa-battery-quarter', effectDescription: '每周心态-1，效率-1' },
+    'overstimulated': { id: 'overstimulated', name: '过度兴奋', description: '脑子停不下来，短期很有冲劲，睡眠却变浅了。', type: 'DEBUFF', icon: 'fa-fire-alt', effectDescription: '每周效率-1，休息恢复降低' },
+    'low_morale': { id: 'low_morale', name: '低落', description: '做什么都像隔着一层雾，先找回一点掌控感。', type: 'DEBUFF', icon: 'fa-cloud', effectDescription: '每周效率-1' },
     // --- Graded Debt Statuses ---
     'debt_1': { id: 'debt_1', name: '负债 I', description: '这点钱下个月就能还上……吧？', type: 'DEBUFF', icon: 'fa-file-invoice', effectDescription: '心态-5, 魅力-3 /周' },
     'debt_2': { id: 'debt_2', name: '负债 II', description: '债务像滚雪球一样变大了。', type: 'DEBUFF', icon: 'fa-file-invoice-dollar', effectDescription: '心态-10, 魅力-6 /周' },
@@ -189,19 +192,19 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
         id: 'act_music', name: '听音乐放松', icon: 'fa-headphones', type: 'REST',
         description: '沉浸在音乐的世界里，放松心情。',
         resultText: '听了一下午的歌，感觉心情平静了许多。',
-        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, health: s.general.health + 2, money: s.general.money - 2 } })
+        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, health: s.general.health + 2, money: s.general.money - 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 8) } })
     },
     {
         id: 'act_movie', name: '看电影', icon: 'fa-film', type: 'REST',
         description: '去电影院或者在家看一部好电影。',
         resultText: '一部好电影能让人体验不同的人生。',
-        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8, experience: s.general.experience + 5, money: s.general.money - 10 } })
+        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8, experience: s.general.experience + 5, money: s.general.money - 10, excitement: Math.min(100, (s.general.excitement ?? 0) + 12) } })
     },
     {
         id: 'act_sport', name: '体育锻炼', icon: 'fa-running', type: 'REST',
         description: '去操场跑步或者打球。',
         resultText: '大汗淋漓之后，感觉身体更加充满活力了。',
-        action: (s) => ({ general: { ...s.general, health: s.general.health + 10, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 2 } })
+        action: (s) => ({ general: { ...s.general, health: s.general.health + 10, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 10) } })
     },
     {
         id: 'act_library', name: '泡图书馆', icon: 'fa-book-reader', type: 'STUDY',
@@ -268,7 +271,7 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
         id: 'w_read', name: '看课外书', icon: 'fa-book-open', type: 'REST',
         description: '阅读是心灵的避风港。提升心态和经验。',
         resultText: '你沉浸在书中的世界，暂时忘却了烦恼。',
-        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, experience: s.general.experience + 2 } })
+        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, experience: s.general.experience + 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 4) } })
     },
     {
         id: 'w_review', name: '复习功课', icon: 'fa-pencil-alt', type: 'STUDY',
@@ -280,25 +283,25 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
         id: 'w_sleep', name: '补觉', icon: 'fa-bed', type: 'REST',
         description: 'S属性大爆发，Sleep!',
         resultText: '这一觉睡得天昏地暗，醒来时已经是黄昏了。',
-        action: (s) => ({ general: { ...s.general, health: s.general.health + 8, mindset: s.general.mindset + 2 }, sleepCount: (s.sleepCount || 0) + 1 })
+        action: (s) => ({ general: { ...s.general, health: s.general.health + 8, mindset: s.general.mindset + 2, excitement: Math.max(0, (s.general.excitement ?? 0) - 18) }, sleepCount: (s.sleepCount || 0) + 1 })
     },
     {
         id: 'w_game_late', name: '熬夜打游戏', icon: 'fa-moon', type: 'REST',
         description: '爽爽爽！',
         resultText: '赢了一晚上，爽！但是第二天早上头痛欲裂。',
-        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8, health: s.general.health - 5, efficiency: s.general.efficiency - 2 } })
+        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8, health: s.general.health - 5, efficiency: s.general.efficiency - 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 25) } })
     },
     {
         id: 'w_game', name: '打游戏', icon: 'fa-gamepad', type: 'REST',
         description: '适度游戏益脑。提升心态，微降效率。',
         resultText: '玩了几把游戏，放松了一下紧绷的神经。',
-        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, efficiency: s.general.efficiency - 1 } })
+        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, efficiency: s.general.efficiency - 1, excitement: Math.min(100, (s.general.excitement ?? 0) + 15) } })
     },
     {
         id: 'w_video', name: '刷视频', icon: 'fa-play-circle', type: 'REST',
         description: '杀时间利器。提升少量心态，大幅降低效率。',
         resultText: '刷视频停不下来，回过神来已经过去两个小时了。',
-        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency - 3 } })
+        action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency - 3, excitement: Math.min(100, (s.general.excitement ?? 0) + 10) } })
     },
     {
         id: 'w_chat', name: '和朋友聊天', icon: 'fa-comments', type: 'SOCIAL',
@@ -375,6 +378,17 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
         description: '恢复心态，了解OI圈八卦。',
         resultText: '群友个个都是人才，说话又好听。',
         action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, experience: s.general.experience + 1 } })
+    },
+    // MO Exclusive
+    {
+        id: 'w_mo_training', name: '数学竞赛训练', icon: 'fa-square-root-alt', type: 'STUDY',
+        condition: (s) => s.competition === 'MO',
+        description: '用一个周末把一道题从猜想推到完整证明。',
+        resultText: '你把训练题拆成几个小引理，终于看见了完整证明的形状。',
+        action: (s) => ({
+            subjects: modifySub(s, ['math'], 0.7),
+            general: { ...s.general, experience: s.general.experience + 2, mindset: s.general.mindset - 2 }
+        })
     }
 ];
 

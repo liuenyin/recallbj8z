@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local MCP/tool runtimes, not part of the game source
+.mcp/
+gpt-image-mcp-server-runtime/

@@ -41,7 +41,7 @@
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "忘记开long long痛失30分",
-    "description": "CSP-J/S第一轮模拟考，你写了一个求和的题，自信交卷。出分后发现有一个点WA，原因是int溢出，而数据范围明明写了1e9。",
+    "description": "CSP-S 模拟考，你写了一道求和题，自信交卷。出分后发现有一个点 WA，原因是 int 溢出，而数据范围明明写了 1e9。",
     "type": "negative",
     "choices": [
       {
@@ -115,7 +115,7 @@
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "机房摸鱼被抓现行",
-    "description": "你在学校机房里偷偷打开洛谷，打算切几道水题。结果刚提交一道题，教练就悄悄走到你身后，看到你在做CF难度只有800的题。",
+    "description": "你在学校机房里偷偷打开洛谷，打算切几道水题。结果刚提交一道题，负责值班的老师走到你身后，看到你在做 CF 难度只有 800 的题。",
     "type": "neutral",
     "choices": [
       {
@@ -124,7 +124,7 @@
           "mindset": 5,
           "luck": 3
         },
-        "resultDescription": "教练点了点头，让你好好练，并推荐了一套适合你水平的题单。"
+        "resultDescription": "老师提醒你别影响正常课程。你回到训练群里找了一套适合自己水平的题单。"
       },
       {
         "text": "假装在查资料，关掉OJ",
@@ -132,7 +132,7 @@
           "efficiency": -5,
           "mindset": -3
         },
-        "resultDescription": "教练没说什么，但记下了你的名字，下次机房课你被安排到了角落。"
+        "resultDescription": "老师没说什么，但提醒你注意机房纪律。你只好把后续训练放到周末和线上。"
       },
       {
         "text": "坦白自己基础薄弱，请求指导",
@@ -141,7 +141,7 @@
           "experience": 8,
           "health": -3
         },
-        "resultDescription": "教练花了一个小时给你讲基本算法，你感激涕零，决定认真补基础。"
+        "resultDescription": "你在训练群里把代码发给一位外校学长，对方抽空讲了基本算法。你决定认真补基础。"
       }
     ]
   },
@@ -262,7 +262,7 @@
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "被队友带飞省选模拟",
-    "description": "学校组队参加省选模拟，你只会暴力，队友是个神犇直接AC了所有题，你躺赢到了前10%。",
+    "description": "跨校训练群组织了一场省选模拟，你只会暴力，临时队友是个强手直接 AC 了所有题，你躺赢到了前 10%。",
     "type": "positive",
     "choices": [
       {
@@ -447,8 +447,8 @@
     "phase": "CSP_EXAM",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
-    "title": "CSP-J考场上想抄答案",
-    "description": "CSP-J考场上，你看到旁边一个明显是神犇的选手键盘飞起，你产生了看他的屏幕的想法。",
+    "title": "CSP-S考场上想抄答案",
+    "description": "CSP-S 考场上，你看到旁边一位选手键盘敲得很快，产生了看他屏幕的想法。",
     "type": "neutral",
     "choices": [
       {
@@ -1147,7 +1147,7 @@
         "resultDescription": "你觉得自己凉了，干脆不复习。结果初赛过了别人都没过，但你的排名很低，省选没资格，后悔莫及。"
       },
       {
-        "text": "找教练要历年初赛成绩分布，算自己可能分数",
+        "text": "在群里找往年初赛成绩分布，算自己可能分数",
         "effect": {
           "luck": 3,
           "mindset": 2,
@@ -2003,7 +2003,7 @@
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "跟教练争论算法优劣",
-    "description": "教练在讲一道最短路题，说SPFA已经死了，但你认为在负权图上只能用SPFA，两人争执了起来。",
+    "description": "外校训练课的教练在讲一道最短路题，说 SPFA 已经死了，但你认为在负权图上只能用 SPFA，两人争执了起来。",
     "type": "positive",
     "choices": [
       {
@@ -2012,7 +2012,7 @@
           "oi_graph": 10,
           "experience": 5
         },
-        "resultDescription": "你查论文发现有一种优化的Bellman-Ford在竞赛中更稳定，跟教练讨论后两人都受益了。"
+        "resultDescription": "你查论文发现有一种优化的 Bellman-Ford 在竞赛中更稳定，课后和教练讨论，两人都受益了。"
       },
       {
         "text": "认怂，听教练的",
@@ -2020,7 +2020,7 @@
           "oi_graph": 2,
           "oi_misc": -3
         },
-        "resultDescription": "你表面接受，但心里不服，后来在比赛中吃了SPFA的亏，才明白教练是对的。"
+        "resultDescription": "你表面接受，但心里不服，后来在比赛中吃了 SPFA 的亏，才明白教练是对的。"
       },
       {
         "text": "提议做性能测试",
@@ -2028,7 +2028,7 @@
           "oi_graph": 8,
           "oi_misc": 4
         },
-        "resultDescription": "你和教练一起在随机图上测试了SPFA和Dijkstra+势能，结果发现SPFA确实容易卡，从此你彻底摒弃SPFA。"
+        "resultDescription": "你和教练一起在随机图上测试了 SPFA 和 Dijkstra，结果发现 SPFA 确实容易卡，从此你彻底摒弃 SPFA。"
       }
     ]
   },
@@ -2339,7 +2339,7 @@
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "省选模拟的滑铁卢",
-    "description": "学校组织了一场省选模拟赛，全场180分钟三道题。你发现自己第二题（树剖+线段树）只会暴力，第三题（毒瘤DP）毫无头绪。时间过半，你看着第一题的满分和后面的空白，血压升高。",
+    "description": "训练群转发了一场省选模拟赛，全场 180 分钟三道题。你发现自己第二题（树剖+线段树）只会暴力，第三题（毒瘤 DP）毫无头绪。时间过半，你看着第一题的满分和后面的空白，血压升高。",
     "type": "negative",
     "choices": [
       {
@@ -2580,13 +2580,13 @@
         "resultDescription": "你硬撑着打完一场CF，血崩掉分，情绪彻底崩溃，请了三天假。"
       },
       {
-        "text": "找教练谈心",
+        "text": "找训练群里的学长谈心",
         "effect": {
           "mindset": 10,
           "experience": 5,
           "luck": 3
         },
-        "resultDescription": "教练用自己当年的经历安慰你，并帮你分析了问题，你重燃希望，决定调整策略。"
+        "resultDescription": "学长用自己的经历安慰你，并帮你分析了问题，你重燃希望，决定调整策略。"
       },
       {
         "text": "暂时离开OI，休息一周",
@@ -2719,7 +2719,7 @@
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "集训队选拔模拟",
-    "description": "学校内部选拔省队集训队名额，你和另一位神犇分数并列，需要加赛一场。你和他在机房对视一眼，空气中弥漫着火药味。",
+    "description": "跨校训练群办了一场省选集训模拟，你和另一位强手分数并列，需要加赛一场。你们在机房对视一眼，空气中弥漫着火药味。",
     "type": "neutral",
     "choices": [
       {
@@ -3162,8 +3162,8 @@
     "phase": "NOIP_EXAM",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
-    "title": "没开long long痛失30分",
-    "description": "NOIP第一题很简单，你用int存了求和，结果两个1e5相加爆int，WA了三个点，出了考场才意识到。",
+    "title": "中间量溢出痛失分数",
+    "description": "NOIP 题目看起来不难，你把前缀和和乘法中间量都存进了 int，部分数据溢出，出考场后才想起应该先检查数据范围。",
     "type": "negative",
     "choices": [
       {
@@ -3173,7 +3173,7 @@
           "experience": -5,
           "health": -3
         },
-        "resultDescription": "你在笔记本上写了大大的“开long long”，但这次失误导致你离省一线差5分。"
+        "resultDescription": "你在笔记本上记下了数据范围和中间量检查。这次失误的分数已经拿不回来了，但复盘至少有了具体内容。"
       },
       {
         "text": "安慰自己下次注意",
@@ -3198,8 +3198,8 @@
     "phase": "CSP_EXAM",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
-    "title": "CSP-J爆零想AFO",
-    "description": "CSP-J考完，你发现自己连第一题都写错了，编译通过但全WA，预估0分，萌生了退役的念头。",
+    "title": "CSP-S爆零想AFO",
+    "description": "CSP-S 考完，你发现自己连第一题都写错了，编译通过但全 WA，预估分数很低，甚至萌生了退役的念头。",
     "type": "negative",
     "choices": [
       {
@@ -3209,7 +3209,7 @@
           "experience": 5,
           "health": -5
         },
-        "resultDescription": "你报名了寒假OI集训班，决定从语法开始重新学，但牺牲了不少娱乐时间。"
+        "resultDescription": "你找了一份寒假训练题单，从语法和基础算法重新补起。八中没有现成的校队课程，题单和讲解得自己找。"
       },
       {
         "text": "暂时AFO去搞文化课",
@@ -3431,7 +3431,7 @@
           "experience": 4,
           "efficiency": -2
         },
-        "resultDescription": "你花了一个小时理解日文题解，学会了while(scanf)输入法，收获很大。"
+        "resultDescription": "你花了一个小时看英文题解和别人的代码，终于弄懂了多组数据的读入，收获很大。"
       },
       {
         "text": "放弃去查排名",
@@ -3492,7 +3492,7 @@
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "考场作弊未遂",
-    "description": "CSP-J考试时，你旁边的神犇在飞快敲代码，你想偷瞄一眼他的输出，但被监考老师发现了。",
+    "description": "CSP-S 考试时，你旁边的选手在飞快敲代码。你想偷瞄一眼他的输出，但被监考老师发现了。",
     "type": "negative",
     "choices": [
       {

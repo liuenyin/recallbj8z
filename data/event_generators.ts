@@ -1,4 +1,8 @@
 
+import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats, Phase } from '../types';
+import { modifySub, modifyOI, getEffectiveEfficiency, getLearningMultiplier } from './utils';
+import { STATUSES } from './mechanics';
+import { CHAINED_EVENTS } from './event_defs';
 import oiEventsData from '../oi_events.json';
 
 const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
@@ -38,28 +42,48 @@ const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
 }));
 
 export const generateOIRandomEvent = (state: GameState): GameEvent => {
-    // Filter by rating and phase if we want, or just pick random
+    const phaseAliases: Record<Phase, string[]> = {
+        [Phase.SUMMER]: ['SUMMER'],
+        [Phase.WINTER_BREAK]: ['WINTER'],
+        [Phase.SUMMER_BREAK]: ['SUMMER'],
+        [Phase.SEMESTER_1]: ['SEMESTER_1'],
+        [Phase.SEMESTER_2]: ['SEMESTER_2'],
+        [Phase.CSP_EXAM]: ['CSP_EXAM'],
+        [Phase.NOIP_EXAM]: ['NOIP_EXAM'],
+        [Phase.MIDTERM_EXAM]: ['MIDTERM_EXAM'],
+        [Phase.INIT]: [], [Phase.MILITARY]: [], [Phase.SELECTION]: [],
+        [Phase.PLACEMENT_EXAM]: [], [Phase.SUBJECT_RESELECTION]: [], [Phase.FINAL_EXAM]: [],
+        [Phase.MIDTERM_EXAM_2]: [], [Phase.FINAL_EXAM_2]: [], [Phase.ENDING]: [], [Phase.WITHDRAWAL]: [],
+        [Phase.WC_EXAM]: ['WC_EXAM'], [Phase.PROVINCIAL_EXAM]: ['PROVINCIAL_EXAM'],
+        [Phase.APIO_EXAM]: ['APIO_EXAM'], [Phase.NOI_EXAM]: ['NOI_EXAM']
+    };
+    const allowedPhases = phaseAliases[state.phase] || [];
+    const matchesPhase = (raw: any) => !raw.phase || allowedPhases.includes(String(raw.phase));
+    const matchesRating = (raw: any) => {
+        const currentRating = state.oiStats.rating || 0;
+        return (!raw.cfRatingMin || currentRating >= raw.cfRatingMin) && (!raw.cfRatingMax || currentRating <= raw.cfRatingMax);
+    };
     const pool = parsedOiEvents.filter(e => {
         const raw = oiEventsData.find((d: any) => d.id === e.id) as any;
-        if (!raw) return false;
-        const currentRating = state.oiStats.rating || 0;
-        if (raw.cfRatingMin && currentRating < raw.cfRatingMin) return false;
-        if (raw.cfRatingMax && currentRating > raw.cfRatingMax) return false;
-        return true;
+        return !!raw && matchesPhase(raw) && matchesRating(raw);
     });
     if (pool.length > 0) {
         return pool[Math.floor(Math.random() * pool.length)];
     }
-    // Fallback
+    const phasePool = parsedOiEvents.filter(e => {
+        const raw = oiEventsData.find((d: any) => d.id === e.id) as any;
+        return !!raw && matchesPhase(raw);
+    });
+    if (phasePool.length > 0) return phasePool[Math.floor(Math.random() * phasePool.length)];
     return parsedOiEvents[0];
 };
 
+export const hasOIRandomEventsForPhase = (phase: Phase): boolean => {
+    const rawPhase = phase === Phase.WINTER_BREAK ? 'WINTER' : phase === Phase.SUMMER_BREAK ? 'SUMMER' : phase;
+    return (oiEventsData as any[]).some(event => !event.phase || event.phase === rawPhase);
+};
 
 
-import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats } from '../types';
-import { modifySub, modifyOI, getEffectiveEfficiency } from './utils';
-import { STATUSES } from './mechanics';
-import { CHAINED_EVENTS } from './event_defs';
 
 export const generateStudyEvent = (state: GameState): GameEvent => {
     const pool: SubjectKey[] = state.selectedSubjects.length > 0 
@@ -69,6 +93,7 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
     const subject = pool[Math.floor(Math.random() * pool.length)];
     const subName = SUBJECT_NAMES[subject];
     const efficiency = getEffectiveEfficiency(state);
+    const learningMultiplier = getLearningMultiplier(state);
 
     return {
         id: `study_weekly_${Date.now()}`,
@@ -77,21 +102,24 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
         type: 'neutral',
         choices: [
             { 
-                text: '认真听讲', 
+                text: '认真听讲',
+                tags: ['study'],
                 action: (s) => ({ 
-                    subjects: modifySub(s, [subject], 1 + efficiency * 0.05),
+                    subjects: modifySub(s, [subject], (1 + efficiency * 0.05) * learningMultiplier),
                     general: { ...s.general, mindset: s.general.mindset - 2 }
                 }) 
             },
             { 
-                text: '偷偷刷题', 
+                text: '偷偷刷题',
+                tags: ['study', 'risky'],
                 action: (s) => ({ 
-                    subjects: modifySub(s, [subject], 2 + efficiency * 0.05),
+                    subjects: modifySub(s, [subject], (2 + efficiency * 0.05) * learningMultiplier),
                     general: { ...s.general, health: s.general.health - 3 }
                 }) 
             },
             { 
-                text: '睡觉', 
+                text: '睡觉',
+                tags: ['sleep', 'rest'],
                 action: (s) => {
                     // Luck affects if you get caught sleeping
                     const caughtChance = Math.max(0, 0.4 - s.general.luck / 200); 
@@ -224,9 +252,17 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
             description: '今天的作业量异常的大，各科老师仿佛商量好了一样。',
             type: 'negative',
             choices: [
-                { text: '熬夜写完', action: (st) => ({ general: { ...st.general, health: st.general.health - 15, efficiency: st.general.efficiency - 2 }, subjects: modifySub(st, ['math', 'english'], 3) }) },
+                {
+                    text: '熬夜写完',
+                    tags: ['study', 'risky'],
+                    action: (st) => ({
+                        general: { ...st.general, health: st.general.health - 15, efficiency: st.general.efficiency - 2 },
+                        subjects: modifySub(st, ['math', 'english'], 3)
+                    })
+                },
                 { 
-                    text: '抄作业', 
+                    text: '抄作业',
+                    tags: ['risky'],
                     action: (st) => {
                         // Luck affects chance of getting caught
                         const caughtChance = Math.max(0, 0.5 - st.general.luck / 200);
@@ -236,7 +272,11 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                                  log: [...st.log, { message: "抄作业被发现了！这运气也是没谁了。", type: 'error', timestamp: Date.now() }]
                              };
                         }
-                        return { general: { ...st.general, experience: st.general.experience + 5, luck: st.general.luck - 2 }, log: [...st.log, { message: "侥幸过关。", type: 'info', timestamp: Date.now() }] };
+                        return {
+                            general: { ...st.general, experience: st.general.experience + 5, luck: st.general.luck - 2 },
+                            flags: { ...st.flags, copied_homework: true, copied_homework_week: st.week },
+                            log: [...st.log, { message: "侥幸过关。", type: 'info', timestamp: Date.now() }]
+                        };
                     } 
                 }
             ]

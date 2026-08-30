@@ -5,19 +5,21 @@ import {
     Phase, GameStatus, SubjectKey, OIStats, GameEvent, 
     EventChoice, ExamResult, ClubId, Item, WeekendActivity, Project, GameLogEntry, StoryEntry
 } from '../types';
-import { DIFFICULTY_PRESETS } from '../data/constants';
-import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent } from '../data/events';
+import { DIFFICULTY_PRESETS, getDifficultyPreset } from '../data/constants';
+import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
 import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS } from '../data/mechanics';
-import { mapAiEventToGameEvent, modifyOI, modifySub } from '../data/utils';
+import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, getShopPriceMultiplier } from '../data/utils';
 import { getRandomWorldContext, CHARACTER_TEMPLATES } from '../data/world_context';
 import { getHistoricalEventsForWeek, loadCityEvents } from '../data/historical_events';
 import { OI_EVENTS_POOL } from '../data/events_oi';
 import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP } from '../data/timetable';
+import { getActivityRepeatMultiplier } from '../data/balance';
 import { getRandomRelationshipProfile } from '../data/relationships';
 import { generateBatchGameEvents } from '../lib/gemini';
+import { getAccountSaveKey } from '../lib/accounts';
 
-const STORAGE_KEY = 'recall_save_v1';
-const SAVE_VERSION = 2;
+const LEGACY_STORAGE_KEY = 'recall_save_v1';
+const SAVE_VERSION = 3;
 const ACHIEVEMENTS_KEY = 'recall_achievements_global'; // Global key for achievements
 
 const PHASE_EVENT_REGISTRY = (Object.values(PHASE_EVENTS) as GameEvent[][])
@@ -82,9 +84,9 @@ const getInitialGameState = (): GameState => ({
     week: 1,
     totalWeeksInPhase: 0,
     subjects: getInitialSubjects(),
-    general: { mindset: 50, experience: 0, luck: 50, romance: 0, health: 100, money: 0, efficiency: 10 },
+    general: { mindset: 50, experience: 0, luck: 50, romance: 0, health: 100, money: 0, efficiency: 10, excitement: 30 },
     fatigue: 20,
-    initialGeneral: { mindset: 50, experience: 0, luck: 50, romance: 0, health: 100, money: 0, efficiency: 10 },
+    initialGeneral: { mindset: 50, experience: 0, luck: 50, romance: 0, health: 100, money: 0, efficiency: 10, excitement: 30 },
     oiStats: getInitialOIStats(),
     selectedSubjects: [],
     competition: 'None',
@@ -127,7 +129,8 @@ const getInitialGameState = (): GameState => ({
     availableWeekendActivityIds: undefined
 });
 
-export const useGameLogic = (aiConfig?: AiConfig) => {
+export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
+    const STORAGE_KEY = getAccountSaveKey(accountId);
     // Initialize state with global achievements merged in
     const [state, setState] = useState<GameState>(() => {
         const initial = getInitialGameState();
@@ -143,9 +146,28 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
     const [cityEventsReady, setCityEventsReady] = useState(true);
 
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) setHasSave(true);
-    }, []);
+        const saved = localStorage.getItem(STORAGE_KEY) || (accountId === 'guest' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+        setHasSave(!!saved);
+        if (!saved) {
+            const initial = getInitialGameState();
+            setState(prev => ({ ...initial, unlockedAchievements: prev.unlockedAchievements }));
+        }
+    }, [STORAGE_KEY, accountId]);
+
+    useEffect(() => {
+        const threshold = getDifficultyPreset(state.difficulty).healthDeathThreshold;
+        if (threshold !== undefined && state.general.health < threshold && state.phase !== Phase.ENDING && state.phase !== Phase.WITHDRAWAL) {
+            setState(prev => ({
+                ...prev,
+                phase: Phase.ENDING,
+                currentEvent: null,
+                eventQueue: [],
+                isPlaying: false,
+                isWeekend: false,
+                log: [...prev.log, { message: `【极限失败】健康值低于${threshold}，游戏结束。`, type: 'error', timestamp: Date.now() }]
+            }));
+        }
+    }, [state.difficulty, state.general.health, state.phase]);
 
     const advancePhase = useCallback(() => {
         setState(prev => {
@@ -400,7 +422,9 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
 
                   if (state.phase === Phase.SUMMER) {
                      // 50% chance for specific Summer events (like hot day), 50% for generator
-                     if (validRandoms.length > 0 && Math.random() < 0.5) {
+                     if (state.competition === 'OI' && hasOIRandomEventsForPhase(state.phase) && Math.random() < 0.35) {
+                         weekEvents.push(generateOIEvent(state));
+                     } else if (validRandoms.length > 0 && Math.random() < 0.5) {
                          weekEvents.push(validRandoms[Math.floor(Math.random() * validRandoms.length)]);
                      } else {
                          weekEvents.push(generateSummerLifeEvent(state));
@@ -438,7 +462,11 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
                          if (eveningEvents.length > 0) weekEvents.push(eveningEvents[Math.floor(Math.random() * eveningEvents.length)]);
                     }
                   } else {
-                     weekEvents.push(Math.random() < 0.7 ? generateStudyEvent(state) : generateRandomFlavorEvent(state));
+                     if (state.competition === 'OI' && hasOIRandomEventsForPhase(state.phase) && Math.random() < 0.35) {
+                         weekEvents.push(generateOIEvent(state));
+                     } else {
+                         weekEvents.push(Math.random() < 0.7 ? generateStudyEvent(state) : generateRandomFlavorEvent(state));
+                     }
                   }
                 }
             }
@@ -476,8 +504,17 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
         else if (currentMoney < -80) debtLevel = 2;
         else if (currentMoney < 0) debtLevel = 1;
 
+        const dynamicStatusConditions: Record<string, (gameState: GameState) => boolean> = {
+            fatigued: gameState => gameState.fatigue >= 75,
+            overstimulated: gameState => (gameState.general.excitement ?? 0) >= 80,
+            low_morale: gameState => gameState.general.mindset <= 25
+        };
         const statusById = new Map<string, GameStatus>();
-        prevState.activeStatuses.filter(s => !s.id.startsWith('debt_')).forEach(status => {
+        prevState.activeStatuses.filter(status => {
+            if (status.id.startsWith('debt_')) return false;
+            const condition = dynamicStatusConditions[status.id];
+            return !condition || condition(prevState);
+        }).forEach(status => {
             const existing = statusById.get(status.id);
             if (!existing || status.duration > existing.duration) statusById.set(status.id, status);
         });
@@ -494,7 +531,10 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
             ['crush', general => { general.efficiency -= 2; general.romance += 2; }],
             ['in_love', general => { general.mindset += 5; }],
             ['heartbroken', general => { general.mindset -= 3; general.efficiency -= 1; }],
-            ['crush_pending', general => { general.luck += 2; general.experience += 2; }]
+            ['crush_pending', general => { general.luck += 2; general.experience += 2; }],
+            ['fatigued', general => { general.mindset -= 1; general.efficiency -= 1; }],
+            ['overstimulated', general => { general.efficiency -= 1; }],
+            ['low_morale', general => { general.efficiency -= 1; }]
         ]);
 
         if (debtLevel > 0) {
@@ -505,9 +545,12 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
             if (debtLevel === 5) { penaltyMindset = 80; penaltyRomance = 48; }
         }
 
-        // Weekly fatigue: health slowly drains from school pressure
+        // Weekly fatigue: school pressure is intentionally much harsher in the
+        // upper difficulties, so rest and study choices have a real opportunity cost.
+        const difficultyPreset = getDifficultyPreset(prevState.difficulty);
         const healthDrain = prevState.phase === Phase.SEMESTER_1 || prevState.phase === Phase.SEMESTER_2 ? 2 : 1;
-        const phaseFatigue = prevState.phase === Phase.SEMESTER_1 || prevState.phase === Phase.SEMESTER_2 ? 8 : 4;
+        const basePhaseFatigue = prevState.phase === Phase.SEMESTER_1 || prevState.phase === Phase.SEMESTER_2 ? 8 : 4;
+        const phaseFatigue = Math.max(1, Math.round(basePhaseFatigue * difficultyPreset.fatigueGainMultiplier));
         const fatiguePenalty = prevState.fatigue >= 90 ? 8 : prevState.fatigue >= 75 ? 3 : 0;
 
         const updatedGeneral: GeneralStats = {
@@ -515,14 +558,24 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
             money: prevState.general.money + moneyChange, 
             romance: Math.max(0, prevState.general.romance - penaltyRomance),
             health: Math.max(0, prevState.general.health - healthDrain - fatiguePenalty),
-            mindset: Math.max(0, prevState.general.mindset - penaltyMindset - (prevState.fatigue >= 75 ? 2 : 0))
+            mindset: Math.max(0, prevState.general.mindset - penaltyMindset - (prevState.fatigue >= 75 ? 2 : 0)),
+            excitement: Math.min(100, Math.max(0, (prevState.general.excitement ?? 0) - 5))
         };
-        const updatedFatigue = Math.min(100, Math.max(0, prevState.fatigue + phaseFatigue + (prevState.fatigue >= 75 ? 2 : 0)));
+        const updatedFatigue = Math.min(100, Math.max(0, prevState.fatigue + phaseFatigue + (prevState.fatigue >= 75 ? Math.ceil(2 * difficultyPreset.fatigueGainMultiplier) : 0)));
 
         activeStatuses.forEach(status => {
             statusEffects.get(status.id)?.(updatedGeneral);
             if (status.duration === 999 || status.duration > 1) {
                 newStatuses.push({ ...status, duration: status.duration === 999 ? 999 : status.duration - 1 });
+            }
+        });
+
+        // These three states are derived from the existing meters. They are
+        // deliberately mild: the player can recover from them without a new
+        // subsystem, while still seeing the consequences of their rhythm.
+        Object.entries(dynamicStatusConditions).forEach(([id, condition]) => {
+            if (condition({ ...prevState, general: updatedGeneral, fatigue: updatedFatigue }) && !newStatuses.some(status => status.id === id)) {
+                newStatuses.push({ ...STATUSES[id], duration: 999 });
             }
         });
 
@@ -539,6 +592,7 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
         updatedGeneral.mindset = Math.min(150, Math.max(0, updatedGeneral.mindset));
         updatedGeneral.health = Math.min(150, Math.max(0, updatedGeneral.health));
         updatedGeneral.experience = Math.max(0, updatedGeneral.experience);
+        updatedGeneral.excitement = Math.min(100, Math.max(0, regress(updatedGeneral.excitement ?? 0, 25, 0.12)));
 
         // Subject level decay: unattended subjects slowly lose level
         const updatedSubjects = { ...prevState.subjects };
@@ -562,6 +616,16 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
     const applyWeeklyUpdates = (currentEvent: GameEvent, nextQueue: GameEvent[] = [], newTriggeredEvents: string[] = []) => {
         setState(prev => {
             const { updatedGeneral, updatedStatuses, updatedSubjects, updatedFatigue } = calculateWeeklyUpdates(prev);
+
+            const dynamicStatusMessages: Record<string, string> = {
+                fatigued: '你开始感到疲惫，接下来硬撑会更吃力。',
+                overstimulated: '你的兴奋值过高，注意力变得有些飘忽。',
+                low_morale: '你最近有些低落，先找回一点掌控感。'
+            };
+            const previousStatusIds = new Set(prev.activeStatuses.map(status => status.id));
+            const statusLogs: GameLogEntry[] = updatedStatuses
+                .filter(status => dynamicStatusMessages[status.id] && !previousStatusIds.has(status.id))
+                .map(status => ({ message: dynamicStatusMessages[status.id], type: 'warning', timestamp: Date.now() }));
             
             // Update Anti-Repetition Buffer
             let newRecentIds = [...prev.recentEventIds];
@@ -572,7 +636,8 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
             }
 
             // Death check: health <= 0 means game over (猝死)
-            if (updatedGeneral.health <= 0) {
+            const healthThreshold = getDifficultyPreset(prev.difficulty).healthDeathThreshold || 0;
+            if (updatedGeneral.health < healthThreshold) {
                 return {
                     ...prev,
                     general: updatedGeneral,
@@ -581,7 +646,7 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
                     currentEvent: null,
                     eventQueue: [],
                     isPlaying: false,
-                    log: [...prev.log, { message: '【猝死】你的健康值降到了0以下，身体再也承受不住了...游戏结束。', type: 'error', timestamp: Date.now() }]
+                    log: [...prev.log, ...statusLogs, { message: healthThreshold > 0 ? `【极限失败】健康值低于${healthThreshold}，身体再也承受不住了……游戏结束。` : '【猝死】你的健康值降到了0以下，身体再也承受不住了...游戏结束。', type: 'error', timestamp: Date.now() }]
                 };
             }
 
@@ -595,7 +660,8 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
                 eventQueue: nextQueue,
                 triggeredEvents: [...prev.triggeredEvents, ...newTriggeredEvents],
                 recentEventIds: newRecentIds,
-                isPlaying: false
+                isPlaying: false,
+                log: [...prev.log, ...statusLogs]
             };
         });
     };
@@ -644,7 +710,7 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
     };
 
     const loadGame = (): boolean => {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = localStorage.getItem(STORAGE_KEY) || (accountId === 'guest' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
         if (saved) {
             try {
                 const payload = JSON.parse(saved);
@@ -669,6 +735,8 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
                 const restoredState: GameState = {
                     ...getInitialGameState(),
                     ...loaded,
+                    general: { ...getInitialGameState().general, ...(loaded.general || {}) },
+                    initialGeneral: { ...getInitialGameState().initialGeneral, ...(loaded.initialGeneral || loaded.general || {}) },
                     fatigue: typeof loaded.fatigue === 'number' ? Math.min(100, Math.max(0, loaded.fatigue)) : 20,
                     relationshipProfileId: typeof loaded.relationshipProfileId === 'string' ? loaded.relationshipProfileId : null,
                     currentEvent: restoredEvent,
@@ -734,7 +802,9 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
         const rolledSubjects = getInitialSubjects();
         (Object.keys(rolledSubjects) as SubjectKey[]).forEach(k => {
             rolledSubjects[k] = { aptitude: Math.floor(Math.random() * 40 + 60), level: Math.floor(Math.random() * 10 + 5) };
-            if (effectiveDifficulty === 'NORMAL' || false) { rolledSubjects[k].aptitude += 15; rolledSubjects[k].level += 5; }
+            const difficultyPreset = getDifficultyPreset(effectiveDifficulty);
+            rolledSubjects[k].aptitude = Math.max(20, rolledSubjects[k].aptitude + difficultyPreset.subjectAptitudeDelta);
+            rolledSubjects[k].level = Math.max(1, rolledSubjects[k].level + difficultyPreset.subjectLevelDelta);
         });
 
         // Ensure achievements are carried over to new game
@@ -824,16 +894,50 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
             if (choice.nextEventId && CHAINED_EVENTS[choice.nextEventId]) {
                 updates = { ...updates, chainedEvent: CHAINED_EVENTS[choice.nextEventId] };
             }
-            const isSleepChoice = choice.text.includes('睡') || choice.text.includes('梦') || choice.text.includes('补觉');
-            const isHardWorkChoice = /学习|刷题|复习|通宵|熬夜|集训|肝|认真听/.test(choice.text);
+            const choiceTags = choice.tags || [];
+            const isSleepChoice = choiceTags.includes('sleep') || /睡|梦|补觉|休息|放松|躺平/.test(choice.text);
+            const isHardWorkChoice = choiceTags.includes('study') || /学习|刷题|复习|通宵|熬夜|集训|肝|认真听/.test(choice.text);
             const actionFatigue = typeof updates.fatigue === 'number' ? updates.fatigue : prev.fatigue;
-            if (isSleepChoice) {
-                updates = { ...updates, fatigue: Math.max(0, actionFatigue - 20) };
-                if (prev.activeChallengeId === 'c_sleep_king') updates.hasSleptThisWeek = true;
-            } else if (isHardWorkChoice) {
-                updates = { ...updates, fatigue: Math.min(100, actionFatigue + 8) };
+            if (isHardWorkChoice && isStudyBlocked(prev)) {
+                updates = {
+                    log: [...prev.log, { message: '【极限难度】当前心态或疲劳状态不允许学习。', type: 'warning', timestamp: Date.now() }]
+                };
             }
-            const newState = { ...prev, ...updates };
+            if (isSleepChoice) {
+                if (updates.general) {
+                    updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getRestRecoveryMultiplier(prev)) };
+                }
+                const recoveryMultiplier = getRestRecoveryMultiplier(prev);
+                const explicitFatigueDelta = actionFatigue - prev.fatigue;
+                const fatigueTarget = typeof updates.fatigue === 'number'
+                    ? prev.fatigue + (explicitFatigueDelta < 0 ? explicitFatigueDelta * recoveryMultiplier : explicitFatigueDelta)
+                    : prev.fatigue - 20 * recoveryMultiplier;
+                updates = { ...updates, fatigue: Math.min(100, Math.max(0, fatigueTarget)) };
+                if (prev.activeChallengeId === 'c_sleep_king') updates.hasSleptThisWeek = true;
+            } else if (isHardWorkChoice && !isStudyBlocked(prev)) {
+                const difficulty = getDifficultyPreset(prev.difficulty);
+                const excitementFactor = 1 - Math.min(100, Math.max(0, prev.general.excitement ?? 0)) / 300;
+                updates = {
+                    ...updates,
+                    general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)),
+                    subjects: scalePositiveSubjectDeltas(prev, updates.subjects, getLearningMultiplier(prev))
+                };
+                updates = { ...updates, fatigue: Math.min(100, actionFatigue + Math.max(4, Math.round(8 * difficulty.fatigueGainMultiplier * excitementFactor))) };
+            } else if ((choiceTags.includes('sport') || /跑步|运动|体育|1000米|打球/.test(choice.text)) && updates.general) {
+                updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)) };
+            }
+            let newState = { ...prev, ...updates };
+            const healthThreshold = getDifficultyPreset(prev.difficulty).healthDeathThreshold;
+            if (healthThreshold !== undefined && newState.general.health < healthThreshold) {
+                newState = {
+                    ...newState,
+                    phase: Phase.ENDING,
+                    currentEvent: null,
+                    eventQueue: [],
+                    isPlaying: false,
+                    log: [...newState.log, { message: `【极限失败】健康值低于${healthThreshold}，游戏结束。`, type: 'error', timestamp: Date.now() }]
+                };
+            }
             const diff = visualizer ? visualizer(oldState, newState) : [];
             const entry: StoryEntry = {
                 week: prev.week,
@@ -894,16 +998,34 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
         }));
     };
     
-    const handleShopPurchase = (item: Item, effectVisualizer: () => void) => {
-        const updates = item.effect(state);
-        setState(prev => ({ ...prev, ...updates }));
-        effectVisualizer();
+    const handleShopPurchase = (item: Item, effectVisualizer?: (oldState: GameState, newState: GameState) => void) => {
+        setState(prev => {
+            const price = item.price * getShopPriceMultiplier(prev);
+            if (prev.general.money < price) return {
+                ...prev,
+                log: [...prev.log, { message: `买不起${item.name}，还差 ${Math.ceil(price - prev.general.money)} G。`, type: 'warning', timestamp: Date.now() }]
+            };
+            const baseUpdates = item.effect(prev);
+            const updates = baseUpdates.general
+                ? { ...baseUpdates, general: { ...baseUpdates.general, money: prev.general.money - price } }
+                : { ...baseUpdates, general: { ...prev.general, money: prev.general.money - price } };
+            let newState = { ...prev, ...updates };
+            const healthThreshold = getDifficultyPreset(prev.difficulty).healthDeathThreshold;
+            if (healthThreshold !== undefined && newState.general.health < healthThreshold) {
+                newState = { ...newState, phase: Phase.ENDING, isPlaying: false, currentEvent: null, isWeekend: false, log: [...newState.log, { message: `【极限失败】健康值低于${healthThreshold}，游戏结束。`, type: 'error', timestamp: Date.now() }] };
+            }
+            effectVisualizer?.(prev, newState);
+            return newState;
+        });
     };
 
     const executeTimetable = (schedule: Record<string, string>) => {
         let currentState = { ...state };
-        let results = [];
+        const results: string[] = [];
         let hasSlept = false;
+        let weekendStudyCount = 0;
+        const activityRepeatCounts = new Map<string, number>();
+        const difficultyPreset = getDifficultyPreset(state.difficulty);
 
         // Pre-build activity lookup map for O(1) access
         const activityMap = new Map(WEEKEND_ACTIVITIES.map(a => [a.id, a]));
@@ -922,38 +1044,110 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
             const activity = activityMap.get(actId);
             if (!activity) continue;
 
+            if (activity.type === 'STUDY' && isStudyBlocked(currentState)) {
+                batchLogs.push({ message: '【极限难度】当前心态或疲劳状态不允许学习型周末活动。', type: 'warning', timestamp: Date.now() });
+                continue;
+            }
+            if (activity.type === 'STUDY' && difficultyPreset.weekendStudyLimit !== undefined && weekendStudyCount >= difficultyPreset.weekendStudyLimit) {
+                batchLogs.push({ message: `【地狱难度】本周最多安排 ${difficultyPreset.weekendStudyLimit} 次学习型周末活动。`, type: 'warning', timestamp: Date.now() });
+                continue;
+            }
+
             const oldS = { ...currentState };
             let updates = activity.action(oldS);
             let resultText = typeof activity.resultText === 'function' ? activity.resultText(oldS) : activity.resultText;
+            const repeatCount = (activityRepeatCounts.get(activity.id) || 0) + 1;
+            activityRepeatCounts.set(activity.id, repeatCount);
+            const repeatMultiplier = getActivityRepeatMultiplier(repeatCount);
+
+            if (activity.type === 'STUDY') {
+                weekendStudyCount += 1;
+                updates = {
+                    ...updates,
+                    general: scalePositiveGeneralDeltas(oldS, updates.general, getLearningMultiplier(oldS)),
+                    subjects: scalePositiveSubjectDeltas(oldS, updates.subjects, getLearningMultiplier(oldS))
+                };
+            } else if (activity.id === 'act_sport') {
+                const sportMultiplier = getLearningMultiplier(oldS);
+                updates = { ...updates, general: scalePositiveGeneralDeltas(oldS, updates.general, sportMultiplier) };
+            } else if (activity.type === 'REST') {
+                updates = { ...updates, general: scalePositiveGeneralDeltas(oldS, updates.general, getRestRecoveryMultiplier(oldS)) };
+            }
+
+            // Repeating the same activity in one week still works, but each
+            // repetition contributes less positive progress. Costs and
+            // negative effects remain unchanged so the trade-off stays clear.
+            if (repeatMultiplier < 1) {
+                const scaledGeneral = scalePositiveGeneralDeltas(oldS, updates.general, repeatMultiplier);
+                if (scaledGeneral && updates.general && typeof oldS.general.excitement === 'number' && typeof updates.general.excitement === 'number' && updates.general.excitement > oldS.general.excitement) {
+                    scaledGeneral.excitement = oldS.general.excitement + (updates.general.excitement - oldS.general.excitement) * repeatMultiplier;
+                }
+                const repeatedUpdates = { ...updates };
+                if (updates.general) repeatedUpdates.general = scaledGeneral;
+                if (updates.subjects) repeatedUpdates.subjects = scalePositiveSubjectDeltas(oldS, updates.subjects, repeatMultiplier);
+                if (updates.oiStats) repeatedUpdates.oiStats = scalePositiveOIStatDeltas(oldS, updates.oiStats, repeatMultiplier);
+                updates = repeatedUpdates;
+            }
             
             if (currentState.activeChallengeId === 'c_sleep_king' && (activity.id === 'w_sleep' || activity.name.includes('睡'))) {
                 updates = { ...updates, hasSleptThisWeek: true };
                 hasSlept = true;
             }
 
+            const restMultiplier = getRestRecoveryMultiplier(oldS);
             const fatigueDelta = activity.id === 'w_sleep'
-                ? -35
+                ? -35 * restMultiplier
                 : activity.type === 'REST'
-                    ? -10
+                    ? -10 * restMultiplier
                     : activity.type === 'SOCIAL' || activity.type === 'LOVE'
                         ? 4
                         : activity.type === 'OI'
                             ? 14
-                            : 10;
+                            : 10 * difficultyPreset.fatigueGainMultiplier;
 
             // Extract logs from updates before merging
             if (updates.log) {
-                batchLogs.push(...updates.log);
+                const previousLogEntries = new Set(oldS.log || []);
+                batchLogs.push(...updates.log.filter(entry => !previousLogEntries.has(entry)));
                 delete updates.log;
             }
             currentState = { ...currentState, ...updates };
+            const trackedOiActivities = new Set(['w_luogu', 'w_cf', 'w_atc', 'w_oi_wiki', 'act_cf']);
+            if (currentState.competition === 'OI' && trackedOiActivities.has(activity.id)) {
+                const practiceSessions = Number(currentState.flags.oi_practice_sessions || 0) + 1;
+                currentState.flags = {
+                    ...currentState.flags,
+                    oi_practice_sessions: practiceSessions,
+                    ...(activity.id === 'act_cf' ? { oi_cf_sessions: Number(currentState.flags.oi_cf_sessions || 0) + 1 } : {})
+                };
+            }
             currentState.fatigue = Math.min(100, Math.max(0, (currentState.fatigue || 0) + fatigueDelta));
+            const healthThreshold = difficultyPreset.healthDeathThreshold;
+            if (healthThreshold !== undefined && currentState.general.health < healthThreshold) {
+                currentState.phase = Phase.ENDING;
+                currentState.isPlaying = false;
+                currentState.isWeekend = false;
+                currentState.log = [...(currentState.log || []), { message: `【极限失败】健康值低于${healthThreshold}，游戏结束。`, type: 'error', timestamp: Date.now() }];
+                break;
+            }
             if (resultText) {
-                results.push(`[${slotId}] ${resultText}`);
+                const repeatNote = repeatCount > 1 ? '（重复安排，收益递减）' : '';
+                results.push(`[${slotId}] ${resultText}${repeatNote}`);
             }
         }
         // Apply batch logs once
         currentState.log = [...(currentState.log || []), ...batchLogs];
+
+        // Keep a compact, readable record of the plan instead of dropping the
+        // collected result text on the floor. Individual activity logs remain
+        // available for events that need their own detailed message.
+        const summaryItems = results.slice(0, 4);
+        if (results.length > 4) summaryItems.push(`还有 ${results.length - 4} 项活动未展开`);
+        currentState.log = [...(currentState.log || []), {
+            message: summaryItems.length > 0 ? `【本周计划】${summaryItems.join('；')}` : '【本周计划】本周没有安排可执行的活动。',
+            type: 'info',
+            timestamp: Date.now()
+        }];
 
         // Challenge Check
         if (currentState.activeChallengeId === 'c_sleep_king' && !hasSlept) {
@@ -985,7 +1179,7 @@ export const useGameLogic = (aiConfig?: AiConfig) => {
         const percentage = score / maxScore;
         const totalStudents = 633;
         
-        const mean = 0.68;
+        const mean = getDifficultyPreset(state.difficulty).peerAverage;
         const std = 0.15;
         const z = (percentage - mean) / std;
         

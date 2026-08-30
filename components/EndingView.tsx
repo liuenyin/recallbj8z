@@ -31,15 +31,19 @@ const EndingView: React.FC<EndingViewProps> = ({ state }) => {
     } else if (noiMedal === 'GOLD') {
       r = 'SSS';
       t = '清北保送生（OI 国集）';
-      msg = '你在最高荣誉殿堂 NOI 中斩获金牌！一举保送清华北大，不仅如此，你的传说将在八中流传。高中的剩下的两年对你来说只是放假！';
+      msg = '你在 NOI 中拿到金牌，获得了保送和国家集训队选拔相关机会。接下来仍要按正式政策和后续选拔安排。';
     } else if (noiMedal === 'SILVER') {
       r = 'SS';
       t = '强基破格入围者（OI 银牌）';
-      msg = '你在 NOI 中斩获银牌。虽然未能直接保送，但清华北大的强基计划已经向你敞开大门，前途一片光明。';
-    } else if (noiMedal === 'BRONZE' || provincialTeam) {
+      msg = '你在 NOI 中拿到银牌，获得了申请相关强基计划的竞争机会。是否录取，还要看后续政策和申请结果。';
+    } else if (noiMedal === 'BRONZE' || (!noiMedal && provincialTeam)) {
       r = 'S';
       t = '省队巨佬';
-      msg = '你能冲入省队，已经在八中的历史上留下了浓墨重彩的一笔。文化课对你来说也绝不是问题。';
+      msg = '你能在资源有限的条件下冲入省队，已经留下了一笔少见而扎实的成绩。接下来仍要自己安排训练和文化课。';
+    } else if (noiMedal === 'PARTICIPANT') {
+      r = score >= 75 ? 'A' : 'B';
+      t = 'NOI 参赛者';
+      msg = '你走完了省队到 NOI 的赛程，但这次没有拿到奖牌。分数和名次都记下了，之后是否继续由你决定。';
     } else if (score >= 90) {
       r = 'S';
       t = '年级学神';

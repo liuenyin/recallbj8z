@@ -1,11 +1,16 @@
 import { GameEvent, Phase } from '../types';
 
+const oiTotal = (state: Parameters<NonNullable<GameEvent['condition']>>[0]): number => {
+    const stats = state.oiStats;
+    return stats.dp + stats.ds + stats.math + stats.string + stats.graph + stats.misc;
+};
+
 export const OI_EVENTS: GameEvent[] = [
     // ---------------- NOIWC (Winter Break) ----------------
     {
         id: 'oi_wc_invite',
         title: 'NOIWC 冬令营邀请',
-        description: '你在 CSP-S 中取得了极为优异的成绩（>280分），成功获得了 NOI 冬令营（NOIWC & CTSC）的邀请函！',
+        description: '你的 CSP-S 成绩超过 280 分，收到了 NOI 冬令营的报名通知。去不去，要自己安排时间和费用。',
         type: 'positive',
         once: true,
         triggerType: 'FIXED',
@@ -30,12 +35,12 @@ export const OI_EVENTS: GameEvent[] = [
     {
         id: 'oi_provincial_invite',
         title: '联合省选集结令',
-        description: 'NOIP 的成绩让你获得了参加本省信息学奥林匹克省队选拔（省选）的资格！各省分数线不同，但这是通往 NOI 的唯一道路。',
+        description: 'NOIP 成绩出来后，你在报名名单里看到了自己的名字。八中没有一支成熟的校队，能不能走到省队，更多取决于你这一学期自己刷题、参加线上赛和跨校训练留下的积累。',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',
         fixedWeek: 4,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.competition === 'OI' && (s.flags.noip_score || 0) >= 150, // Lowered threshold slightly to reflect varying province requirements
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.competition === 'OI' && (s.flags.noip_score || 0) >= 180 && (Number(s.flags.oi_practice_sessions || 0) >= 4 || oiTotal(s) >= 24),
         choices: [
             {
                 text: '迎战省选！',
@@ -58,12 +63,12 @@ export const OI_EVENTS: GameEvent[] = [
     {
         id: 'oi_apio_invite',
         title: 'APIO 亚洲与太平洋地区信息学奥林匹克',
-        description: '基于你的 NOIP 成绩，你获得了 APIO 的参赛资格。这场全英文题面的国际级别赛事，是绝佳的锻炼机会。',
+        description: '你报名参加了 APIO 线上赛。它不等着学校替你安排，报名、看英文题面和调试都得自己完成；这是一场很好的检验。',
         type: 'positive',
         once: true,
         triggerType: 'FIXED',
         fixedWeek: 12,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.competition === 'OI' && (s.flags.noip_score || 0) > 180,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.competition === 'OI' && (s.flags.noip_score || 0) > 200 && Number(s.flags.oi_practice_sessions || 0) >= 5,
         choices: [
             {
                 text: '参加线上测试',
@@ -83,7 +88,7 @@ export const OI_EVENTS: GameEvent[] = [
     {
         id: 'oi_noi_invite',
         title: 'NOI 全国青少年信息学奥林匹克竞赛',
-        description: '你成功杀入了省队！最高荣誉的殿堂 NOI 就在眼前，这也决定了你是否能保送清北。',
+        description: '你进入了省队，拿到了参加 NOI 的资格。接下来是正式比赛，结果不会因为进队就提前写好。',
         type: 'positive',
         once: true,
         triggerType: 'FIXED',
@@ -107,7 +112,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_wc_arrive',
         title: 'NOIWC 报到与开幕式',
-        description: '你来到了全国冬令营现场。开幕式上，CCF 秘书长 dzd 慷慨激昂地发表了一番关于“计算机教育要从娃娃抓起”的演讲，底下掌声雷动。',
+        description: '你到了全国冬令营现场。报到、讲座和训练安排排得很满，周围的人大多已经有过几次大赛经历。',
         type: 'neutral',
         triggerType: 'CHAINED',
         choices: [
@@ -129,19 +134,19 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     },
     {
         id: 'oi_wc_result', // Triggered in handleExamFinish or closeExamResult if Phase.WC_EXAM ends
-        title: 'NOIWC 文艺汇演与国家集训队答辩',
-        description: '残酷的考试结束了。晚上是传统的 WC 文艺汇演，各省选手唱歌、跳舞，甚至还有女装表演。第二天，你还在现场观摩了激动人心的国家集训队答辩，国家队的四个名额就在神仙们的较量中诞生了。',
+        title: 'NOIWC 赛后活动',
+        description: '考试结束后，晚上有文艺汇演，第二天还能旁听国家集训队答辩。你第一次近距离看到不同省份的选手怎样准备比赛。',
         type: 'positive',
         triggerType: 'CHAINED',
         choices: [
             {
-                text: '在台下膜拜神仙（查看自己成绩）',
+                text: '看完答辩，查自己的成绩',
                 action: (s) => {
                     const score = s.flags.wc_score || 0;
                     let msg = '';
-                    if (score > 150) { msg = '你发挥极其出色，拿到了 WC 金牌！感觉距离上面的答辩席也不算太遥远了。'; }
-                    else if (score > 80) { msg = '你稳扎稳打，拿到了一块银牌，可喜可贺。'; }
-                    else { msg = '题目太难，打铁了。不过能亲眼见到这么多巨佬，已经值回票价了。'; }
+                    if (score >= 420) { msg = '这次发挥很好，成绩达到冬令营前列。'; }
+                    else if (score >= 300) { msg = '成绩还算稳，几道题的失分原因已经很清楚。'; }
+                    else { msg = '题目比平时训练难不少。这次主要是来认识差距，回去还得补题。'; }
                     return {
                         general: { ...s.general, mindset: s.general.mindset + 20, experience: s.general.experience + 30 },
                         log: [...s.log, { message: msg, type: score > 80 ? 'success' : 'warning', timestamp: Date.now() }]
@@ -155,7 +160,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_provincial_day1',
         title: '联合省选 Day 1',
-        description: '赛前一天你去试机，遇到了许多在洛谷上神交已久的神犇。大家面基聊天，气氛看似轻松，实则暗流涌动。第一天的考试即将开始！',
+        description: '赛前一天去试机，你在签到群里认识的几个人终于见了面。有人聊题，有人只确认了键盘和编译环境。第一天考试快开始了。',
         type: 'neutral',
         triggerType: 'CHAINED',
         choices: [
@@ -168,7 +173,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_provincial_result', 
         title: '联合省选 Day 2 与落幕',
-        description: 'Day 2 更是折磨人的防AK场。两天的鏖战终于结束，各大省份的省队名额（省定分数线）有所不同，有的省份 180 分就能进，有的省份则卷到 250 分。',
+        description: '两天考试结束。各省的名额和分数线按当年的成绩分布确定，不能只拿别人的往年线来估计。',
         type: 'neutral',
         triggerType: 'CHAINED',
         choices: [
@@ -176,22 +181,24 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                 text: '查看省队名单',
                 action: (s) => {
                     const score = s.flags.provincial_score || 0;
-                    // Mock varying provincial boundaries. Higher score means much higher chance.
+                    // Provincial lines vary by year. Treat a borderline score as
+                    // uncertain instead of making one low cutoff universal.
                     let madeTeam = false;
-                    if (score > 230) madeTeam = true; // Guaranteed in almost all provinces
-                    else if (score > 160) madeTeam = Math.random() < 0.6; // 60% chance for average provinces
-                    else if (score > 100) madeTeam = Math.random() < 0.2; // 20% chance for weak provinces
+                    if (score >= 430) madeTeam = true;
+                    else if (score >= 340) madeTeam = Math.random() < 0.6;
+                    else if (score >= 260) madeTeam = Math.random() < 0.2;
+                    else madeTeam = Math.random() < 0.05;
                     
                     if (madeTeam) {
                         return {
                             flags: { ...s.flags, provincial_team: true },
                             general: { ...s.general, mindset: s.general.mindset + 50, experience: s.general.experience + 50 },
-                            log: [...s.log, { message: "你成功卡线进入了省队（A/B类）！获得了参加 NOI 的门票！", type: 'success', timestamp: Date.now() }]
+                            log: [...s.log, { message: "你进入了省队，拿到了参加 NOI 的资格。接下来还要继续训练。", type: 'success', timestamp: Date.now() }]
                         };
                     } else {
                         return {
                             general: { ...s.general, mindset: s.general.mindset - 40, efficiency: s.general.efficiency + 20 },
-                            log: [...s.log, { message: `你的总分为 ${score}，遗憾未能达到本省的省队线，或者只拿到了买不到的 D 类... OI 生涯留下了遗憾。`, type: 'error', timestamp: Date.now() }]
+                            log: [...s.log, { message: `你的总分为 ${score}，没有进省队。分数线和名额要等正式名单，结果只能接受。`, type: 'error', timestamp: Date.now() }]
                         };
                     }
                 }
@@ -203,7 +210,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_apio_exam',
         title: 'APIO 线上测试',
-        description: '比赛开始。题面全是英文，你需要一边翻译一边思考算法。',
+        description: '比赛开始，题面以英文为主。你得先确认题意，再安排读题和写代码的时间。',
         type: 'neutral',
         triggerType: 'CHAINED',
         choices: [
@@ -216,7 +223,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_apio_result',
         title: 'APIO 成绩公布',
-        description: '作为一场国际赛事，虽然线上参赛没有线下那么隆重，但奖牌的含金量依然很高。',
+        description: '成绩公布。线上赛少了报到和现场环节，但题目的难度和赛后复盘都还在。',
         type: 'positive',
         triggerType: 'CHAINED',
         choices: [
@@ -225,9 +232,9 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                 action: (s) => {
                     const score = s.flags.apio_score || 0;
                     let msg = '';
-                    if (score > 200) { msg = '你在 APIO 中斩获金牌！'; }
-                    else if (score > 100) { msg = '你在 APIO 中获得银牌！'; }
-                    else { msg = '拿到了铜牌或优秀奖，再接再厉。'; }
+                    if (score >= 420) { msg = '这次成绩达到 APIO 前列。'; }
+                    else if (score >= 300) { msg = '成绩不错，至少有几道题完整做出了。'; }
+                    else { msg = '分数不高，但你知道自己在哪些题型上还不熟。'; }
                     return {
                         general: { ...s.general, experience: s.general.experience + 15 },
                         log: [...s.log, { message: msg, type: 'info', timestamp: Date.now() }]
@@ -241,19 +248,19 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_noi_arrive',
         title: 'NOI 报到日：徽章交换',
-        description: '你抵达了 NOI 举办学校。报到后最热闹的就是“徽章交换”环节。大家都拿着自己省或者学校的定制徽章到处面基换章。你不仅换到了一大堆徽章，还面基了以前只在网上膜拜过的神犇。',
+        description: '你抵达 NOI 举办学校。报到后，很多人拿着省队或学校的徽章互相交换，也顺便和以前只在群里见过的人打了招呼。',
         type: 'positive',
         triggerType: 'CHAINED',
         choices: [
             {
-                text: '拿着徽章到处换章，扩列神犇！',
+                text: '去换徽章，认识几个人',
                 action: (s) => ({
                     general: { ...s.general, romance: s.general.romance + 15, mindset: s.general.mindset + 30 },
                     eventQueue: [{...OI_EVENTS_POOL.find(e=>e.id==='oi_noi_exam_start')!}]
                 })
             },
             {
-                text: '社恐，躲在宿舍敲板子',
+                text: '回宿舍再看一会题',
                 action: (s) => ({
                     general: { ...s.general, efficiency: s.general.efficiency + 5 },
                     eventQueue: [{...OI_EVENTS_POOL.find(e=>e.id==='oi_noi_exam_start')!}]
@@ -264,7 +271,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_noi_exam_start',
         title: 'NOI Day 1',
-        description: 'NOI 比赛正式开始。今天的笔试满分拿下后，上机实战，周围全是键盘敲击的声音。',
+        description: 'NOI Day 1 开始。上午的笔试结束后进入上机，周围只剩键盘和提交提示音。',
         type: 'neutral',
         triggerType: 'CHAINED',
         choices: [
@@ -277,7 +284,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     {
         id: 'oi_noi_social_practice',
         title: '社会实践日 & Day 2',
-        description: '紧张的 Day 1 结束后，按照 NOI 惯例，中间有一天的“社会实践活动”。大家前往当地的博物馆或游乐园放松心情。第二天一早，又紧接着是决定命运的 Day 2 考试。',
+        description: 'Day 1 结束后，中间安排了一天活动。有人去参观，有人留在住处补觉，第二天继续考试。',
         type: 'neutral',
         triggerType: 'CHAINED',
         choices: [
@@ -295,8 +302,8 @@ export const OI_EVENTS_POOL: GameEvent[] = [
     },
     {
         id: 'oi_noi_result',
-        title: 'NOI 颁奖典礼',
-        description: '所有的比赛都结束了。闭幕式上，激动人心的时刻到来了。各大高校的招生办老师就在门外。前 50 名入选国家集训队。你的最终名次是...',
+        title: 'NOI 成绩公布',
+        description: '比赛结束，成绩和排名公布。奖牌、名次和后续机会都以正式结果为准。',
         type: 'positive',
         triggerType: 'CHAINED',
         choices: [
@@ -305,17 +312,19 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                 action: (s) => {
                     const score = s.flags.noi_score || 0;
                     let msg = '';
-                    if (score >= 400) { 
-                        msg = '你获得了 NOI 金牌！不仅保送清北，还成功入选了国家集训队（前50名）！'; 
-                    } else if (score >= 250) { 
-                        msg = '你获得了 NOI 银牌，顺利签下清北强基破格入围。'; 
-                    } else { 
-                        msg = '你获得了 NOI 铜牌。OI 生涯就此画上句号。'; 
+                    if (score >= 600) {
+                        msg = '你拿到了 NOI 金牌，成绩进入国家集训队选拔范围。';
+                    } else if (score >= 450) {
+                        msg = '你拿到了 NOI 银牌，获得了后续强基计划的竞争机会。';
+                    } else if (score >= 300) {
+                        msg = '你拿到了 NOI 铜牌，至少把这段省队经历完整走完了。';
+                    } else {
+                        msg = '你参加完了 NOI，但分数没有达到奖牌线。回去后要不要继续写题，再慢慢决定。';
                     }
                     return {
                         general: { ...s.general, mindset: s.general.mindset + 100 },
-                        flags: { ...s.flags, noi_medal: score >= 400 ? 'GOLD' : (score >= 250 ? 'SILVER' : 'BRONZE') },
-                        log: [...s.log, { message: msg, type: score >= 400 ? 'success' : 'info', timestamp: Date.now() }]
+                        flags: { ...s.flags, noi_medal: score >= 600 ? 'GOLD' : (score >= 450 ? 'SILVER' : (score >= 300 ? 'BRONZE' : 'PARTICIPANT')) },
+                        log: [...s.log, { message: msg, type: score >= 600 ? 'success' : 'info', timestamp: Date.now() }]
                     };
                 }
             }

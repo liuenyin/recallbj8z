@@ -141,6 +141,7 @@ export const loadCityEvents = async (code: string, regionName: string) => {
                            if (c.effect.experience) nextGen.experience = Math.min(999, Math.max(0, nextGen.experience + c.effect.experience));
                            if (c.effect.luck) nextGen.luck = Math.min(100, Math.max(0, nextGen.luck + c.effect.luck));
                            if (c.effect.romance) nextGen.romance = Math.min(100, Math.max(0, nextGen.romance + c.effect.romance));
+                           if (c.effect.excitement) nextGen.excitement = Math.min(100, Math.max(0, (nextGen.excitement ?? 0) + c.effect.excitement));
                            if (c.effect.money) nextGen.money = nextGen.money + c.effect.money; // Allow negative (debt system)
                        }
                        return {

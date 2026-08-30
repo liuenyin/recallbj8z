@@ -2,6 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameEvent, EventChoice, GameState } from '../types';
+import { isStudyBlocked } from '../data/utils';
 
 interface EventModalProps {
     event: GameEvent;
@@ -19,6 +20,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                 ? 'bg-rose-50 text-rose-600 border border-rose-100'
                 : 'bg-emerald-50 text-emerald-600 border border-emerald-100';
         }
+        if (diff.startsWith('兴奋 ')) {
+            return diff.includes('+')
+                ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                : 'bg-amber-50 text-amber-600 border border-amber-100';
+        }
         return diff.includes('+')
             ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
             : diff.includes('-')
@@ -27,6 +33,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
     };
     // Filter choices: Show if no condition OR condition is met
     const visibleChoices = event.choices?.filter(c => !c.condition || c.condition(state)) || [];
+    const studyBlocked = isStudyBlocked(state);
 
     return (
         <AnimatePresence mode="wait">
@@ -55,17 +62,23 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                             : event.description)}
                       </p>
                       <div className="space-y-3">
-                         {visibleChoices.map((c, i) => (
+                         {visibleChoices.map((c, i) => {
+                           const isStudyChoice = (c.tags || []).includes('study') || /学习|刷题|复习|通宵|熬夜|集训|肝|认真听/.test(c.text);
+                           const disabled = studyBlocked && isStudyChoice;
+                           return (
                            <motion.button 
                              whileHover={{ scale: 1.02 }}
                              whileTap={{ scale: 0.98 }}
-                             key={i} onClick={(e: any) => onChoice(c, e)} 
-                             className={`w-full text-left p-4 rounded-2xl border transition-all font-bold group flex justify-between items-center shadow-sm ${c.text.includes('【睡神】') ? 'bg-indigo-50/80 border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-200/50 hover:shadow-lg' : 'bg-white/60 border-white/50 text-slate-800 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-indigo-200/50 hover:shadow-lg'}`}
+                             key={i} disabled={disabled} onClick={(e: any) => onChoice(c, e)}
+                             title={disabled ? '极限难度：当前心态或疲劳状态不允许学习' : undefined}
+                             className={`w-full text-left p-4 rounded-2xl border transition-all font-bold group flex justify-between items-center shadow-sm ${disabled ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : c.text.includes('【睡神】') ? 'bg-indigo-50/80 border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-200/50 hover:shadow-lg' : 'bg-white/60 border-white/50 text-slate-800 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-indigo-200/50 hover:shadow-lg'}`}
                            >
                               {formatStoryText(c.text)}
-                              <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0"></i>
+                              {disabled ? <span className="text-[10px] font-bold">暂不可用</span> : <i className="fas fa-chevron-right opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0"></i>}
                            </motion.button>
-                         ))}
+                           );
+                         })}
+                         {studyBlocked && <div className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">极限难度：心态低于 20 或疲劳超过 90，学习选项暂时不可用。</div>}
                          {visibleChoices.length === 0 && (
                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center text-sm font-bold text-amber-700">
                              当前没有可用选项，已跳过此事件。

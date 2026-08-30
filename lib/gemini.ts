@@ -17,7 +17,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
 };
 
 const AI_CONFIG_STORAGE_KEY = 'recall_ai_config_v1';
-const GENERAL_EFFECT_KEYS = ['mindset', 'health', 'money', 'efficiency', 'romance', 'experience', 'luck', 'fatigue'] as const;
+const GENERAL_EFFECT_KEYS = ['mindset', 'health', 'money', 'efficiency', 'romance', 'experience', 'luck', 'fatigue', 'excitement'] as const;
 const OI_EFFECT_KEYS = ['dp', 'ds', 'math', 'string', 'graph', 'misc'] as const;
 
 const getEnvironmentApiKey = (): string => {
@@ -70,6 +70,7 @@ export const saveAiConfig = (config: AiConfig): void => {
 export const normalizeAiEndpoint = (rawUrl: string): string => {
   const value = rawUrl.trim().replace(/\/+$/, '');
   if (!value) throw new Error('请先填写 API 地址');
+  if (!/^https?:\/\//i.test(value)) throw new Error('API 地址必须以 http:// 或 https:// 开头');
   if (/\/chat\/completions$/i.test(value)) return value;
   if (/\/v\d+$/i.test(value)) return `${value}/chat/completions`;
   if (/deepseek\.com/i.test(value)) return `${value}/chat/completions`;
@@ -88,7 +89,7 @@ const readCompletionText = (data: any): string => {
 const requestCompletion = async (
   config: AiConfig,
   messages: Array<{ role: 'system' | 'user'; content: string }>,
-  options: { temperature?: number; maxTokens?: number } = {}
+  options: { temperature?: number; maxTokens?: number; retries?: number } = {}
 ): Promise<string> => {
   const endpoint = normalizeAiEndpoint(config.apiUrl);
   const model = config.model.trim();
@@ -96,33 +97,39 @@ const requestCompletion = async (
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (config.apiKey.trim()) headers.Authorization = `Bearer ${config.apiKey.trim()}`;
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 30000);
+  const retries = Math.min(1, Math.max(0, options.retries ?? 0));
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: options.temperature ?? 1,
-        max_tokens: options.maxTokens ?? 1400
-      })
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new Error(`API 请求失败 (${response.status})${detail ? `: ${detail.slice(0, 180)}` : ''}`);
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: options.temperature ?? 1,
+          max_tokens: options.maxTokens ?? 1400
+        })
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        if (response.status >= 500 && attempt < retries) continue;
+        throw new Error(`API 请求失败 (${response.status})${detail ? `: ${detail.slice(0, 180)}` : ''}`);
+      }
+      return readCompletionText(await response.json());
+    } catch (error: any) {
+      if (error?.name === 'AbortError') throw new Error('API 请求超时（30 秒）');
+      if (error instanceof TypeError) throw new Error('无法连接 API，可能是地址错误或服务端未允许浏览器跨域访问');
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
     }
-    return readCompletionText(await response.json());
-  } catch (error: any) {
-    if (error?.name === 'AbortError') throw new Error('API 请求超时（30 秒）');
-    if (error instanceof TypeError) throw new Error('无法连接 API，可能是地址错误或服务端未允许浏览器跨域访问');
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
   }
+
+  throw new Error('API 请求失败，请稍后重试');
 };
 
 const toFiniteNumber = (value: unknown): number | undefined => {
@@ -136,7 +143,7 @@ const sanitizeEffect = (raw: any): SerializableEffect => {
   const effect: SerializableEffect = {};
   const generalLimits: Record<(typeof GENERAL_EFFECT_KEYS)[number], [number, number]> = {
     mindset: [-15, 15], health: [-20, 20], money: [-100, 100], efficiency: [-3, 3],
-    romance: [-15, 15], experience: [-20, 20], luck: [-15, 15], fatigue: [-25, 25]
+    romance: [-15, 15], experience: [-20, 20], luck: [-15, 15], fatigue: [-25, 25], excitement: [-25, 25]
   };
   GENERAL_EFFECT_KEYS.forEach(key => {
     const value = toFiniteNumber(raw?.[key]);
@@ -185,8 +192,9 @@ const sanitizeEvents = (rawEvents: any[]): AiGeneratedEvent[] => rawEvents
       })
       .filter((choice: AiGeneratedEventChoice | null): choice is AiGeneratedEventChoice => !!choice && !!choice.text)
       .slice(0, 4);
-    if (choices.length === 0) return null;
-    return { title, description, type: raw.type === 'positive' || raw.type === 'negative' ? raw.type : 'neutral', choices };
+    const uniqueChoices = choices.filter((choice, index) => choices.findIndex(item => item.text === choice.text) === index);
+    if (uniqueChoices.length < 2) return null;
+    return { title, description, type: raw.type === 'positive' || raw.type === 'negative' ? raw.type : 'neutral', choices: uniqueChoices };
   })
   .filter((event): event is AiGeneratedEvent => !!event)
   .slice(0, 3);
@@ -216,16 +224,18 @@ const buildPrompt = (state: GameState): string => {
   const relationshipName = state.flags.relationship_name || '重要同学';
   const region = state.worldContext?.region || '未知城市';
   const year = state.worldContext?.yearStart || '当代';
+  const statuses = state.activeStatuses.map(status => status.name).join('、') || '无';
   return `你是一个高中生活模拟游戏的事件编剧。玩家来自${region}，在八中背景学校就读，入学年份约为${year}。
-当前阶段：${state.phase}，第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : '课内综合'}。
-当前属性：心态${Math.round(state.general.mindset)}、健康${Math.round(state.general.health)}、疲劳${Math.round(state.fatigue)}、金钱${Math.round(state.general.money)}、效率${Math.round(state.general.efficiency)}、桃花${Math.round(state.general.romance)}、经验${Math.round(state.general.experience)}。
+当前阶段：${state.phase}，第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : state.competition === 'MO' ? '数学竞赛（MO）' : '课内综合'}。
+当前属性：心态${Math.round(state.general.mindset)}、健康${Math.round(state.general.health)}、疲劳${Math.round(state.fatigue)}、兴奋${Math.round(state.general.excitement ?? 0)}、金钱${Math.round(state.general.money)}、效率${Math.round(state.general.efficiency)}、桃花${Math.round(state.general.romance)}、经验${Math.round(state.general.experience)}。
 学科水平：${subjects}。
+当前状态：${statuses}。
 重要同学：${relationshipName}；关系状态：${state.romancePartner ? '已确立关系' : '尚未确立关系'}。
 天赋：${state.talents.map(talent => talent.name).join('、') || '无'}。
 最近剧情：\n${recentHistory || '暂无，这是新的学期。'}
 
 请生成 2-3 个彼此主题不同、贴近中国高中校园的事件。事件要让玩家在学习、健康、关系、金钱、社团或竞赛之间做取舍，避免空泛鸡汤和重复最近剧情。
-每个事件需要 2-4 个选项。每个选项必须有 resultDescription 和 effect。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、romancePartner、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 在 -15 到 +15。
+每个事件必须有 2-4 个有效选项，其中至少一个选项风险较低但收益也较小。每个选项必须有 resultDescription 和 effect。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、excitement、romancePartner、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 和 excitement 在 -15 到 +15。不要让单个选项直接造成死亡、满值或不可逆的大幅惩罚。
 只在确实确立恋爱关系时填写 romancePartner；不要返回 flags、代码、Markdown 或解释文字。
 
 严格返回 JSON 数组，格式：
@@ -237,7 +247,7 @@ export const generateBatchGameEvents = async (state: GameState, config: AiConfig
   const content = await requestCompletion(config, [
     { role: 'system', content: buildPrompt(state) },
     { role: 'user', content: '请根据当前状态生成本周事件。' }
-  ], { temperature: 1.05, maxTokens: 2200 });
+  ], { temperature: 1.05, maxTokens: 2200, retries: 1 });
   return parseEvents(content);
 };
 

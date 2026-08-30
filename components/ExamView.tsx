@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, ExamResult, SubjectKey, SUBJECT_NAMES, Phase, OIProblem, OIStats } from '../types';
 import { OI_PROBLEMS } from '../data/oi_data';
+import { getEffectiveEfficiency } from '../data/utils';
 
 interface ExamViewProps {
   title: string;
@@ -121,8 +122,10 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
              if (prob.difficulty.graph > 0) { ability += stats.graph; required += prob.difficulty.graph; }
              if (prob.difficulty.misc > 0) { ability += stats.misc; required += prob.difficulty.misc; }
              
-             ability += state.subjects.math.aptitude * 0.1; 
-             ability += state.subjects.math.level * 0.5;
+             // Cultural-course maths helps with the easiest subtask, but it
+             // cannot substitute for sustained OI practice at higher stages.
+             ability += state.subjects.math.aptitude * 0.05;
+             ability += state.subjects.math.level * 0.2;
 
              // Difficulty scaling: requirement * base_scale * difficulty_modifier
              const difficultyFactor = Math.max(1, required * 1.5 * difficultyMod); 
@@ -154,8 +157,9 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
             basePercentage = basePercentage / difficultyMod;
 
             // Efficiency Bonus
-            if (state.general.efficiency > 15) {
-                basePercentage += (state.general.efficiency - 15) * 1.0;
+            const effectiveEfficiency = getEffectiveEfficiency(state);
+            if (effectiveEfficiency > 15) {
+                basePercentage += (effectiveEfficiency - 15) * 1.0;
             }
 
             let finalScoreRaw = basePercentage * luckMultiplier;

@@ -17,6 +17,8 @@ import EventModal from './components/EventModal';
 import FloatingTextLayer, { FloatingTextItem } from './components/FloatingTextLayer';
 import RealityGuideModal from './components/RealityGuideModal';
 import { loadAiConfig, saveAiConfig } from './lib/gemini';
+import { getActiveAccountId, getAccounts, setActiveAccountId } from './lib/accounts';
+import AccountModal from './components/AccountModal';
 
 import { SUBJECT_NAMES, SubjectKey } from './types';
 
@@ -26,7 +28,7 @@ const App: React.FC = () => {
   // UI State (View Routing & Modals)
   const [view, setView] = useState<'HOME' | 'TALENTS' | 'GAME'>('HOME');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('NORMAL');
-  const [customStats, setCustomStats] = useState<GeneralStats>({ mindset: 50, experience: 10, luck: 50, romance: 10, health: 80, money: 20, efficiency: 10 });
+  const [customStats, setCustomStats] = useState<GeneralStats>({ mindset: 50, experience: 10, luck: 50, romance: 10, health: 80, money: 20, efficiency: 10, excitement: 40 });
   const [showClubSelection, setShowClubSelection] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showRealityGuide, setShowRealityGuide] = useState(false);
@@ -36,6 +38,8 @@ const App: React.FC = () => {
   const [showContestHistory, setShowContestHistory] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState<Challenge | null>(null);
   const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadAiConfig());
+  const [activeAccountId, setAccountId] = useState(() => getActiveAccountId());
+  const [showAccounts, setShowAccounts] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
@@ -48,6 +52,7 @@ const App: React.FC = () => {
       else if (type === 'romance') color = '#f43f5e';
       else if (type === 'experience') color = '#f97316';
       else if (type === 'luck') color = '#8b5cf6';
+      else if (type === 'excitement') color = '#f97316';
       else if (type === 'oi') color = '#6366f1';
       
       const newText: FloatingTextItem = { id: Date.now() + Math.random(), text, x, y, color };
@@ -74,6 +79,7 @@ const App: React.FC = () => {
        check('efficiency', '效率', 'efficiency');
       check('experience', '经验', 'experience');
       check('luck', '运气', 'luck');
+      check('excitement', '兴奋', 'excitement');
       const fatigueDelta = newState.fatigue - oldState.fatigue;
       if (Math.abs(fatigueDelta) >= 1) {
           const val = Math.round(fatigueDelta * 10) / 10;
@@ -89,7 +95,7 @@ const App: React.FC = () => {
       startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
       executeTimetable, handleExamFinish, closeCompetitionPopup, closeExamResult, closeMiniGame,
       weekendOptions 
-  } = useGameLogic(aiConfig);
+  } = useGameLogic(aiConfig, activeAccountId);
 
   React.useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,7 +120,7 @@ const App: React.FC = () => {
       const debuffs = pool.filter(t => t.cost < 0).sort(() => 0.5 - Math.random()).slice(0, 4);
       setAvailableTalents([...buffs, ...debuffs].sort(() => 0.5 - Math.random()));
       setSelectedTalents([]);
-      setTalentPoints(selectedDifficulty === 'HARD' ? 1 : (selectedDifficulty === 'REALITY' ? 0 : 3));
+      setTalentPoints(DIFFICULTY_PRESETS[selectedDifficulty as keyof typeof DIFFICULTY_PRESETS]?.talentPoints ?? (selectedDifficulty === 'HARD' ? 1 : ((selectedDifficulty === 'REALITY') ? 0 : 3)));
       setView('TALENTS');
   };
 
@@ -169,6 +175,11 @@ const App: React.FC = () => {
 
      let noiMedal = state.flags.noi_medal;
      let provincialTeam = state.flags.provincial_team;
+     const moContestResult = state.flags.mo_contest_result;
+     const moSetter = state.flags.mo_setter === true;
+     const oiSetter = state.flags.oi_setter === true;
+     const oiProblemDrafted = state.flags.oi_problem_drafted === true;
+     const oiSetterFollowup = state.flags.oi_setter_followup;
      const overworked = state.general.health <= 0 || (state.fatigue >= 90 && state.general.health < 35);
      const balancedLife = !!state.romancePartner && state.general.health >= 60 && state.fatigue <= 60;
      const clubOrganizer = !!state.club && state.club !== 'none' && state.general.experience >= 50;
@@ -186,11 +197,15 @@ const App: React.FC = () => {
      } else if (noiMedal === 'SILVER') {
        rank = 'SS';
        title = '强基破格入围者';
-       comment = '你在 NOI 中斩获银牌，清华北大的强基计划已向你敞开。前面的路，以后再来探索吧。';
-     } else if (noiMedal === 'BRONZE' || provincialTeam) {
+       comment = '你在 NOI 中拿到银牌，获得了申请相关强基计划的竞争机会。前面的路，以后再来探索吧。';
+     } else if (noiMedal === 'BRONZE' || (!noiMedal && provincialTeam)) {
        rank = 'S';
        title = '省队巨佬';
-       comment = '你能冲入省队，已经在八中的历史上留下了浓墨重彩的一笔。前面的路，以后再来探索吧。';
+       comment = '你在校内资源有限的情况下冲入省队，留下了一笔少见而扎实的成绩。前面的路，以后再来探索吧。';
+     } else if (noiMedal === 'PARTICIPANT') {
+       rank = score >= 75 ? 'A' : 'B';
+       title = 'NOI 参赛者';
+       comment = '你走完了省队到 NOI 的赛程，但这次没有拿到奖牌。分数和名次都记下了，之后是否继续由你决定。';
      } else if (overworked) {
        rank = 'F';
        title = '过劳警告';
@@ -199,10 +214,32 @@ const App: React.FC = () => {
        rank = score >= 75 ? 'A' : 'B';
        title = '平衡生活者';
        comment = `你在${state.romancePartner}的陪伴、学业和健康之间找到了自己的节奏。成绩不是唯一答案，但你确实把这一年过得很完整。`;
-     } else if (state.competition === 'OI' && oiPower >= 12) {
+     } else if (state.competition === 'OI' && oiPower >= 12 && !oiProblemDrafted) {
        rank = score >= 75 ? 'A' : 'B';
        title = 'OI 探索者';
-       comment = '你没有把竞赛只当成一张奖状，而是沿着算法、思维和一次次调试走出了自己的方向。下一枚奖牌，还在更远的赛场。';
+       comment = '你参加了训练、线上赛和复盘。暂时没有奖牌，但已经知道下一步要补哪些题。';
+     } else if (state.competition === 'OI' && oiSetterFollowup === 'accepted') {
+       rank = score >= 75 ? 'A' : 'B';
+       title = 'OI 命题与竞赛实践者';
+       comment = '你一边准备比赛，一边把题目交给别人验。你已经走过题面、数据和赛后讨论这一整套流程。';
+     } else if (state.competition === 'OI' && oiSetter && oiProblemDrafted) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = 'OI 出题实践者';
+       comment = '你把一个算法想法写成了题面、样例和数据，别人真的拿它参加了比赛。';
+     } else if (state.competition === 'MO' && moContestResult === 'medal') {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '数学竞赛获奖者';
+       comment = moSetter
+         ? '你在数学竞赛中拿到奖项，也参与过命题和证明审稿。会解题，也会把严谨的想法交给别人检验。'
+         : '你在数学竞赛中拿到奖项，把一张张草稿纸上的尝试变成了稳定的解题能力。下一道题还在等你。';
+     } else if (state.competition === 'MO' && moSetter) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '数学命题实践者';
+       comment = '你参与过命题、讨论难度，也为证明中的每一个关键步骤负责。竞赛之外，你留下了一套真正能被别人使用的数学表达。';
+     } else if (state.competition === 'MO' && !!moContestResult) {
+       rank = score >= 75 ? 'A' : 'B';
+       title = '数学竞赛探索者';
+       comment = '你沿着训练课、解题小组和正式赛场走了一遍。结果并不完美，但你已经知道自己想继续追哪一类问题。';
      } else if (clubOrganizer) {
        rank = score >= 75 ? 'A' : 'B';
        title = '社团组织者';
@@ -246,13 +283,18 @@ const App: React.FC = () => {
 
   if (view === 'HOME') {
       return (
-          <HomeView 
-            selectedDifficulty={selectedDifficulty} onDifficultyChange={setSelectedDifficulty}
-            customStats={customStats} onCustomStatsChange={setCustomStats}
-            onStart={prepareGame} hasSave={hasSave} onLoadGame={handleLoadGame}
-            unlockedAchievements={state.unlockedAchievements}
-            aiConfig={aiConfig} onAiConfigChange={handleAiConfigChange}
-          />
+          <>
+            <HomeView
+              selectedDifficulty={selectedDifficulty} onDifficultyChange={setSelectedDifficulty}
+              customStats={customStats} onCustomStatsChange={setCustomStats}
+              onStart={prepareGame} hasSave={hasSave} onLoadGame={handleLoadGame}
+              unlockedAchievements={state.unlockedAchievements}
+              aiConfig={aiConfig} onAiConfigChange={handleAiConfigChange}
+              account={getAccounts().find(account => account.id === activeAccountId) || getAccounts()[0]}
+              onManageAccounts={() => setShowAccounts(true)}
+            />
+            {showAccounts && <AccountModal activeAccountId={activeAccountId} onClose={() => setShowAccounts(false)} onChanged={(id) => { setActiveAccountId(id); setAccountId(id); }} />}
+          </>
       );
   }
   
@@ -265,25 +307,26 @@ const App: React.FC = () => {
       )
   }
 
+  const isWarmMood = state.activeStatuses.some(status => status.id === 'in_love');
+  const isDangerState = state.general.health <= 30 || state.fatigue >= 85;
+  const isCriticalState = state.general.health <= 15 || state.fatigue >= 95;
+  const isOverstimulated = (state.general.excitement ?? 0) >= 80;
+
   const getAtmosphereTheme = () => {
-      if (state.phase === Phase.SUMMER || state.phase === Phase.SUMMER_BREAK || state.phase === Phase.MILITARY) return "bg-gradient-to-br from-green-100 to-emerald-200"; // Summer
-      if (state.phase === Phase.WINTER_BREAK) return "bg-gradient-to-br from-slate-100 to-blue-100"; // Winter
-      
-      if (state.phase === Phase.SEMESTER_1) {
-          if (state.week <= 8) return "bg-gradient-to-br from-orange-50 to-amber-100"; // Autumn
-          return "bg-gradient-to-br from-slate-100 to-blue-50"; // Winter approaching
-      }
-      if (state.phase === Phase.SEMESTER_2) {
-          if (state.week <= 10) return "bg-gradient-to-br from-emerald-100 to-teal-50"; // Spring
-          return "bg-gradient-to-br from-green-50 to-emerald-100"; // Early Summer
-      }
+      if (isWarmMood) return "bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100";
+      if (state.phase === Phase.SUMMER || state.phase === Phase.SUMMER_BREAK || state.phase === Phase.MILITARY) return "bg-gradient-to-br from-green-100 to-emerald-200";
+      if (state.phase === Phase.WINTER_BREAK) return "bg-gradient-to-br from-slate-100 to-blue-100";
+      if (state.phase === Phase.SEMESTER_1) return state.week <= 8 ? "bg-gradient-to-br from-orange-50 to-amber-100" : "bg-gradient-to-br from-slate-100 to-blue-50";
+      if (state.phase === Phase.SEMESTER_2) return state.week <= 10 ? "bg-gradient-to-br from-emerald-100 to-teal-50" : "bg-gradient-to-br from-green-50 to-emerald-100";
       return "bg-slate-100";
   };
 
   return (
     <div className={`h-[100dvh] transition-all duration-1000 ${getAtmosphereTheme()} ${state.general.mindset <= 20 ? 'grayscale-[0.9] contrast-125 transition-all duration-[3000ms]' : ''} flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative`}>
             {showContestHistory && <ContestHistoryModal state={state} onClose={() => setShowContestHistory(false)} />}
-      <div className={`fixed inset-0 pointer-events-none z-[50] transition-all duration-1000 ${state.general.health < 30 ? 'opacity-100' : 'opacity-0'}`} style={{ boxShadow: 'inset 0 0 100px rgba(255, 0, 0, 0.3)' }}></div>
+      {isDangerState && <div className={`fixed inset-0 pointer-events-none z-[15] transition-opacity duration-1000 ${isCriticalState ? 'screen-danger-flicker' : 'screen-danger-vignette'}`} aria-hidden="true"></div>}
+      {isWarmMood && <div className="fixed inset-0 pointer-events-none z-[15] screen-warm-glow" aria-hidden="true"></div>}
+      {isOverstimulated && !isDangerState && <div className="fixed inset-0 pointer-events-none z-[15] bg-amber-300/5" aria-hidden="true"></div>}
       <FloatingTextLayer items={floatingTexts} />
       
       {showRealityGuide && <RealityGuideModal onClose={() => setShowRealityGuide(false)} />}
@@ -337,7 +380,7 @@ const App: React.FC = () => {
                         </h2>
                         <div className="flex gap-2 items-center flex-wrap">
                             {state.activeStatuses.map(s => (
-                                <div key={s.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                <div key={s.id} title={`${s.description}${s.effectDescription ? ` ${s.effectDescription}` : ''}`} className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
                                     <i className={`fas ${s.icon}`}></i> {s.name} ({s.duration}w)
                                 </div>
                             ))}
@@ -367,7 +410,7 @@ const App: React.FC = () => {
         {/* Log */}
         <div className="flex-1 bg-white/70 backdrop-blur-xl rounded-2xl p-4 md:p-6 shadow-sm border border-white/40 overflow-y-auto custom-scroll space-y-3 relative">
              {state.log.map((l, i) => (
-                <div key={i} className={`p-3 rounded-xl border-l-4 animate-fadeIn ${l.type === 'event' ? 'bg-indigo-50 border-indigo-400' : l.type === 'success' ? 'bg-emerald-50 border-emerald-400' : l.type === 'error' ? 'bg-rose-50 border-rose-400' : 'bg-slate-50 border-slate-300'}`}>
+                <div key={i} className={`p-3 rounded-xl border-l-4 animate-fadeIn ${l.type === 'event' ? 'bg-indigo-50 border-indigo-400' : l.type === 'success' ? 'bg-emerald-50 border-emerald-400' : l.type === 'error' ? 'bg-rose-50 border-rose-400' : l.type === 'warning' ? 'bg-amber-50 border-amber-400' : 'bg-slate-50 border-slate-300'}`}>
                    <p className="text-sm font-medium text-slate-800">{l.message}</p>
                 </div>
              ))}
@@ -509,7 +552,7 @@ const App: React.FC = () => {
                      <div className="flex-1 overflow-y-auto custom-scroll p-6 md:p-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-safe">
                              {SHOP_ITEMS.map(item => (
-                                 <button key={item.id} onClick={() => handleShopPurchase(item, () => spawnFloatingText(`-${item.price}`, window.innerWidth/2, window.innerHeight/2, 'money'))} disabled={state.general.money < item.price} className="p-4 rounded-xl border border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-4 group disabled:opacity-50 active:scale-95">
+                                 <button key={item.id} onClick={() => handleShopPurchase(item, (oldState, newState) => calculateAndVisualizeDiff(oldState, newState, window.innerWidth / 2, window.innerHeight / 2))} disabled={state.general.money < item.price} className="p-4 rounded-xl border border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-4 group disabled:opacity-50 active:scale-95">
                                      <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:text-indigo-600"><i className={`fas ${item.icon} text-xl`}></i></div>
                                      <div className="flex-1"><div className="flex justify-between items-center"><span className="font-bold text-slate-800">{item.name}</span><span className="text-sm font-bold text-yellow-600">{item.price} G</span></div><p className="text-xs text-slate-400 mt-1">{item.description}</p></div>
                                  </button>

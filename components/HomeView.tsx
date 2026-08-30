@@ -5,6 +5,7 @@ import { ACHIEVEMENTS } from '../data/mechanics';
 import { motion } from 'framer-motion';
 import AchievementDesk from './AchievementDesk';
 import AiSettingsModal from './AiSettingsModal';
+import { LocalAccount } from '../lib/accounts';
 
 interface HomeViewProps {
     selectedDifficulty: Difficulty;
@@ -17,6 +18,8 @@ interface HomeViewProps {
     unlockedAchievements: string[];
     aiConfig: AiConfig;
     onAiConfigChange: (config: AiConfig) => void;
+    account: LocalAccount;
+    onManageAccounts: () => void;
 }
 
 const SPONSORS = [
@@ -25,6 +28,11 @@ const SPONSORS = [
     { name: '爱发电用户_s45p', avatar: 'https://pic1.afdiancdn.com/default/avatar/avatar-blue.png', label: '发电榜三', id: 's3' },
 ];
 
+const CUSTOM_STAT_LABELS: Partial<Record<keyof GeneralStats, string>> = {
+    mindset: '心态', experience: '经验', luck: '幸运', romance: '桃花',
+    health: '健康', money: '金钱', efficiency: '效率', excitement: '兴奋'
+};
+
 const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void, color: string }> = ({ icon, label, onClick, color }) => (
     <button onClick={onClick} className={`flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl transition-all active:scale-95 shadow-sm ${color}`}>
         <i className={`fas ${icon} text-lg md:text-xl mb-1`}></i>
@@ -32,7 +40,7 @@ const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void
     </button>
 );
 
-const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements, aiConfig, onAiConfigChange }) => {
+const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements, aiConfig, onAiConfigChange, account, onManageAccounts }) => {
     const [showChangelog, setShowChangelog] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
     const [showSettings, setShowSettings] = React.useState(false);
@@ -69,7 +77,10 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  </div>
                              </div>
                              
-                             <div className="hidden md:flex flex-col items-end">
+                             <div className="hidden md:flex flex-col items-end gap-2">
+                                 <button type="button" onClick={onManageAccounts} className="bg-white/80 backdrop-blur-sm border border-slate-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 text-xs font-bold text-slate-600 hover:border-indigo-200">
+                                     <i className="fas fa-user-circle text-indigo-500" /> {account.name}
+                                 </button>
                                  <div className="bg-white/80 backdrop-blur-sm border border-slate-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2">
                                      <span className="relative flex h-2 w-2">
                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -93,6 +104,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <div className="flex flex-wrap gap-3">
                                  {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof DIFFICULTY_PRESETS['NORMAL']][]).map(([key, config]) => (
                                      <button key={key} onClick={() => onDifficultyChange(key)}
+                                         title={config.desc}
                                          className={`px-5 py-2.5 rounded-2xl border-2 transition-all flex items-center gap-2 font-bold text-sm ${selectedDifficulty === key ? `border-indigo-600 ${'bg-indigo-50 text-indigo-700'} shadow-sm ring-2 ring-indigo-100 ring-offset-1` : 'border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-300 hover:bg-white'}`}
                                      >
                                          <div className={`w-2.5 h-2.5 rounded-full ${config.color}`}></div>
@@ -106,13 +118,14 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                       <i className="fas fa-sliders-h text-xs"></i> 自定义
                                  </button>
                              </div>
+                             <p className="mt-3 text-xs text-slate-500 font-medium">{selectedDifficulty === 'CUSTOM' ? '自行分配开局属性。' : DIFFICULTY_PRESETS[selectedDifficulty].desc}</p>
                          </div>
 
                          {selectedDifficulty === 'CUSTOM' && (
                              <div className="mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 grid grid-cols-2 gap-x-8 gap-y-3 shadow-inner">
                                  {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
                                      <div key={key} className="flex items-center gap-3">
-                                         <span className="text-[10px] font-bold text-slate-500 w-12 uppercase">{key}</span>
+                                         <span className="text-[10px] font-bold text-slate-500 w-12">{CUSTOM_STAT_LABELS[key] || key}</span>
                                          <input type="range" min="0" max="100" value={customStats[key]} onChange={(e) => onCustomStatsChange({...customStats, [key]: parseInt(e.target.value)})} 
                                             className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                                          />
@@ -150,11 +163,20 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  </button>
                              )}
                          </div>
+                         <button type="button" onClick={onManageAccounts} className="mt-4 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1">
+                             <i className="fas fa-users-cog" /> 管理本地账号与存档
+                         </button>
                          
                          {/* Hints */}
                          {selectedDifficulty !== 'REALITY'  && (
                              <div className="mt-4 text-xs text-amber-500 font-bold flex items-center gap-1.5 bg-amber-50 w-fit px-3 py-1 rounded-full">
                                  <i className="fas fa-exclamation-triangle"></i> 仅在【现实】难度下可解锁成就
+                             </div>
+                         )}
+                         {selectedDifficulty === 'HELL' && (
+                             <div className="mt-3 text-xs text-rose-600 font-bold flex items-start gap-1.5 bg-rose-50 w-fit max-w-xl px-3 py-2 rounded-xl border border-rose-100">
+                                 <i className="fas fa-skull-crossbones mt-0.5" />
+                                 <span>极限规则：健康低于 10 立即结束；心态低于 20 或疲劳超过 90 时不能学习。天赋点仅 1 点，商店价格翻倍。</span>
                              </div>
                          )}
                          {false && (

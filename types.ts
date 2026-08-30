@@ -58,6 +58,7 @@ export interface GeneralStats {
   health: number;
   money: number;
   efficiency: number;
+  excitement: number;
 }
 
 export interface StoryEntry {
@@ -77,7 +78,7 @@ export interface CompetitionResultData {
     award: string;
 }
 
-export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' ;
+export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' | 'HELL' ;
 
 export interface AiConfig {
   enabled: boolean;
@@ -165,6 +166,7 @@ export interface SerializableEffect {
     experience?: number;
     luck?: number;
     fatigue?: number;
+    excitement?: number;
     subjects?: Partial<Record<SubjectKey, number>>; 
     oiStats?: Partial<OIStats>;
     romancePartner?: string; 
@@ -305,6 +307,7 @@ export interface EventChoice {
   text: string;
   resultDescription?: string;
   nextEventId?: string; 
+  tags?: Array<'sleep' | 'study' | 'sport' | 'rest' | 'social' | 'risky'>;
   condition?: (state: GameState) => boolean;
   action: (state: GameState) => Partial<GameState>;
 }
