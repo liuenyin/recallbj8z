@@ -21,7 +21,7 @@ export interface DifficultyPreset {
 }
 
 export const CHANGELOG_DATA = [
-    { version: 'v1.6/accounts-and-hell', date: '2026-8-30', content: ['新增极限难度：健康低于10立即结束，心态低于20或疲劳超过90不能学习，学习收益为2/3，同学更强，小卖部价格翻倍，天赋点仅1点。', '新增本地账号与多存档管理；旧版游客存档仍可继续读取。', '本轮暂缓背景图和事件配图，继续优先打磨玩法内容与可读性。'] },
+    { version: 'v1.6/accounts-and-hell', date: '2026-8-30', content: ['新增极限难度：健康低于10立即结束，心态低于20或疲劳超过90不能学习，学习收益为2/3，同学更强，小卖部价格翻倍，开局天赋点为-1。', '新增本地账号与多存档管理；旧版游客存档仍可继续读取。', '本轮暂缓背景图和事件配图，继续优先打磨玩法内容与可读性。'] },
     { version: 'v1.5/oi-route', date: '2026-8-29', content: ['完善 OI 路线：加入外校集训、训练组模拟赛、公开赛出题、验题上线和赛后游记。', '按八中校内资源有限的背景调整省选/APIO 门槛，持续训练和跨校交流比一次高分更重要。'] },
     { version: 'v1.4/gameplay', date: '2026-8-29', content: ['新增兴奋值：影响学习、体育和休息收益。', '新增【地狱】难度，加入课堂效率、疲劳和周末学习限制。', '调整同学平均水平与考试排名，兴奋剂售价调整为150。'] },
     { version: 'v1.3/beta', date: '2026-1-22', content: ['新增【无限重开 AI版】，接入 Gemini API 实现动态事件。', '优化了负债逻辑，现在负债会有分级 Debuff。'] },
@@ -108,7 +108,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
     },
     'HELL': {
         label: '地狱',
-        desc: '极限生存：健康低于10会结束，心态低于20或疲劳超过90不能学习；同学更强、学习收益为2/3、商品价格翻倍。',
+        desc: '极限生存：健康低于10会结束，心态低于20或疲劳超过90不能学习；同学更强、学习收益为2/3、商品价格翻倍，开局天赋点为-1。',
         color: 'bg-slate-900',
         stats: {
             mindset: 25,
@@ -132,7 +132,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
         studyMindsetThreshold: 20,
         studyFatigueThreshold: 90,
         shopPriceMultiplier: 2,
-        talentPoints: 1
+        talentPoints: -1
     }
 };
 

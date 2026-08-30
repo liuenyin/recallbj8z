@@ -11,6 +11,7 @@ interface StatsPanelProps {
 
 const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
   const effectiveEfficiency = getEffectiveEfficiency(state);
+  const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
   const oiRouteLabel = state.flags.oi_setter_followup === 'accepted'
     ? '继续参与公开赛出题'
     : state.flags.oi_problem_feedback === 'positive' || state.flags.oi_problem_feedback === 'resolved'
@@ -80,8 +81,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-indigo-800">班级: {state.className || '待分班'}</span>
           <span className="text-xs font-bold text-indigo-800">
-              效率: {state.difficulty === 'REALITY' ? (effectiveEfficiency >= 15 ? '高' : effectiveEfficiency >= 8 ? '中' : '低') : effectiveEfficiency.toFixed(1)} 
-              {effectiveEfficiency > state.general.efficiency && <span className="text-emerald-500 text-[10px] ml-1">(+{ (effectiveEfficiency - state.general.efficiency).toFixed(0) })</span>}
+              效率: {hideDetails ? (effectiveEfficiency >= 15 ? '高' : effectiveEfficiency >= 8 ? '中' : '低') : effectiveEfficiency.toFixed(1)}
+              {!hideDetails && effectiveEfficiency > state.general.efficiency && <span className="text-emerald-500 text-[10px] ml-1">(+{ (effectiveEfficiency - state.general.efficiency).toFixed(0) })</span>}
           </span>
         </div>
         <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
@@ -100,14 +101,14 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
             <i className="fas fa-chart-bar"></i> 身心状态
         </h3>
         <div className="grid grid-cols-2 gap-2">
-            <StatMini icon="fa-brain" label="心态" value={state.general.mindset} color="text-indigo-500" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-heartbeat" label="健康" value={state.general.health} color="text-emerald-500" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-coins" label="金钱" value={state.general.money} color="text-yellow-600" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-book" label="经验" value={state.general.experience} color="text-blue-500" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-star" label="幸运" value={state.general.luck} color="text-amber-500" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-heart" label="桃花" value={state.general.romance} color="text-pink-500" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-battery-quarter" label="疲劳" value={state.fatigue} color="text-rose-500" hideValue={state.difficulty === 'REALITY'} />
-            <StatMini icon="fa-fire" label="兴奋" value={state.general.excitement ?? 0} color="text-orange-500" hideValue={state.difficulty === 'REALITY'} />
+            <StatMini icon="fa-brain" label="心态" value={state.general.mindset} color="text-indigo-500" hideValue={hideDetails} />
+            <StatMini icon="fa-heartbeat" label="健康" value={state.general.health} color="text-emerald-500" hideValue={hideDetails} />
+            <StatMini icon="fa-coins" label="金钱" value={state.general.money} color="text-yellow-600" hideValue={hideDetails} />
+            <StatMini icon="fa-book" label="经验" value={state.general.experience} color="text-blue-500" hideValue={hideDetails} />
+            <StatMini icon="fa-star" label="幸运" value={state.general.luck} color="text-amber-500" hideValue={hideDetails} />
+            <StatMini icon="fa-heart" label="桃花" value={state.general.romance} color="text-pink-500" hideValue={hideDetails} />
+            <StatMini icon="fa-battery-quarter" label="疲劳" value={state.fatigue} color="text-rose-500" hideValue={hideDetails} />
+            <StatMini icon="fa-fire" label="兴奋" value={state.general.excitement ?? 0} color="text-orange-500" hideValue={hideDetails} />
         </div>
       </div>
 
@@ -142,7 +143,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
                         <span className="font-bold text-slate-700">{SUBJECT_NAMES[key]}</span>
                         {isSelected && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded text-[9px] font-bold">选考</span>}
                     </div>
-                    <span className="text-slate-400">{state.difficulty === 'REALITY' ? '' : `天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`}</span>
+                    <span className="text-slate-400">{hideDetails ? '' : `天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`}</span>
                   </div>
                   <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                     <div 

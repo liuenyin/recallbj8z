@@ -176,7 +176,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          {selectedDifficulty === 'HELL' && (
                              <div className="mt-3 text-xs text-rose-600 font-bold flex items-start gap-1.5 bg-rose-50 w-fit max-w-xl px-3 py-2 rounded-xl border border-rose-100">
                                  <i className="fas fa-skull-crossbones mt-0.5" />
-                                 <span>极限规则：健康低于 10 立即结束；心态低于 20 或疲劳超过 90 时不能学习。天赋点仅 1 点，商店价格翻倍。</span>
+                                 <span>极限规则：健康低于 10 立即结束；心态低于 20 或疲劳超过 90 时不能学习。开局天赋点为 -1，需选择负面天赋补足；商店价格翻倍。</span>
                              </div>
                          )}
                          {false && (
