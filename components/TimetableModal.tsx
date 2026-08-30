@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, WeekendActivity } from '../types';
 import { WEEKEND_ACTIVITIES } from '../data/mechanics';
-import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP } from '../data/timetable';
+import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP, clearWeekdaySchedule } from '../data/timetable';
 import { getDifficultyPreset } from '../data/constants';
 import { getRestRecoveryMultiplier, isStudyBlocked } from '../data/utils';
 
@@ -21,7 +21,9 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     });
 
     const [schedule, setSchedule] = useState<Record<string, string>>(() => {
-        const last = state.lastWeekSchedule || {};
+        const last = state.flags.joined_evening_study
+            ? clearWeekdaySchedule(state.lastWeekSchedule || {})
+            : (state.lastWeekSchedule || {});
         const valid: Record<string, string> = {};
         for (const [slot, actId] of Object.entries(last)) {
             if (availableActivities.find(a => a.id === actId)) {

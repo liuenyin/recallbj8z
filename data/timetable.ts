@@ -24,3 +24,12 @@ export const SCHEDULE_SLOTS: ScheduleSlot[] = [
 export const BLOCKED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
     'act_cf': ['Sun_Morn'], // Codeforces blocks Sunday Morning
 };
+
+const WEEKDAY_DAYS = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+
+/** Remove evening slots made unavailable by the evening-study agreement. */
+export const clearWeekdaySchedule = (schedule: Record<string, string> = {}): Record<string, string> =>
+    Object.fromEntries(Object.entries(schedule).filter(([slotId]) => {
+        const slot = SCHEDULE_SLOTS.find(candidate => candidate.id === slotId);
+        return !slot || !WEEKDAY_DAYS.has(slot.day);
+    }));

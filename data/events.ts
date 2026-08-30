@@ -10,6 +10,7 @@ import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats, EventChoice, 
 import { modifySub, modifyOI, mapAiEventToGameEvent } from './utils';
 import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT } from './event_defs';
+import { clearWeekdaySchedule } from './timetable';
 import AI_EVENTS from './ai_generated_events.json';
 
 export * from './event_defs';
@@ -345,6 +346,7 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
                 text: '报名参加晚自习 (大幅提升课内)', 
                 action: (s) => ({ 
                     flags: { ...s.flags, joined_evening_study: true },
+                    lastWeekSchedule: clearWeekdaySchedule(s.lastWeekSchedule),
                     general: { ...s.general, efficiency: s.general.efficiency + 10, mindset: s.general.mindset - 5 },
                     log: [...s.log, { message: '你签署了晚自习同意书。平日时间表已被锁定。', type: 'warning', timestamp: Date.now() }]
                 }) 
