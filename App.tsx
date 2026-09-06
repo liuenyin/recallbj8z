@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { AiConfig, Difficulty, GeneralStats, Talent, Phase, GameState, Challenge } from './types';
 import { DIFFICULTY_PRESETS } from './data/constants';
+import { getShopPriceMultiplier, isHealthFatal } from './data/utils';
 import { CLUBS, SHOP_ITEMS, ACHIEVEMENTS, TALENTS } from './data/mechanics';
 import { useGameLogic } from './hooks/useGameLogic';
 
@@ -17,14 +18,14 @@ import EventModal from './components/EventModal';
 import FloatingTextLayer, { FloatingTextItem } from './components/FloatingTextLayer';
 import RealityGuideModal from './components/RealityGuideModal';
 import { loadAiConfig, saveAiConfig } from './lib/gemini';
-import { getActiveAccountId, getAccounts, setActiveAccountId } from './lib/accounts';
+import { getActiveAccountId, getAccounts, setActiveAccountId, getAccountSaveKey } from './lib/accounts';
 import AccountModal from './components/AccountModal';
+import { getAcademicMaxScore, getSubjectReselectionReturnPhase, isExamPhase } from './data/game_flow';
+import { clearWeekdaySchedule } from './data/timetable';
 
 import { SUBJECT_NAMES, SubjectKey } from './types';
 
 const App: React.FC = () => {
-  const [isDevMode, setIsDevMode] = useState(false);
-
   // UI State (View Routing & Modals)
   const [view, setView] = useState<'HOME' | 'TALENTS' | 'GAME'>('HOME');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('NORMAL');
@@ -41,6 +42,8 @@ const App: React.FC = () => {
   const [activeAccountId, setAccountId] = useState(() => getActiveAccountId());
   const [showAccounts, setShowAccounts] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const talentActionStateRef = useRef<Talent[] | null>(null);
+  const startGameSubmittedRef = useRef(false);
 
   const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
   const spawnFloatingText = (text: string, x: number, y: number, type: string) => {
@@ -62,12 +65,15 @@ const App: React.FC = () => {
 
   const calculateAndVisualizeDiff = (oldState: GameState, newState: GameState, x?: number, y?: number) => {
       const diffs: string[] = [];
+      const hideDetails = newState.difficulty === 'REALITY' || newState.difficulty === 'HELL';
       const check = (key: keyof GeneralStats, label: string, colorType: string) => {
            const delta = newState.general[key] - oldState.general[key];
            if (Math.abs(delta) >= 1) {
                const val = Math.round(delta * 10) / 10;
                if (val === 0) return;
-               const text = `${label} ${val > 0 ? '+' : ''}${val}`;
+               const text = hideDetails
+                 ? `${label}${val > 0 ? '上升' : '下降'}`
+                 : `${label} ${val > 0 ? '+' : ''}${val}`;
                diffs.push(text);
                setTimeout(() => spawnFloatingText(text, (x || window.innerWidth/2) + (Math.random() * 40 - 20), (y || window.innerHeight/2) + (Math.random() * 40 - 20), colorType), diffs.length * 100);
            }
@@ -80,10 +86,34 @@ const App: React.FC = () => {
       check('experience', '经验', 'experience');
       check('luck', '运气', 'luck');
       check('excitement', '兴奋', 'excitement');
+      (Object.keys(oldState.subjects) as SubjectKey[]).forEach(subject => {
+          const delta = newState.subjects[subject].level - oldState.subjects[subject].level;
+          if (Math.abs(delta) >= 0.1) {
+              const val = Math.round(delta * 10) / 10;
+              const text = hideDetails
+                ? `${SUBJECT_NAMES[subject]}能力${val > 0 ? '上升' : '下降'}`
+                : `${SUBJECT_NAMES[subject]} ${val > 0 ? '+' : ''}${val}`;
+              diffs.push(text);
+              setTimeout(() => spawnFloatingText(text, (x || window.innerWidth / 2) + (Math.random() * 40 - 20), (y || window.innerHeight / 2) + (Math.random() * 40 - 20), 'experience'), diffs.length * 100);
+          }
+      });
+      (['dp', 'ds', 'math', 'string', 'graph', 'misc'] as const).forEach(key => {
+          const delta = (newState.oiStats[key] || 0) - (oldState.oiStats[key] || 0);
+          if (Math.abs(delta) >= 0.1) {
+              const val = Math.round(delta * 10) / 10;
+              const text = hideDetails
+                ? `OI ${key.toUpperCase()}${val > 0 ? '提升' : '下降'}`
+                : `OI ${key.toUpperCase()} ${val > 0 ? '+' : ''}${val}`;
+              diffs.push(text);
+              setTimeout(() => spawnFloatingText(text, (x || window.innerWidth / 2) + (Math.random() * 40 - 20), (y || window.innerHeight / 2) + (Math.random() * 40 - 20), 'oi'), diffs.length * 100);
+          }
+      });
       const fatigueDelta = newState.fatigue - oldState.fatigue;
       if (Math.abs(fatigueDelta) >= 1) {
           const val = Math.round(fatigueDelta * 10) / 10;
-          const text = `疲劳 ${val > 0 ? '+' : ''}${val}`;
+          const text = hideDetails
+            ? `疲劳${val > 0 ? '增加' : '降低'}`
+            : `疲劳 ${val > 0 ? '+' : ''}${val}`;
           diffs.push(text);
           setTimeout(() => spawnFloatingText(text, (x || window.innerWidth / 2) + (Math.random() * 40 - 20), (y || window.innerHeight / 2) + (Math.random() * 40 - 20), val > 0 ? 'health' : 'mindset'), diffs.length * 100);
       }
@@ -93,9 +123,31 @@ const App: React.FC = () => {
   const { 
       state, setState, hasSave, saveGame, loadGame,
       startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
-      executeTimetable, handleExamFinish, closeCompetitionPopup, closeExamResult, closeMiniGame,
+      executeTimetable, handleExamFinish, closeExamResult,
       weekendOptions 
   } = useGameLogic(aiConfig, activeAccountId);
+
+  const activeGameOverlaysRef = useRef(new Set<React.Dispatch<React.SetStateAction<boolean>>>());
+  const resumeAfterOverlayRef = useRef(false);
+  const openGameOverlay = (open: React.Dispatch<React.SetStateAction<boolean>>) => {
+      if (activeGameOverlaysRef.current.has(open)) return;
+
+      if (activeGameOverlaysRef.current.size === 0) {
+          resumeAfterOverlayRef.current = state.isPlaying;
+          if (state.isPlaying) setState(prev => ({ ...prev, isPlaying: false }));
+      }
+      activeGameOverlaysRef.current.add(open);
+      open(true);
+  };
+  const closeGameOverlay = (close: React.Dispatch<React.SetStateAction<boolean>>) => {
+      close(false);
+      if (!activeGameOverlaysRef.current.delete(close)) return;
+
+      if (activeGameOverlaysRef.current.size === 0 && resumeAfterOverlayRef.current) {
+          setState(prev => ({ ...prev, isPlaying: true }));
+          resumeAfterOverlayRef.current = false;
+      }
+  };
 
   React.useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,6 +156,7 @@ const App: React.FC = () => {
   React.useEffect(() => {
       if (state.phase === Phase.SEMESTER_1 && state.week === 2 && !state.hasSelectedClub && !showClubSelection) {
           setShowClubSelection(true);
+          setState(prev => prev.isPlaying ? { ...prev, isPlaying: false } : prev);
       }
   }, [state.phase, state.week, state.hasSelectedClub, showClubSelection]);
 
@@ -114,6 +167,8 @@ const App: React.FC = () => {
   const prepareGame = (challenge?: Challenge) => {
       setShowClubSelection(false); setShowRealityGuide(false);
       setPendingChallenge(challenge || null);
+      talentActionStateRef.current = null;
+      startGameSubmittedRef.current = false;
       
       const pool = [...TALENTS];
       const buffs = pool.filter(t => t.cost > 0).sort(() => 0.5 - Math.random()).slice(0, 5);
@@ -125,16 +180,21 @@ const App: React.FC = () => {
   };
 
   const handleStartGame = () => {
+      if (startGameSubmittedRef.current) return;
+      startGameSubmittedRef.current = true;
       startGameState(selectedDifficulty, customStats, selectedTalents, pendingChallenge);
       setView('GAME');
   };
 
   const handleTalentToggle = (talent: Talent) => {
+      if (talentActionStateRef.current === selectedTalents) return;
       if (selectedTalents.find(t => t.id === talent.id)) {
+          talentActionStateRef.current = selectedTalents;
           setTalentPoints(p => p + talent.cost);
           setSelectedTalents(prev => prev.filter(t => t.id !== talent.id));
       } else {
           if (selectedTalents.length >= 5) return;
+          talentActionStateRef.current = selectedTalents;
           setTalentPoints(p => p - talent.cost);
           setSelectedTalents(prev => [...prev, talent]);
       }
@@ -153,18 +213,25 @@ const App: React.FC = () => {
   
   const getEndingData = () => {
      if (state.phase === Phase.WITHDRAWAL) {
-         return { rank: "F", title: "退学离场", comment: "遗憾离场...", score: 0 };
-     }
+          return { rank: "F", title: "退学离场", comment: "遗憾离场...", score: 0 };
+      }
+      if (isHealthFatal(state, state.general.health)) {
+          return { rank: "F", title: "身体透支", comment: "健康先于成绩按下了停止键。这一局没有继续下去，但你至少看见了需要给自己留下恢复空间的边界。", score: 0 };
+      }
 
       // Calculate score from subject levels (main academic measure)
-      const subjectAvg = (Object.values(state.subjects) as Array<{ level: number }>).reduce((sum, s) => sum + s.level, 0) / Object.keys(state.subjects).length;
+      const academicKeys: SubjectKey[] = state.selectedSubjects.length === 3
+        ? ['chinese', 'math', 'english', ...state.selectedSubjects]
+        : (Object.keys(state.subjects) as SubjectKey[]);
+      const subjectAvg = academicKeys.reduce((sum, key) => sum + state.subjects[key].level, 0) / academicKeys.length;
       const projectCount = state.completedProjects.length;
       const oiPower = Object.entries(state.oiStats)
-        .filter(([key]) => key !== 'history')
+        .filter(([key]) => key !== 'history' && key !== 'rating')
         .reduce((sum, [, value]) => sum + Number(value || 0), 0);
       // Academic performance remains the backbone, while completed experiences make
       // different routes matter in the final report.
       let score = subjectAvg * 1.5 + state.general.experience * 0.3 + state.general.efficiency * 0.4;
+      if (state.competition === 'OI') score += Math.min(15, oiPower * 0.025);
       score += Math.min(8, projectCount * 3);
       if (state.club && state.club !== 'none') score += 3;
       if (state.flags.rival_resolved) score += 3;
@@ -192,8 +259,8 @@ const App: React.FC = () => {
 
      if (noiMedal === 'GOLD') {
        rank = 'SSS';
-       title = '清北保送生（国集）';
-       comment = '你在最高荣誉殿堂 NOI 中斩获金牌！高一即保送清华北大，前面的路，以后再来探索吧。';
+       title = 'NOI 金牌选手（国集相关机会）';
+       comment = '你在 NOI 中斩获金牌，成绩进入国家集训队选拔和相关升学政策的讨论范围。具体机会仍要以当年正式政策、名额和后续选拔为准。';
      } else if (noiMedal === 'SILVER') {
        rank = 'SS';
        title = '强基破格入围者';
@@ -311,6 +378,15 @@ const App: React.FC = () => {
   const isDangerState = state.general.health <= 30 || state.fatigue >= 85;
   const isCriticalState = state.general.health <= 15 || state.fatigue >= 95;
   const isOverstimulated = (state.general.excitement ?? 0) >= 80;
+  const isHealthWarning = state.isSick || state.general.health <= 30;
+  const interactionLocked = !!state.currentEvent
+      || !!state.chainedEvent
+      || state.eventQueue.length > 0
+      || !!state.isAiGenerating
+      || isExamPhase(state.phase)
+      || state.phase === Phase.SELECTION
+      || state.phase === Phase.SUBJECT_RESELECTION;
+  const toolbarLocked = interactionLocked || state.isWeekend;
 
   const getAtmosphereTheme = () => {
       if (isWarmMood) return "bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100";
@@ -323,13 +399,13 @@ const App: React.FC = () => {
 
   return (
     <div className={`h-[100dvh] transition-all duration-1000 ${getAtmosphereTheme()} ${state.general.mindset <= 20 ? 'grayscale-[0.9] contrast-125 transition-all duration-[3000ms]' : ''} flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative`}>
-            {showContestHistory && <ContestHistoryModal state={state} onClose={() => setShowContestHistory(false)} />}
+            {showContestHistory && <ContestHistoryModal state={state} onClose={() => closeGameOverlay(setShowContestHistory)} />}
       {isDangerState && <div className={`fixed inset-0 pointer-events-none z-[15] transition-opacity duration-1000 ${isCriticalState ? 'screen-danger-flicker' : 'screen-danger-vignette'}`} aria-hidden="true"></div>}
       {isWarmMood && <div className="fixed inset-0 pointer-events-none z-[15] screen-warm-glow" aria-hidden="true"></div>}
       {isOverstimulated && !isDangerState && <div className="fixed inset-0 pointer-events-none z-[15] bg-amber-300/5" aria-hidden="true"></div>}
       <FloatingTextLayer items={floatingTexts} />
       
-      {showRealityGuide && <RealityGuideModal onClose={() => setShowRealityGuide(false)} />}
+      {showRealityGuide && <RealityGuideModal onClose={() => closeGameOverlay(setShowRealityGuide)} />}
       
       
       {/* Toast */}
@@ -345,7 +421,7 @@ const App: React.FC = () => {
 
       {/* Sidebar */}
       <div className="hidden md:block w-72 flex-shrink-0 z-20">
-        <StatsPanel state={state} onShowGuide={() => setShowRealityGuide(true)} />
+        <StatsPanel state={state} onShowGuide={() => openGameOverlay(setShowRealityGuide)} onShowContestHistory={() => openGameOverlay(setShowContestHistory)} />
       </div>
       
 
@@ -354,29 +430,32 @@ const App: React.FC = () => {
         
         {/* Mobile Toolbar */}
         <div className="flex md:hidden gap-2 overflow-x-auto pb-1 flex-shrink-0">
-             <button onClick={() => setShowSchedule(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-calendar-alt text-blue-500 mr-1"></i>时间表</button>
-             <button onClick={() => setShowShop(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-store text-emerald-500 mr-1"></i>小卖部</button>
-             <button onClick={() => setShowAchievements(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-trophy text-yellow-500 mr-1"></i>成就</button>
-             <button onClick={() => setShowHistory(true)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-archive text-indigo-500 mr-1"></i>历程</button>
-             <button onClick={saveGame} className="flex-shrink-0 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl text-xs font-bold text-emerald-600 shadow-sm" disabled={!!state.currentEvent}>保存</button>
-             <button onClick={() => setState(p => ({...p, phase: Phase.WITHDRAWAL}))} className="flex-shrink-0 bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 shadow-sm" disabled={!!state.currentEvent}>提前退休</button>
+             <button onClick={() => openGameOverlay(setShowSchedule)} disabled={toolbarLocked} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm disabled:opacity-40"><i className="fas fa-calendar-alt text-blue-500 mr-1"></i>时间表</button>
+             <button onClick={() => openGameOverlay(setShowShop)} disabled={toolbarLocked} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm disabled:opacity-40"><i className="fas fa-store text-emerald-500 mr-1"></i>小卖部</button>
+             <button onClick={() => openGameOverlay(setShowAchievements)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-trophy text-yellow-500 mr-1"></i>成就</button>
+             <button onClick={() => openGameOverlay(setShowRealityGuide)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-book-reader text-indigo-500 mr-1"></i>说明</button>
+             <button onClick={() => openGameOverlay(setShowHistory)} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm"><i className="fas fa-archive text-indigo-500 mr-1"></i>历程</button>
+             {state.competition === 'OI' && <button onClick={() => openGameOverlay(setShowContestHistory)} disabled={toolbarLocked} className="flex-shrink-0 bg-white border px-3 py-2 rounded-xl text-xs font-bold shadow-sm disabled:opacity-40"><i className="fas fa-trophy text-indigo-500 mr-1"></i>OI履历</button>}
+             <button onClick={saveGame} className="flex-shrink-0 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl text-xs font-bold text-emerald-600 shadow-sm disabled:opacity-40" disabled={!!state.currentEvent || !!state.chainedEvent || state.eventQueue.length > 0 || !!state.isAiGenerating || isExamPhase(state.phase) || state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION}>保存</button>
+             <button onClick={() => setState(p => ({...p, phase: Phase.WITHDRAWAL, isPlaying: false, isWeekend: false, currentEvent: null, eventQueue: []}))} className="flex-shrink-0 bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 shadow-sm disabled:opacity-40" disabled={!!state.currentEvent || !!state.chainedEvent || state.eventQueue.length > 0 || !!state.isAiGenerating || isExamPhase(state.phase) || state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION}>提前退休</button>
         </div>
 
         {/* Header */}
 
         <header className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3 flex-shrink-0 z-20 relative">
                <div className="hidden md:flex absolute top-4 right-4 gap-2">
-                  <button onClick={() => setShowSchedule(true)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all"><i className="fas fa-calendar-alt text-blue-500 mr-1"></i>时间表</button>
-                  <button onClick={() => setShowShop(true)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all"><i className="fas fa-store text-emerald-500 mr-1"></i>小卖铺</button>
-                  <button onClick={() => setShowAchievements(true)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all"><i className="fas fa-trophy text-yellow-500 mr-1"></i>成就</button>
-                  <button onClick={() => setShowHistory(true)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all"><i className="fas fa-archive text-indigo-500 mr-1"></i>历程</button>
-                  <button onClick={saveGame} disabled={!!state.currentEvent} className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-600 hover:bg-emerald-100 transition-all">保存</button>
-                  <button onClick={() => setState(p => ({...p, phase: Phase.WITHDRAWAL}))} className="bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-100 transition-all">退休</button>
+                  <button onClick={() => openGameOverlay(setShowSchedule)} disabled={toolbarLocked} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all disabled:opacity-40"><i className="fas fa-calendar-alt text-blue-500 mr-1"></i>时间表</button>
+                  <button onClick={() => openGameOverlay(setShowShop)} disabled={toolbarLocked} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all disabled:opacity-40"><i className="fas fa-store text-emerald-500 mr-1"></i>小卖铺</button>
+                  <button onClick={() => openGameOverlay(setShowAchievements)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all"><i className="fas fa-trophy text-yellow-500 mr-1"></i>成就</button>
+                  <button onClick={() => openGameOverlay(setShowHistory)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all"><i className="fas fa-archive text-indigo-500 mr-1"></i>历程</button>
+                  {state.competition === 'OI' && <button onClick={() => openGameOverlay(setShowContestHistory)} disabled={toolbarLocked} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white hover:shadow transition-all disabled:opacity-40"><i className="fas fa-trophy text-indigo-500 mr-1"></i>OI履历</button>}
+                  <button onClick={saveGame} disabled={!!state.currentEvent || !!state.chainedEvent || state.eventQueue.length > 0 || !!state.isAiGenerating || isExamPhase(state.phase) || state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION} className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-600 hover:bg-emerald-100 transition-all disabled:opacity-40">保存</button>
+                  <button onClick={() => setState(p => ({...p, phase: Phase.WITHDRAWAL, isPlaying: false, isWeekend: false, currentEvent: null, eventQueue: []}))} disabled={!!state.currentEvent || !!state.chainedEvent || state.eventQueue.length > 0 || !!state.isAiGenerating || isExamPhase(state.phase) || state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION} className="bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-100 transition-all disabled:opacity-40">退休</button>
                </div>
                <div className="flex items-center justify-between mt-0 md:mt-8">
                    <div className="flex flex-col gap-1 w-full mr-4">
                        <h2 className="font-black text-slate-800 text-lg flex items-center gap-2 uppercase tracking-tight truncate">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${state.isSick ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span> {state.phase} 
+                            <span title={isHealthWarning ? '健康状态需要注意' : '状态正常'} className={`w-2 h-2 rounded-full flex-shrink-0 ${isHealthWarning ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span> {state.phase}
                         </h2>
                         <div className="flex gap-2 items-center flex-wrap">
                             {state.activeStatuses.map(s => (
@@ -393,8 +472,8 @@ const App: React.FC = () => {
                    </div>
                    <button 
                       onClick={() => setState(p => ({ ...p, isPlaying: !p.isPlaying }))} 
-                      disabled={!!state.currentEvent || state.isWeekend }
-                      className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex-shrink-0 flex items-center justify-center shadow-xl transition-all ${state.currentEvent || state.isWeekend  ? 'bg-slate-100 text-slate-300' : state.isPlaying ? 'bg-amber-400 text-white hover:bg-amber-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                      disabled={interactionLocked || state.isWeekend }
+                      className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex-shrink-0 flex items-center justify-center shadow-xl transition-all ${interactionLocked || state.isWeekend ? 'bg-slate-100 text-slate-300' : state.isPlaying ? 'bg-amber-400 text-white hover:bg-amber-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                    >
                       <i className={`fas ${state.isPlaying ? 'fa-pause' : 'fa-play'} text-xl`}></i>
                    </button>
@@ -427,7 +506,17 @@ const App: React.FC = () => {
         )}
         {/* Timetable (View Mode) */}
         {showSchedule && !state.isWeekend && (
-            <TimetableModal state={state} onConfirm={() => setShowSchedule(false)} />
+            <TimetableModal state={state} onConfirm={(schedule) => {
+                // The view-mode planner is also the place to adjust the next
+                // week's reusable schedule. Respect the evening-study lock.
+                setState(prev => ({
+                    ...prev,
+                    lastWeekSchedule: prev.flags.joined_evening_study
+                        ? clearWeekdaySchedule(schedule)
+                        : schedule
+                }));
+                closeGameOverlay(setShowSchedule);
+            }} />
         )}
         {/* Event Modal */}
         {state.currentEvent && (
@@ -445,30 +534,23 @@ const App: React.FC = () => {
              </div>
         )}
 
-        {/* Popup Results (Competitions/Exams) */}
-        {state.popupCompetitionResult && (
-             <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md animate-fadeIn p-4">
-                <div className="bg-white rounded-[40px] p-8 md:p-12 text-center max-w-lg w-full shadow-2xl relative border-4 border-yellow-400">
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg border-4 border-white"><i className="fas fa-trophy text-white text-4xl"></i></div>
-                    <h3 className="text-2xl md:text-3xl font-black text-slate-800 mt-6 mb-2">{state.popupCompetitionResult.title}</h3>
-                    <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
-                        <div className="text-4xl font-black text-indigo-600 mb-2">{state.popupCompetitionResult.score} pts</div>
-                        <div className="text-2xl font-bold text-yellow-600">{state.popupCompetitionResult.award}</div>
-                    </div>
-                    <button onClick={closeCompetitionPopup} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-xl hover:bg-indigo-700 shadow-xl w-full">收入囊中</button>
-                </div>
-             </div>
-        )}
-
         {state.popupExamResult && (
              <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md animate-fadeIn p-4">
                 <div className="bg-white rounded-[40px] p-8 md:p-12 text-center max-w-lg w-full shadow-2xl relative border-4 border-yellow-400">
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg border-4 border-white"><i className="fas fa-file-alt text-white text-4xl"></i></div>
                     <h3 className="text-2xl md:text-3xl font-black text-slate-800 mt-6 mb-2">{state.popupExamResult.title}</h3>
                     <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
-                        <div className="text-4xl font-black text-indigo-600 mb-2">{state.popupExamResult.totalScore}</div>
+                        <div className="text-4xl font-black text-indigo-600 mb-2">
+                            {state.difficulty === 'REALITY' || state.difficulty === 'HELL'
+                              ? '本次表现已记录'
+                              : `${state.popupExamResult.totalScore} / ${state.popupExamResult.type === 'COMPETITION'
+                                ? Object.keys(state.popupExamResult.scores).length * 100
+                                : getAcademicMaxScore(Object.keys(state.popupExamResult.scores))}`}
+                        </div>
                         {state.popupExamResult.rank && state.popupExamResult.rank > 0 && (
-                            <div className="text-xl font-bold text-slate-500 mb-4">年级排名: {state.popupExamResult.rank}</div>
+                            <div className="text-xl font-bold text-slate-500 mb-4">
+                                {state.difficulty === 'REALITY' || state.difficulty === 'HELL' ? '排名已记录' : `年级排名: ${state.popupExamResult.rank}`}
+                            </div>
                         )}
                         <div className="grid grid-cols-3 gap-2 mt-4 text-sm text-slate-700">
                             {Object.entries(state.popupExamResult.scores).map(([subj, score]) => (
@@ -476,7 +558,7 @@ const App: React.FC = () => {
                                     <span className="font-bold text-slate-600">{
                                         {'chinese': '语文', 'math': '数学', 'english': '英语', 'physics': '物理', 'chemistry': '化学', 'biology': '生物', 'history': '历史', 'geography': '地理', 'politics': '政治'}[subj] || subj
                                     }: </span>
-                                    <span className="text-indigo-600">{score}</span>
+                                    <span className="text-indigo-600">{state.difficulty === 'REALITY' || state.difficulty === 'HELL' ? '·' : score}</span>
                                 </div>
                             ))}
                         </div>
@@ -497,14 +579,23 @@ const App: React.FC = () => {
                       {SUBJECT_NAMES[s]}
                     </button>
                   ))}
-               </div>
-               <button disabled={state.selectedSubjects.length !== 3} onClick={() => setState(prev => {
-                   const nextPhase = prev.phase === Phase.SELECTION ? Phase.PLACEMENT_EXAM : Phase.SEMESTER_1;
+                </div>
+                <button disabled={state.selectedSubjects.length !== 3} onClick={() => setState(prev => {
+                    if (prev.phase !== Phase.SELECTION && prev.phase !== Phase.SUBJECT_RESELECTION) return prev;
+                    const nextPhase = prev.phase === Phase.SELECTION
+                      ? Phase.PLACEMENT_EXAM
+                      : getSubjectReselectionReturnPhase(prev);
+                   const nextWeek = prev.phase === Phase.SUBJECT_RESELECTION
+                     && nextPhase === Phase.SEMESTER_1
+                       ? Math.max(12, prev.week + 1)
+                       : prev.week;
                    return { 
                        ...prev, 
                        phase: nextPhase, 
+                       week: nextWeek,
                        isPlaying: prev.phase === Phase.SUBJECT_RESELECTION,
-                       totalWeeksInPhase: nextPhase === Phase.SEMESTER_1 ? 21 : 0
+                       totalWeeksInPhase: nextPhase === Phase.PLACEMENT_EXAM ? 0 : 21,
+                       subjectReselectionReturnPhase: null
                    };
                })} className="bg-indigo-600 disabled:bg-slate-200 text-white px-12 py-4 rounded-2xl font-black text-xl shadow-xl">确认选择</button>
             </div>
@@ -538,23 +629,23 @@ const App: React.FC = () => {
 
         {/* Shop */}
         {showShop && (
-             <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-fadeIn" onClick={() => setShowShop(false)}>
+             <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-fadeIn" onClick={() => closeGameOverlay(setShowShop)}>
                  <div className="bg-white rounded-3xl w-full max-w-2xl h-[90vh] md:h-auto md:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden relative" onClick={e => e.stopPropagation()}>
                      <div className="flex-none p-6 md:p-8 border-b border-slate-100 bg-white z-10 flex justify-between items-center">
                          <div>
                              <h2 className="text-2xl font-black text-slate-800">小卖部</h2>
-                             <p className="text-sm text-slate-500">持有金钱: <span className="text-yellow-600 font-bold">{state.general.money}</span></p>
+                             <p className="text-sm text-slate-500">资金状况: <span className="text-yellow-600 font-bold">{state.difficulty === 'REALITY' || state.difficulty === 'HELL' ? (state.general.money < 0 ? '负债' : state.general.money < 30 ? '紧张' : '充足') : state.general.money}</span></p>
                          </div>
-                         <button onClick={() => setShowShop(false)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                         <button onClick={() => closeGameOverlay(setShowShop)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
                              <i className="fas fa-times"></i>
                          </button>
                      </div>
                      <div className="flex-1 overflow-y-auto custom-scroll p-6 md:p-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-safe">
                              {SHOP_ITEMS.map(item => (
-                                 <button key={item.id} onClick={() => handleShopPurchase(item, (oldState, newState) => calculateAndVisualizeDiff(oldState, newState, window.innerWidth / 2, window.innerHeight / 2))} disabled={state.general.money < item.price} className="p-4 rounded-xl border border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-4 group disabled:opacity-50 active:scale-95">
+                                  <button key={item.id} onClick={() => handleShopPurchase(item, (oldState, newState) => calculateAndVisualizeDiff(oldState, newState, window.innerWidth / 2, window.innerHeight / 2))} disabled={!!state.currentEvent || !!state.chainedEvent || state.eventQueue.length > 0 || !!state.isAiGenerating || isExamPhase(state.phase) || state.general.money < item.price * getShopPriceMultiplier(state)} className="p-4 rounded-xl border border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-4 group disabled:opacity-50 active:scale-95">
                                      <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:text-indigo-600"><i className={`fas ${item.icon} text-xl`}></i></div>
-                                     <div className="flex-1"><div className="flex justify-between items-center"><span className="font-bold text-slate-800">{item.name}</span><span className="text-sm font-bold text-yellow-600">{item.price} G</span></div><p className="text-xs text-slate-400 mt-1">{item.description}</p></div>
+                                      <div className="flex-1"><div className="flex justify-between items-center"><span className="font-bold text-slate-800">{item.name}</span><span className="text-sm font-bold text-yellow-600">{item.price * getShopPriceMultiplier(state)} G</span></div><p className="text-xs text-slate-400 mt-1">{item.description}</p></div>
                                  </button>
                              ))}
                         </div>
@@ -565,11 +656,11 @@ const App: React.FC = () => {
 
         {/* History */}
         {showHistory && (
-             <div className="absolute inset-0 z-[60] flex justify-end bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setShowHistory(false)}>
+             <div className="absolute inset-0 z-[110] flex justify-end bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => closeGameOverlay(setShowHistory)}>
                 <div className="w-full md:w-96 bg-white h-full shadow-2xl p-6 md:p-8 flex flex-col animate-slideInRight" onClick={e => e.stopPropagation()}>
                    <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
                       <h2 className="text-2xl font-black text-slate-800 tracking-tight">故事线存档</h2>
-                      <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-800 text-xl"><i className="fas fa-times"></i></button>
+                      <button onClick={() => closeGameOverlay(setShowHistory)} className="text-slate-400 hover:text-slate-800 text-xl"><i className="fas fa-times"></i></button>
                    </div>
                    <div className="flex-1 overflow-y-auto custom-scroll space-y-6">
                       {state.history.length === 0 ? <div className="text-slate-300 text-center py-20 italic">尚未开启故事...</div> : 
@@ -589,11 +680,11 @@ const App: React.FC = () => {
 
         {/* Achievements */}
         {showAchievements && (
-             <div className="absolute inset-0 z-[60] flex justify-center items-center bg-slate-900/50 backdrop-blur-sm animate-fadeIn p-4" onClick={() => setShowAchievements(false)}>
+             <div className="absolute inset-0 z-[60] flex justify-center items-center bg-slate-900/50 backdrop-blur-sm animate-fadeIn p-4" onClick={() => closeGameOverlay(setShowAchievements)}>
                 <div className="bg-white rounded-[40px] p-6 md:p-8 max-w-4xl w-full h-3/4 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
                     <div className="flex justify-between items-center mb-6">
                          <div><h2 className="text-3xl font-black text-slate-800">成就墙</h2></div>
-                         <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><i className="fas fa-times"></i></button>
+                         <button onClick={() => closeGameOverlay(setShowAchievements)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><i className="fas fa-times"></i></button>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scroll grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {Object.values(ACHIEVEMENTS).map(ach => (
@@ -612,8 +703,17 @@ const App: React.FC = () => {
             <EndingScreen 
                 state={state}
                 endingData={getEndingData()}
-                onRestart={() => { localStorage.removeItem('recall_save_v1'); setView('HOME'); window.location.reload(); }}
-                onViewHistory={() => setShowHistory(true)}
+                 onRestart={() => {
+                     try {
+                         localStorage.removeItem(getAccountSaveKey(activeAccountId));
+                         if (activeAccountId === 'guest') localStorage.removeItem('recall_save_v1');
+                     } catch (error) {
+                         console.error('Failed to remove save on restart', error);
+                     }
+                     setView('HOME');
+                     window.location.reload();
+                 }}
+                onViewHistory={() => openGameOverlay(setShowHistory)}
             />
         )}
 

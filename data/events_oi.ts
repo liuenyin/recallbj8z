@@ -149,7 +149,7 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                     else { msg = '题目比平时训练难不少。这次主要是来认识差距，回去还得补题。'; }
                     return {
                         general: { ...s.general, mindset: s.general.mindset + 20, experience: s.general.experience + 30 },
-                        log: [...s.log, { message: msg, type: score > 80 ? 'success' : 'warning', timestamp: Date.now() }]
+                        log: [...s.log, { message: msg, type: score >= 420 ? 'success' : score >= 300 ? 'info' : 'warning', timestamp: Date.now() }]
                     };
                 }
             }

@@ -1,4 +1,5 @@
 import { GameState, GameEvent, Project } from '../types';
+import { PROJECT_EFFECTS } from './project_effects';
 
 interface HistoricalEventDef {
     id: string;
@@ -11,7 +12,7 @@ interface HistoricalEventDef {
 export const HISTORICAL_EVENTS: HistoricalEventDef[] = [
     {
         id: 'he_typhoon_mangkhut_2018',
-        region: '广东广州',
+        region: '广州',
         year: 2018,
         season: 'autumn',
         generateEvent: (state) => ({
@@ -88,12 +89,8 @@ export const HISTORICAL_EVENTS: HistoricalEventDef[] = [
                             progress: 0,
                             requiredProgress: 100,
                             rewardsDescription: '自律性大幅提升，全属性增加',
-                            onComplete: (st) => ({
-                                general: { ...st.general, efficiency: st.general.efficiency + 5, mindset: st.general.mindset + 10 }
-                            }),
-                            onFail: (st) => ({
-                                general: { ...st.general, efficiency: st.general.efficiency - 10, mindset: st.general.mindset - 15 }
-                            })
+                            effectKey: 'proj_online_class',
+                            ...PROJECT_EFFECTS.proj_online_class
                         };
                         return {
                             activeProjects: [...s.activeProjects, project],
@@ -108,17 +105,28 @@ export const HISTORICAL_EVENTS: HistoricalEventDef[] = [
 
 export let loadedCityEvents: HistoricalEventDef[] = [];
 let currentLoadedCityCode = '';
+let cityLoadRequest = 0;
+
+const normalizeHistoricalEventType = (value: unknown): GameEvent['type'] => {
+    const type = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return type === 'positive' || type === 'negative' ? type : 'neutral';
+};
 
 export const loadCityEvents = async (code: string, regionName: string) => {
     if (currentLoadedCityCode === code) return;
+    const requestId = ++cityLoadRequest;
     loadedCityEvents = [];
     currentLoadedCityCode = '';
     try {
         const res = await fetch(new URL(`cities/${code}.json`, document.baseURI).toString());
         if (!res.ok) throw new Error(`City event request failed: ${res.status}`);
         const data = await res.json();
+        if (requestId !== cityLoadRequest) return;
         
-        const mapped: HistoricalEventDef[] = data.events.map((e: any) => ({
+        const rawEvents = Array.isArray(data?.events) ? data.events : [];
+        const mapped: HistoricalEventDef[] = rawEvents
+            .filter((e: any) => e && typeof e.id === 'string' && typeof e.title === 'string' && typeof e.description === 'string')
+            .map((e: any) => ({
             id: e.id,
             region: regionName,
             year: e.year,
@@ -127,23 +135,27 @@ export const loadCityEvents = async (code: string, regionName: string) => {
                 id: e.id,
                 title: e.title,
                 description: e.description,
-                type: e.type,
+                type: normalizeHistoricalEventType(e.type),
                 once: true,
-                choices: e.choices.map((c: any) => ({
+                choices: (Array.isArray(e.choices) ? e.choices : []).filter((c: any) => c && typeof c.text === 'string').map((c: any) => ({
                     text: c.text,
-                    resultDescription: c.resultDescription,
+                    resultDescription: typeof c.resultDescription === 'string' ? c.resultDescription : undefined,
                     action: (s: GameState) => {
                        let nextGen = { ...s.general };
-                       if (c.effect) {
-                           if (c.effect.efficiency) nextGen.efficiency = Math.min(100, Math.max(0, nextGen.efficiency + c.effect.efficiency));
-                           if (c.effect.health) nextGen.health = Math.min(100, Math.max(0, nextGen.health + c.effect.health));
-                           if (c.effect.mindset) nextGen.mindset = Math.min(100, Math.max(0, nextGen.mindset + c.effect.mindset));
-                           if (c.effect.experience) nextGen.experience = Math.min(999, Math.max(0, nextGen.experience + c.effect.experience));
-                           if (c.effect.luck) nextGen.luck = Math.min(100, Math.max(0, nextGen.luck + c.effect.luck));
-                           if (c.effect.romance) nextGen.romance = Math.min(100, Math.max(0, nextGen.romance + c.effect.romance));
-                           if (c.effect.excitement) nextGen.excitement = Math.min(100, Math.max(0, (nextGen.excitement ?? 0) + c.effect.excitement));
-                           if (c.effect.money) nextGen.money = nextGen.money + c.effect.money; // Allow negative (debt system)
-                       }
+                       const effect = c.effect && typeof c.effect === 'object' ? c.effect : {};
+                       const addBounded = (key: keyof GameState['general'], min: number, max: number) => {
+                           const delta = Number(effect[key]);
+                           if (Number.isFinite(delta)) nextGen[key] = Math.min(max, Math.max(min, nextGen[key] + delta));
+                       };
+                       addBounded('efficiency', 0, 30);
+                       addBounded('health', 0, 150);
+                       addBounded('mindset', 0, 150);
+                       addBounded('experience', 0, 999);
+                       addBounded('luck', 0, 150);
+                       addBounded('romance', 0, 150);
+                       addBounded('excitement', 0, 100);
+                       const moneyDelta = Number(effect.money);
+                       if (Number.isFinite(moneyDelta)) nextGen.money += moneyDelta; // Allow negative (debt system)
                        return {
                            general: nextGen,
                            log: c.resultDescription ? [...s.log, { message: c.resultDescription, type: 'info', timestamp: Date.now() }] : s.log
@@ -156,6 +168,7 @@ export const loadCityEvents = async (code: string, regionName: string) => {
         currentLoadedCityCode = code;
         console.log(`Loaded ${mapped.length} events for ${regionName} (${code})`);
     } catch (e) {
+        if (requestId !== cityLoadRequest) return;
         console.error("Failed to load city events", e);
         loadedCityEvents = [];
     }
@@ -171,6 +184,7 @@ export const getHistoricalEventsForWeek = (state: GameState): GameEvent[] => {
     const phase = state.phase;
     if (phase === 'SUMMER' || phase === 'SUMMER_BREAK') {
         currentSeason = 'summer';
+        if (phase === 'SUMMER_BREAK') yearOffset = 1;
     } else if (phase === 'MILITARY') {
         currentSeason = 'autumn';
     } else if (phase === 'SEMESTER_1' || phase === 'CSP_EXAM' || phase === 'NOIP_EXAM' || phase === 'MIDTERM_EXAM' || phase === 'SUBJECT_RESELECTION') {

@@ -1,6 +1,6 @@
 
 import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats, Phase } from '../types';
-import { modifySub, modifyOI, getEffectiveEfficiency, getLearningMultiplier } from './utils';
+import { modifySub, modifyOI, getEffectiveEfficiency } from './utils';
 import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS } from './event_defs';
 import oiEventsData from '../oi_events.json';
@@ -10,20 +10,22 @@ const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
     title: e.title,
     description: e.description,
     type: e.type,
-    triggerType: e.triggerType || 'RANDOM',
+    triggerType: e.triggerType === 'FIXED' || e.triggerType === 'CONDITIONAL' || e.triggerType === 'CHAINED' ? e.triggerType : 'RANDOM',
     choices: e.choices.map((c: any) => ({
         text: c.text,
+        resultDescription: c.resultDescription,
+        tags: Array.isArray(c.tags) ? c.tags : undefined,
         action: (s: GameState) => {
             const nextGen = { ...s.general };
             let bonusOI: Partial<OIStats> = {};
             if (c.effect) {
-                if (c.effect.efficiency) nextGen.efficiency = Math.min(100, Math.max(0, nextGen.efficiency + c.effect.efficiency));
-                if (c.effect.health) nextGen.health = Math.min(100, Math.max(0, nextGen.health + c.effect.health));
-                if (c.effect.mindset) nextGen.mindset = Math.min(100, Math.max(0, nextGen.mindset + c.effect.mindset));
+                if (c.effect.efficiency) nextGen.efficiency = Math.min(30, Math.max(0, nextGen.efficiency + c.effect.efficiency));
+                if (c.effect.health) nextGen.health = Math.min(150, Math.max(0, nextGen.health + c.effect.health));
+                if (c.effect.mindset) nextGen.mindset = Math.min(150, Math.max(0, nextGen.mindset + c.effect.mindset));
                 if (c.effect.experience) nextGen.experience = Math.min(999, Math.max(0, nextGen.experience + c.effect.experience));
-                if (c.effect.luck) nextGen.luck = Math.min(100, Math.max(0, nextGen.luck + c.effect.luck));
+                if (c.effect.luck) nextGen.luck = Math.min(150, Math.max(0, nextGen.luck + c.effect.luck));
                 if (c.effect.money) nextGen.money = nextGen.money + c.effect.money; // Allow negative (debt system)
-                if (c.effect.romance) nextGen.romance = Math.min(100, Math.max(0, nextGen.romance + c.effect.romance));
+                if (c.effect.romance) nextGen.romance = Math.min(150, Math.max(0, nextGen.romance + c.effect.romance));
                 
                 if (c.effect.oi_dp) bonusOI.dp = c.effect.oi_dp;
                 if (c.effect.oi_ds) bonusOI.ds = c.effect.oi_ds;
@@ -58,23 +60,40 @@ export const generateOIRandomEvent = (state: GameState): GameEvent => {
         [Phase.APIO_EXAM]: ['APIO_EXAM'], [Phase.NOI_EXAM]: ['NOI_EXAM']
     };
     const allowedPhases = phaseAliases[state.phase] || [];
+    const currentRating = state.oiStats.rating ?? 1200;
     const matchesPhase = (raw: any) => !raw.phase || allowedPhases.includes(String(raw.phase));
     const matchesRating = (raw: any) => {
-        const currentRating = state.oiStats.rating || 0;
-        return (!raw.cfRatingMin || currentRating >= raw.cfRatingMin) && (!raw.cfRatingMax || currentRating <= raw.cfRatingMax);
+        return (raw.cfRatingMin === undefined || currentRating >= raw.cfRatingMin) && (raw.cfRatingMax === undefined || currentRating <= raw.cfRatingMax);
     };
     const pool = parsedOiEvents.filter(e => {
         const raw = oiEventsData.find((d: any) => d.id === e.id) as any;
         return !!raw && matchesPhase(raw) && matchesRating(raw);
     });
     if (pool.length > 0) {
-        return pool[Math.floor(Math.random() * pool.length)];
+        const freshPool = pool.filter(event => !state.recentEventIds.includes(event.id));
+        const selectedPool = freshPool.length > 0 ? freshPool : pool;
+        return selectedPool[Math.floor(Math.random() * selectedPool.length)];
     }
     const phasePool = parsedOiEvents.filter(e => {
         const raw = oiEventsData.find((d: any) => d.id === e.id) as any;
         return !!raw && matchesPhase(raw);
     });
-    if (phasePool.length > 0) return phasePool[Math.floor(Math.random() * phasePool.length)];
+    if (phasePool.length > 0) {
+        // Ratings outside the authored bands should get the nearest band, not
+        // an arbitrary beginner event. This keeps late-game progression
+        // coherent even when the player exceeds the current data range.
+        const distanceToBand = (event: GameEvent) => {
+            const raw = oiEventsData.find((d: any) => d.id === event.id) as any;
+            const min = typeof raw.cfRatingMin === 'number' ? raw.cfRatingMin : Number.NEGATIVE_INFINITY;
+            const max = typeof raw.cfRatingMax === 'number' ? raw.cfRatingMax : Number.POSITIVE_INFINITY;
+            return currentRating < min ? min - currentRating : currentRating > max ? currentRating - max : 0;
+        };
+        const nearestDistance = Math.min(...phasePool.map(distanceToBand));
+        const nearest = phasePool.filter(event => distanceToBand(event) === nearestDistance);
+        const freshNearest = nearest.filter(event => !state.recentEventIds.includes(event.id));
+        const selectedNearest = freshNearest.length > 0 ? freshNearest : nearest;
+        return selectedNearest[Math.floor(Math.random() * selectedNearest.length)];
+    }
     return parsedOiEvents[0];
 };
 
@@ -93,19 +112,19 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
     const subject = pool[Math.floor(Math.random() * pool.length)];
     const subName = SUBJECT_NAMES[subject];
     const efficiency = getEffectiveEfficiency(state);
-    const learningMultiplier = getLearningMultiplier(state);
 
     return {
-        id: `study_weekly_${Date.now()}`,
+        id: `study_weekly_${subject}`,
         title: `${subName}课的抉择`,
         description: `这节是${subName}课，老师讲的内容似乎有点催眠，或者...有点太难了？`,
         type: 'neutral',
+        triggerType: 'RANDOM',
         choices: [
             { 
                 text: '认真听讲',
                 tags: ['study'],
                 action: (s) => ({ 
-                    subjects: modifySub(s, [subject], (1 + efficiency * 0.05) * learningMultiplier),
+                    subjects: modifySub(s, [subject], 1 + efficiency * 0.05),
                     general: { ...s.general, mindset: s.general.mindset - 2 }
                 }) 
             },
@@ -113,7 +132,7 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
                 text: '偷偷刷题',
                 tags: ['study', 'risky'],
                 action: (s) => ({ 
-                    subjects: modifySub(s, [subject], (2 + efficiency * 0.05) * learningMultiplier),
+                    subjects: modifySub(s, [subject], 2 + efficiency * 0.05),
                     general: { ...s.general, health: s.general.health - 3 }
                 }) 
             },
@@ -144,12 +163,13 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
 export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
     // --- High Luck Event (Req Luck >= 80, 5% Chance) ---
     // Reduced probability from 10% to 5% to balance event distribution
-    if (state.general.luck >= 80 && Math.random() < 0.05) {
+    if (state.general.luck >= 80 && !state.recentEventIds.includes('evt_lucky_moment') && Math.random() < 0.05) {
         return {
-            id: `evt_lucky_moment_${Date.now()}`,
+            id: 'evt_lucky_moment',
             title: '欧皇时刻',
             description: '今天你的运势简直好到爆棚！',
             type: 'positive',
+            triggerType: 'RANDOM',
             choices: [
                 { 
                     text: '食堂阿姨的手抖', 
@@ -177,12 +197,13 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
     }
 
     // --- Low Luck Event (Req Luck <= 20, 5% Chance) ---
-    if (state.general.luck <= 20 && Math.random() < 0.05) {
+    if (state.general.luck <= 20 && !state.recentEventIds.includes('evt_bad_luck') && Math.random() < 0.05) {
         return {
-            id: `evt_bad_luck_${Date.now()}`,
+            id: 'evt_bad_luck',
             title: '水逆时刻',
             description: '今天诸事不顺，喝凉水都塞牙...',
             type: 'negative',
+            triggerType: 'RANDOM',
             choices: [
                 { 
                     text: '平地摔', 
@@ -206,10 +227,11 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
         const dateLocations = ['西单', '北海公园', '电影院', '图书馆', '什刹海'];
         const loc = dateLocations[Math.floor(Math.random() * dateLocations.length)];
         return {
-            id: `evt_date_${Date.now()}`,
+            id: 'evt_date',
             title: '甜蜜约会',
             description: `周末到了，${state.romancePartner}约你去${loc}逛逛。`,
             type: 'positive',
+            triggerType: 'RANDOM',
             choices: [
                 { 
                     text: '欣然前往', 
@@ -386,16 +408,21 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
         })
     ];
 
-    const picker = events[Math.floor(Math.random() * events.length)];
-    return { ...picker(state), id: `flavor_${Date.now()}` };
+    const freshIndexes = events
+        .map((_, index) => index)
+        .filter(index => !state.recentEventIds.includes(`flavor_${index}`));
+    const indexes = freshIndexes.length > 0 ? freshIndexes : events.map((_, index) => index);
+    const pickedIndex = indexes[Math.floor(Math.random() * indexes.length)];
+    return { ...events[pickedIndex](state), id: `flavor_${pickedIndex}`, triggerType: 'RANDOM' };
 };
 
 export const generateSummerLifeEvent = (state: GameState): GameEvent => {
     const leisureEvent: GameEvent = {
-        id: `sum_leisure_${Date.now()}`,
+        id: 'sum_leisure',
         title: '暑期休闲时光',
         description: '（并非）漫长的暑假，除了学习，适当的放松也是必要的。今天你打算做什么？',
         type: 'positive',
+        triggerType: 'RANDOM',
         choices: [
             {
                 text: '刷B站',
@@ -515,8 +542,10 @@ export const generateSummerLifeEvent = (state: GameState): GameEvent => {
         }
     ];
 
-    if (Math.random() < 0.5) return leisureEvent;
-    return studyEvents[Math.floor(Math.random() * studyEvents.length)];
+    const freshStudyEvents = studyEvents.filter(event => !state.recentEventIds.includes(event.id));
+    if (Math.random() < 0.5 && !state.recentEventIds.includes(leisureEvent.id)) return leisureEvent;
+    const selectedStudyEvents = freshStudyEvents.length > 0 ? freshStudyEvents : studyEvents;
+    return { ...selectedStudyEvents[Math.floor(Math.random() * selectedStudyEvents.length)], triggerType: 'RANDOM' };
 };
 
 export const generateOIEvent = (state: GameState): GameEvent => {

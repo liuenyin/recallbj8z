@@ -562,14 +562,14 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         triggerType: 'RANDOM',
         choices: [
             { text: '偷学动态规划', action: (s) => ({ oiStats: modifyOI(s, { dp: 1 }), general: { ...s.general, experience: s.general.experience + 1 } }) },
-            { text: '偷学数据结构', action: (s) => ({ oiStats: modifyOI(s, { dp: 1 }), general: { ...s.general, experience: s.general.experience + 1 } }) },
+            { text: '偷学数据结构', action: (s) => ({ oiStats: modifyOI(s, { ds: 1 }), general: { ...s.general, experience: s.general.experience + 1 } }) },
             { text: '不卷了，睡觉', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 1 }, sleepCount: (s.sleepCount || 0) + 1 }) }
         ]
     },
     {
         id: 'evt_oi_gaming',
         title: '机房隔膜',
-        description: '竞赛生的快乐来源之一，当然是打隔膜(Generals/Majsoul)。你和你的朋友们一起在机房打隔膜。',
+        description: '竞赛生的快乐来源之一，当然是打隔膜(Generals/Majsoul)。你和训练群里的朋友约在临时借到的电脑旁边打隔膜。',
         condition: (s) => s.competition === 'OI',
         type: 'neutral',
         triggerType: 'RANDOM',
@@ -594,10 +594,10 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     {
         id: 'oi_after_school',
         title: '课后加练',
-        description: '你咋又去机房了？？？。',
+        description: '你又找了台能用的电脑加练，旁边没有固定教练，只能先按自己的题单来。',
         condition: (s) => s.competition === 'OI',
         type: 'neutral',
-        triggerType: 'CONDITIONAL',
+        triggerType: 'RANDOM',
         choices: [
             { 
                 text: '切一道难题', 
@@ -624,8 +624,8 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     },
     {
         id: 'oi_mock_win',
-        title: '模拟赛AK',
-        description: '今天的校内模拟赛，你居然全场第一个AK（全部通过）。',
+        title: '训练组模拟赛 AK',
+        description: '今天训练组组织线上模拟赛，你居然全场第一个 AK（全部通过）。',
         condition: (s) => s.competition === 'OI',
         type: 'positive',
         triggerType: 'RANDOM',
@@ -686,11 +686,16 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     }
 ];
 
-const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any) => {
+const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any, eventIndex: number) => {
     if (e.childrens && Array.isArray(e.childrens)) {
-        acc.push(...e.childrens.map(mapAiEventToGameEvent));
-    } else if (e.choices) {
-        acc.push(mapAiEventToGameEvent(e));
+        e.childrens.forEach((child: any, childIndex: number) => {
+            // The authored offline pack reuses short IDs across batches. A
+            // stable source index keeps each distinct event addressable in
+            // recent-event tracking and save files.
+            acc.push(mapAiEventToGameEvent({ ...child, id: `offline_${eventIndex}_${childIndex}` }));
+        });
+    } else if (e.choices || e.effect) {
+        acc.push(mapAiEventToGameEvent({ ...e, id: `offline_${eventIndex}` }));
     }
     return acc;
 }, []);

@@ -7,8 +7,8 @@ const SCHOOL_PHASES = [Phase.SEMESTER_1, Phase.SEMESTER_2];
 export const OI_ROUTE_EVENTS: GameEvent[] = [
     {
         id: 'oi_training_group',
-        title: '机房里的训练小组',
-        description: '机房里几个人约着每周讲题，谁碰到卡住的地方就拿出来一起看。你来的时候，他们把旁边的椅子挪了出来。',
+        title: '训练群里的小组',
+        description: '训练群里几个人约着每周讲题，谁碰到卡住的地方就拿出来一起看。你进群时，他们把讨论文档的链接发给了你。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
@@ -170,7 +170,13 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
                 tags: ['study'],
                 resultDescription: '题面、样例和证明都过了一遍，接下来还要交给出题组验题。',
                 action: (s) => ({
-                    flags: { ...s.flags, oi_problem_drafted: true, oi_problem_quality: 'polished' },
+                    flags: {
+                        ...s.flags,
+                        oi_problem_drafted: true,
+                        oi_problem_drafted_phase: s.phase,
+                        oi_problem_drafted_week: s.week,
+                        oi_problem_quality: 'polished'
+                    },
                     general: { ...s.general, experience: s.general.experience + 8, mindset: s.general.mindset - 4 },
                     oiStats: modifyOI(s, { math: 1, misc: 2 })
                 })
@@ -180,7 +186,13 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
                 tags: ['risky'],
                 resultDescription: '题面赶在截止前交了上去。你知道还有几处数据和题面没有完全放心。',
                 action: (s) => ({
-                    flags: { ...s.flags, oi_problem_drafted: true, oi_problem_quality: 'rough' },
+                    flags: {
+                        ...s.flags,
+                        oi_problem_drafted: true,
+                        oi_problem_drafted_phase: s.phase,
+                        oi_problem_drafted_week: s.week,
+                        oi_problem_quality: 'rough'
+                    },
                     general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 1 },
                     oiStats: modifyOI(s, { misc: 1 })
                 })
@@ -194,9 +206,19 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
-        // A draft made in semester 1 week 20 is tested the following week.
-        // Keep week 21 reachable instead of silently dropping the hand-off.
-        condition: (s) => s.competition === 'OI' && s.flags.oi_setter === true && s.flags.oi_problem_drafted === true && !s.flags.oi_problem_tested && ((s.phase === Phase.SEMESTER_1 && s.week >= 11 && s.week <= 21) || (s.phase === Phase.SEMESTER_2 && s.week <= 9)),
+        // A draft must be handed off to testing in a later week. This avoids
+        // presenting an immediate follow-up before the author has had time to
+        // submit the draft to the public-contest group.
+        condition: (s) => {
+            if (s.competition !== 'OI' || s.flags.oi_setter !== true || s.flags.oi_problem_drafted !== true || s.flags.oi_problem_tested) return false;
+            const draftedPhase = s.flags.oi_problem_drafted_phase;
+            const draftedWeek = Number(s.flags.oi_problem_drafted_week);
+            if (draftedPhase && Number.isFinite(draftedWeek)) {
+                if (s.phase !== draftedPhase || s.week <= draftedWeek) return false;
+            }
+            return (s.phase === Phase.SEMESTER_1 && s.week >= 11 && s.week <= 21)
+                || (s.phase === Phase.SEMESTER_2 && s.week <= 9);
+        },
         choices: [
             {
                 text: '补一组边界数据',

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, WeekendActivity } from '../types';
 import { WEEKEND_ACTIVITIES } from '../data/mechanics';
-import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP, clearWeekdaySchedule } from '../data/timetable';
+import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries } from '../data/timetable';
 import { getDifficultyPreset } from '../data/constants';
-import { getRestRecoveryMultiplier, isStudyBlocked } from '../data/utils';
+import { clampGameStateMetrics, getLearningMultiplier, getRestRecoveryMultiplier, isStudyBlocked, isLearningActivity, getActivityBlockReason, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isHealthFatal } from '../data/utils';
+import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from '../data/balance';
 
 interface Props {
     state: GameState;
@@ -11,14 +12,31 @@ interface Props {
 }
 
 const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
-    // Initialize with last week's schedule
-
-    const availableActivities = WEEKEND_ACTIVITIES.filter(a => {
-        if (state.availableWeekendActivityIds && state.availableWeekendActivityIds.length > 0) {
-            return state.availableWeekendActivityIds.includes(a.id) && (!a.condition || a.condition(state));
+    // Evaluate activity conditions in a weekend context. The random pool is
+    // only restrictive while planning; a weekday schedule view should still
+    // be able to show activities that were planned last weekend.
+    const activityState = state.isWeekend ? state : { ...state, isWeekend: true };
+    const useRandomWeekendPool = state.isWeekend && state.availableWeekendActivityIds !== undefined;
+    const offeredActivities = WEEKEND_ACTIVITIES.filter(a => {
+        if (useRandomWeekendPool) {
+            return state.availableWeekendActivityIds!.includes(a.id)
+                && (!a.condition || a.condition(activityState))
+                && !getActivityBlockReason(state, a);
         }
-        return !a.condition || a.condition(state);
+        return !a.condition || a.condition(activityState);
     });
+    const activityById = new Map(WEEKEND_ACTIVITIES.map(activity => [activity.id, activity]));
+    // A reusable plan is a commitment, not a snapshot of this week's random
+    // menu. Keep valid previously scheduled activities visible even when they
+    // are not offered this week; the executor will still re-check conditions
+    // and report any activity that can no longer run.
+    const lastSchedule = state.flags.joined_evening_study
+        ? clearWeekdaySchedule(state.lastWeekSchedule || {})
+        : (state.lastWeekSchedule || {});
+    const retainedActivityIds = new Set(Object.values(lastSchedule));
+    const availableActivities = WEEKEND_ACTIVITIES.filter(activity =>
+        offeredActivities.includes(activity) || retainedActivityIds.has(activity.id)
+    );
 
     const [schedule, setSchedule] = useState<Record<string, string>>(() => {
         const last = state.flags.joined_evening_study
@@ -26,8 +44,9 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
             : (state.lastWeekSchedule || {});
         const valid: Record<string, string> = {};
         for (const [slot, actId] of Object.entries(last)) {
-            if (availableActivities.find(a => a.id === actId)) {
-                valid[slot] = actId as string;
+            const activityId = typeof actId === 'string' ? actId : null;
+            if (SCHEDULE_SLOTS.some(candidate => candidate.id === slot) && activityId && activityById.has(activityId)) {
+                valid[slot] = activityId;
             }
         }
         return valid;
@@ -35,9 +54,83 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
 
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const difficultyPreset = getDifficultyPreset(state.difficulty);
+    const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
     const weekendStudyLimit = difficultyPreset.weekendStudyLimit;
     const studyBlocked = isStudyBlocked(state);
-    const scheduledStudyCount = Object.values(schedule).filter(actId => availableActivities.find(a => a.id === actId)?.type === 'STUDY').length;
+
+    // Simulate the same sequential blocking rules used by the executor. A
+    // blocked slot is created only by an activity that is itself executable;
+    // invalid or unavailable activities must not reserve time for others.
+    const previewBlockedSlots = new Set<string>();
+    const previewBlockers = new Map<string, string>();
+    if (state.flags.joined_evening_study) {
+        SCHEDULE_SLOTS.filter(slot => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(slot.day))
+            .forEach(slot => {
+                previewBlockedSlots.add(slot.id);
+                previewBlockers.set(slot.id, '晚自习');
+            });
+    }
+    let previewStudyCount = 0;
+    let previewState = activityState;
+    const previewRepeatCounts = new Map<string, number>();
+    const executableSlotIds = new Set<string>();
+    for (const [slotId, actId] of getOrderedScheduleEntries(schedule)) {
+        if (previewBlockedSlots.has(slotId)) continue;
+        const activity = availableActivities.find(a => a.id === actId);
+        if (!activity) continue;
+        const allowedSlots = ALLOWED_SLOTS_MAP[activity.id];
+        if (allowedSlots && !allowedSlots.includes(slotId as TimeSlotId)) continue;
+        if (activity.condition && !activity.condition(previewState)) continue;
+        if (getActivityBlockReason(previewState, activity)) continue;
+        const learningActivity = isLearningActivity(activity);
+        if (learningActivity && isStudyBlocked(previewState)) continue;
+        if (learningActivity && weekendStudyLimit !== undefined && previewStudyCount >= weekendStudyLimit) continue;
+        executableSlotIds.add(slotId);
+        if (learningActivity) previewStudyCount += 1;
+        (BLOCKED_SLOTS_MAP[activity.id] || []).forEach(blockedSlot => {
+            previewBlockedSlots.add(blockedSlot);
+            previewBlockers.set(blockedSlot, activity.name);
+        });
+
+        // Mirror executeTimetable's positive-gain scaling and repeat penalty so
+        // later slots see the same fatigue/status conditions as execution.
+        const oldPreview = previewState;
+        let updates = (activity.previewAction || activity.action)(oldPreview);
+        if (learningActivity) {
+            const multiplier = getLearningMultiplier(oldPreview);
+            updates = {
+                ...updates,
+                general: scalePositiveGeneralDeltas(oldPreview, updates.general, multiplier),
+                subjects: scalePositiveSubjectDeltas(oldPreview, updates.subjects, multiplier),
+                oiStats: scalePositiveOIStatDeltas(oldPreview, updates.oiStats, multiplier)
+            };
+        } else if (activity.id === 'act_sport') {
+            updates = { ...updates, general: scalePositiveGeneralDeltas(oldPreview, updates.general, getLearningMultiplier(oldPreview)) };
+        } else if (activity.type === 'REST') {
+            updates = { ...updates, general: scalePositiveGeneralDeltas(oldPreview, updates.general, getRestRecoveryMultiplier(oldPreview)) };
+        }
+        const repeatCount = (previewRepeatCounts.get(activity.id) || 0) + 1;
+        previewRepeatCounts.set(activity.id, repeatCount);
+        const repeatMultiplier = getActivityRepeatMultiplier(repeatCount);
+        if (repeatMultiplier < 1) {
+            const repeatedUpdates = { ...updates };
+            if (updates.general) repeatedUpdates.general = scalePositiveGeneralDeltas(oldPreview, updates.general, repeatMultiplier);
+            if (updates.subjects) repeatedUpdates.subjects = scalePositiveSubjectDeltas(oldPreview, updates.subjects, repeatMultiplier);
+            if (updates.oiStats) repeatedUpdates.oiStats = scalePositiveOIStatDeltas(oldPreview, updates.oiStats, repeatMultiplier);
+            updates = repeatedUpdates;
+        }
+        const fatigueDelta = getWeekendActivityFatigueDelta(
+            activity,
+            getRestRecoveryMultiplier(oldPreview),
+            difficultyPreset.fatigueGainMultiplier
+        );
+        previewState = clampGameStateMetrics({
+            ...oldPreview,
+            ...updates,
+            fatigue: Math.min(100, Math.max(0, (oldPreview.fatigue || 0) + fatigueDelta))
+        });
+        if (isHealthFatal(previewState.difficulty, previewState.general.health)) break;
+    }
 
     const handleSlotClick = (slotId: string) => {
         // If blocked, ignore
@@ -60,52 +153,19 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     }
 
     const isSlotBlocked = (slotId: string) => {
-        // Evening Study Lock
-        if (state.flags.joined_evening_study) {
-            const slotObj = SCHEDULE_SLOTS.find(s => s.id === slotId);
-            if (slotObj && ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(slotObj.day)) {
-                return true;
-            }
-        }
-        // Check if any scheduled activity blocks this slot
-        for (const [sId, _actId] of Object.entries(schedule || {})) {
-            const actId = _actId as string;
-            if (BLOCKED_SLOTS_MAP[actId] && BLOCKED_SLOTS_MAP[actId].includes(slotId as TimeSlotId)) {
-                return true;
-            }
-        }
-        return false;
+        return previewBlockedSlots.has(slotId);
     };
 
     const getBlocker = (slotId: string) => {
-        if (state.flags.joined_evening_study) {
-            const slotObj = SCHEDULE_SLOTS.find(s => s.id === slotId);
-            if (slotObj && ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(slotObj.day)) {
-                return '晚自习';
-            }
-        }
-        for (const [sId, _actId] of Object.entries(schedule)) {
-            const actId = _actId as string;
-            if (BLOCKED_SLOTS_MAP[actId] && BLOCKED_SLOTS_MAP[actId].includes(slotId as TimeSlotId)) {
-                return availableActivities.find(a => a.id === actId)?.name;
-            }
-        }
-        return null;
+        return previewBlockers.get(slotId) || null;
     };
 
     // Mirror the execution rules so the preview never counts blocked slots or
     // study slots rejected by the HELL weekly limit.
-    let previewStudyCount = 0;
-    const executableEntries = Object.entries(schedule).filter(([slotId, actId]) => {
-        if (isSlotBlocked(slotId)) return false;
-        const activity = availableActivities.find(a => a.id === actId);
-        if (!activity) return false;
-        if (activity.type === 'STUDY' && weekendStudyLimit !== undefined && previewStudyCount >= weekendStudyLimit) return false;
-        if (activity.type === 'STUDY') previewStudyCount += 1;
-        return true;
-    });
+    const executableEntries = getOrderedScheduleEntries(schedule)
+        .filter(([slotId]) => executableSlotIds.has(slotId));
     const executableActivities = executableEntries
-        .map(([, actId]) => availableActivities.find(a => a.id === actId))
+        .map(([, actId]) => activityById.get(actId))
         .filter((activity): activity is WeekendActivity => !!activity);
     const activityCounts = executableActivities.reduce<Record<string, number>>((counts, activity) => {
         counts[activity.id] = (counts[activity.id] || 0) + 1;
@@ -113,17 +173,11 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     }, {});
     const repeatedActivities = Object.entries(activityCounts)
         .filter(([, count]) => count > 1)
-        .map(([id]) => availableActivities.find(activity => activity.id === id)?.name)
+        .map(([id]) => activityById.get(id)?.name)
         .filter((name): name is string => !!name);
     const restMultiplier = getRestRecoveryMultiplier(state);
-    const estimatedFatigueDelta = executableActivities.reduce((total, activity) => {
-        if (activity.id === 'w_sleep') return total - 35 * restMultiplier;
-        if (activity.type === 'REST') return total - 10 * restMultiplier;
-        if (activity.type === 'SOCIAL' || activity.type === 'LOVE') return total + 4;
-        if (activity.type === 'OI') return total + 14;
-        return total + 10 * difficultyPreset.fatigueGainMultiplier;
-    }, 0);
-    const projectedFatigue = Math.min(100, Math.max(0, state.fatigue + estimatedFatigueDelta));
+    const estimatedFatigueDelta = previewState.fatigue - state.fatigue;
+    const projectedFatigue = previewState.fatigue;
     const fatigueRisk = projectedFatigue >= 90 ? '高' : projectedFatigue >= 75 ? '中' : '低';
     const hasSleepActivity = executableActivities.some(activity => activity.id === 'w_sleep' || activity.name.includes('睡'));
 
@@ -143,9 +197,10 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                     {SCHEDULE_SLOTS.filter(s => s.day === day).map(slot => {
                                         const isBlocked = isSlotBlocked(slot.id);
                                         const blocker = getBlocker(slot.id);
-                                        const actId = schedule[slot.id];
-                                        const act = availableActivities.find(a => a.id === actId);
-                                        const isSelected = selectedSlot === slot.id;
+                                                                                 const actId = schedule[slot.id];
+                                                                                 const act = activityById.get(actId);
+                                                                                 const isRetained = !!act && useRandomWeekendPool && !offeredActivities.some(activity => activity.id === act.id);
+                                                                                 const isSelected = selectedSlot === slot.id;
                                         
                                         return (
                                             <div 
@@ -163,7 +218,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                                     <span className="text-[10px] md:text-xs text-rose-500 font-bold leading-tight">被占用 ({blocker})</span>
                                                 ) : act ? (
                                                     <div className="flex justify-between items-start">
-                                                        <span className="text-[10px] md:text-xs font-bold text-blue-800 leading-tight">{act.name}</span>
+                                                         <span className="text-[10px] md:text-xs font-bold text-blue-800 leading-tight">{act.name}{isRetained && <span className="block text-[9px] text-slate-500 font-medium">计划保留</span>}</span>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleClearSlot(slot.id); }}
                                                             className="text-slate-400 hover:text-rose-500"
@@ -192,7 +247,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                             <span className={`rounded-full px-2 py-1 ${fatigueRisk === '高' ? 'bg-rose-100 text-rose-600' : fatigueRisk === '中' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
                                 疲劳风险 {fatigueRisk}
                             </span>
-                            {state.difficulty !== 'REALITY' && (
+                            {!hideDetails && (
                                 <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-500">
                                     预计 {estimatedFatigueDelta > 0 ? '+' : ''}{Math.round(estimatedFatigueDelta)}
                                 </span>
@@ -223,19 +278,25 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                 >
                                     清空此时间段
                                 </div>
-                                {availableActivities.map(act => {
+                                 {offeredActivities.map(act => {
                                     const MAX_SLOTS: Record<string, number> = { 'act_cf': 1, 'w_cf': 1, 'w_atc': 1, 'w_game_late': 1, 'w_game': 2 };
                                     const maxSlots = MAX_SLOTS[act.id] || 3;
                                     const currentCount = Object.values(schedule).filter(v => v === act.id).length;
                                     
-                                    const allowedSlots: Record<string, string[]> = { 'act_cf': ['Sat_Night'] };
-                                    const isAllowedSlot = !allowedSlots[act.id] || allowedSlots[act.id].includes(selectedSlot as string);
+                                    const allowedSlots = ALLOWED_SLOTS_MAP[act.id];
+                                    const isAllowedSlot = !allowedSlots || allowedSlots.includes(selectedSlot as TimeSlotId);
                                     
-                                    const currentSlotIsStudy = !!schedule[selectedSlot as string] && availableActivities.find(a => a.id === schedule[selectedSlot as string])?.type === 'STUDY';
-                                    const studyCountAfterReplacingSlot = scheduledStudyCount - (currentSlotIsStudy ? 1 : 0);
-                                    const isStudyLimit = act.type === 'STUDY' && weekendStudyLimit !== undefined && studyCountAfterReplacingSlot >= weekendStudyLimit;
-                                    const isStudyBlocked = act.type === 'STUDY' && studyBlocked;
-                                    const isAtLimit = currentCount >= maxSlots || !isAllowedSlot || isStudyLimit || isStudyBlocked;
+                                    const currentSlotActivity = activityById.get(schedule[selectedSlot as string]);
+                                    const currentSlotIsStudy = !!currentSlotActivity && isLearningActivity(currentSlotActivity);
+                                    const currentSlotIsExecutableStudy = currentSlotIsStudy && executableSlotIds.has(selectedSlot);
+                                    // Count only activities that will actually run. A
+                                    // study entry already blocked by CF or a previous
+                                    // activity must not consume the HELL weekly limit.
+                                    const studyCountAfterReplacingSlot = previewStudyCount - (currentSlotIsExecutableStudy ? 1 : 0);
+                                    const isStudyLimit = isLearningActivity(act) && weekendStudyLimit !== undefined && studyCountAfterReplacingSlot >= weekendStudyLimit;
+                                    const isActivityStudyBlocked = isLearningActivity(act) && studyBlocked;
+                                    const activityBlockReason = getActivityBlockReason(state, act);
+                                    const isAtLimit = currentCount >= maxSlots || !isAllowedSlot || isStudyLimit || isActivityStudyBlocked || !!activityBlockReason;
                                     
                                     return (
                                     <div 
@@ -253,7 +314,8 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                             {currentCount > 0 && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{currentCount}/{maxSlots}</span>}
                                             {!isAllowedSlot && <span className="text-[10px] bg-red-100 text-red-500 px-1.5 py-0.5 rounded-full">时间不符</span>}
                                             {isStudyLimit && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full">本周已达学习上限</span>}
-                                            {isStudyBlocked && <span className="text-[10px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">当前状态不能学习</span>}
+                                            {isActivityStudyBlocked && <span className="text-[10px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">当前状态不能学习</span>}
+                                            {activityBlockReason && <span className="text-[10px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">{activityBlockReason}</span>}
                                         </div>
                                         <p className="text-[10px] text-slate-500 leading-relaxed">{act.description}</p>
                                     </div>

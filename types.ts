@@ -72,12 +72,6 @@ export interface StoryEntry {
 
 export type CompetitionType = 'None' | 'OI' | 'MO' | 'PhO' | 'ChO';
 
-export interface CompetitionResultData {
-    title: string;
-    score: number;
-    award: string;
-}
-
 export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' | 'HELL' ;
 
 export interface AiConfig {
@@ -125,6 +119,8 @@ export interface WeekendActivity {
     description?: string; 
     resultText: string | ((state: GameState) => string); 
     condition?: (state: GameState) => boolean;
+    /** Optional side-effect-free projection used by the timetable preview. */
+    previewAction?: (state: GameState) => Partial<GameState>;
     action: (state: GameState) => Partial<GameState>;
 }
 
@@ -173,9 +169,10 @@ export interface SerializableEffect {
 }
 
 export interface AiGeneratedEventChoice {
-    text: string;
-    effect: SerializableEffect;
-    resultDescription: string;
+  text: string;
+  effect: SerializableEffect;
+  resultDescription: string;
+  tags?: EventChoice['tags'];
 }
 
 export interface AiGeneratedEvent {
@@ -195,6 +192,8 @@ export interface Project {
     progress: number;
     requiredProgress: number;
     rewardsDescription: string;
+    /** Stable key used to restore callbacks after JSON serialization. */
+    effectKey?: string;
     onComplete?: (state: GameState) => Partial<GameState>;
     onFail?: (state: GameState) => Partial<GameState>;
 }
@@ -229,7 +228,6 @@ export interface GameState {
   isPlaying: boolean; 
   isAiGenerating?: boolean; 
   eventQueue: GameEvent[]; 
-  pendingHistoricalEvents: GameEvent[]; 
   recentEventIds: string[]; 
   phase: Phase;
   week: number;
@@ -240,6 +238,8 @@ export interface GameState {
   initialGeneral: GeneralStats; 
   oiStats: OIStats; 
   selectedSubjects: SubjectKey[];
+  /** Phase to resume after the subject-selection overlay is confirmed. */
+  subjectReselectionReturnPhase: Phase.SEMESTER_1 | Phase.SEMESTER_2 | null;
   competition: CompetitionType;
   flags: Record<string, any>;
   club: ClubId | null; 
@@ -254,8 +254,6 @@ export interface GameState {
   history: StoryEntry[];
   examResult: ExamResult | null;
   midtermRank: number | string | null; 
-  competitionResults: Array<CompetitionResultData>;
-  popupCompetitionResult: CompetitionResultData | null;
   popupExamResult: (ExamResult & { nextPhase?: Phase }) | null;
   triggeredEvents: string[]; 
   isSick: boolean;
@@ -268,10 +266,7 @@ export interface GameState {
   activeChallengeId: string | null; 
   isWeekend: boolean;
   lastWeekSchedule: Record<string, string>;
-  lastHistoricalWeek: number;
-  weekendProcessed: boolean; 
   availableWeekendActivityIds?: string[]; 
-  activeMiniGame: 'AUTUMN_TRIP' | null;
   sleepCount: number;
   rejectionCount: number; 
   hasSleptThisWeek?: boolean;
@@ -300,7 +295,31 @@ export interface GameEvent {
   triggerType?: EventTriggerType;
   fixedPhase?: Phase;
   fixedWeek?: number;
-  miniGameId?: 'AUTUMN_TRIP';
+  /** Runtime snapshot used to discard queued random events after a route/phase change. */
+  queueContext?: {
+    phase: Phase;
+    week: number;
+    competition: CompetitionType;
+  };
+  /** Pure JSON payload used to restore generated AI events from a save. */
+  serialized?: SerializableGameEvent;
+}
+
+export interface SerializableGameEvent {
+  id: string;
+  title: string;
+  description: string;
+  type: 'positive' | 'negative' | 'neutral';
+  triggerType?: EventTriggerType;
+  source?: 'ai';
+  /** Runtime snapshot used to discard queued events after a phase/week change. */
+  queueContext?: GameEvent['queueContext'];
+  choices: Array<{
+    text: string;
+    resultDescription?: string;
+    tags?: EventChoice['tags'];
+    effect?: SerializableEffect;
+  }>;
 }
 
 export interface EventChoice {

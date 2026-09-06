@@ -9,7 +9,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:balance": "node --experimental-strip-types --test scripts/balance.test.ts",
-    "test:oi": "node --test scripts/oi_route.test.mjs"
+    "test:oi": "node --test scripts/oi_route.test.mjs",
+    "test:regression": "node --experimental-strip-types --test scripts/regression.test.ts",
+    "test:shop": "node --experimental-strip-types --test scripts/shop.test.ts",
+    "test:flow": "node --experimental-strip-types --test scripts/game_flow.test.ts",
+    "test:data": "node --experimental-strip-types --test scripts/data_integrity.test.ts"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",

@@ -128,7 +128,11 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
             },
             {
                 text: '重新考虑选科',
-                action: (s) => ({ phase: Phase.SUBJECT_RESELECTION, log: [...s.log, { message: "你决定重新考虑你的选科方向。", type: 'info', timestamp: Date.now() }] })
+                action: (s) => ({
+                    phase: Phase.SUBJECT_RESELECTION,
+                    subjectReselectionReturnPhase: Phase.SEMESTER_2,
+                    log: [...s.log, { message: "你决定重新考虑你的选科方向。", type: 'info', timestamp: Date.now() }]
+                })
             }
         ]
     },

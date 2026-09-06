@@ -42,8 +42,8 @@ export const TALENTS: Talent[] = [
     },
 
     // --- Cursed (Negative Cost = Gives Points) ---
-    { id: 'poverty', name: '家徒四壁', description: '初始金钱归零，且背负100元债务。', rarity: 'cursed', cost: -2,
-      effect: (s) => ({ general: { ...s.general, money: s.general.money - 120 } }) // Assuming base is ~20, this sets to -100 relative
+    { id: 'poverty', name: '家徒四壁', description: '初始金钱为 -100，背负100元债务。', rarity: 'cursed', cost: -2,
+      effect: (s) => ({ general: { ...s.general, money: -100 } })
     },
     { id: 'frail', name: '体弱多病', description: '初始健康降低，稍不注意就会生病。', rarity: 'cursed', cost: -2,
       effect: (s) => ({ general: { ...s.general, health: 20 } })
@@ -62,33 +62,33 @@ export const TALENTS: Talent[] = [
 // --- Shop Items ---
 export const SHOP_ITEMS: Item[] = [
     { id: 'red_bull', name: '兴奋剂', description: '短时间兴奋：效率+2、兴奋+25，但疲劳+8、健康-1。售价150。', price: 150, icon: 'fa-bolt',
-      effect: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 2, health: s.general.health - 1, money: s.general.money - 150, excitement: Math.min(100, (s.general.excitement ?? 0) + 25) }, fatigue: Math.min(100, s.fatigue + 8) }) },
+      effect: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 2, health: s.general.health - 1, excitement: Math.min(100, (s.general.excitement ?? 0) + 25) }, fatigue: Math.min(100, s.fatigue + 8) }) },
     { id: 'coffee', name: '瑞幸生椰拿铁', description: '我咖啡怎么变了？心态+3，效率+1。', price: 20, icon: 'fa-coffee',
-      effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 1, money: s.general.money - 20 } }) },
+      effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 1 } }) },
     { id: 'five_three', name: '五年高考三年模拟', description: '全科水平+0.5，心态-8。', price: 45, icon: 'fa-book',
       effect: (s) => ({ 
           subjects: modifySub(s, ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'], 0.5), 
-          general: { ...s.general, mindset: s.general.mindset - 8, money: s.general.money - 45 } 
+          general: { ...s.general, mindset: s.general.mindset - 8 }
       }) },
     { id: 'game_skin', name: '不要问为啥没有648，问就是放这里你买不了', description: '虽然不能变强，但心情变好了。心态+8。', price: 68, icon: 'fa-gamepad',
-      effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8, money: s.general.money - 68 } }) },
+      effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8 } }) },
     { id: 'flowers', name: '鲜花', description: '送给心仪的人。魅力+8，若有对象则大幅提升关系。', price: 50, icon: 'fa-fan',
-      effect: (s) => ({ general: { ...s.general, romance: s.general.romance + 8, money: s.general.money - 50, mindset: s.general.mindset + (s.romancePartner ? 5 : 0) } }) },
+      effect: (s) => ({ general: { ...s.general, romance: s.general.romance + 8, mindset: s.general.mindset + (s.romancePartner ? 5 : 0) } }) },
     { id: 'algo_book', name: '算法导论', description: '厚得可以当枕头。OI能力全面+2。', price: 80, icon: 'fa-code',
-      effect: (s) => ({ oiStats: modifyOI(s, { dp: 2, ds: 2, math: 2, graph: 2, string: 2, misc: 2 }), general: { ...s.general, money: s.general.money - 80 } }) },
+      effect: (s) => ({ oiStats: modifyOI(s, { dp: 2, ds: 2, math: 2, graph: 2, string: 2, misc: 2 }) }) },
     { id: 'luogu_book', name: '深入浅出程序设计竞赛', description: 'kkk亲签？', price: 56, icon: 'fa-code',
-      effect: (s) => ({ oiStats: modifyOI(s, { dp: 1, ds: 2, math: 2, graph: 1, string: 1, misc: 1 }), general: { ...s.general, money: s.general.money - 56 } }) },
+      effect: (s) => ({ oiStats: modifyOI(s, { dp: 1, ds: 2, math: 2, graph: 1, string: 1, misc: 1 }) }) },
     { id: 'gym_card', name: '健身卡', description: '强身健体。健康+15。', price: 100, icon: 'fa-dumbbell',
-      effect: (s) => ({ general: { ...s.general, health: s.general.health + 15, money: s.general.money - 100 } }) }
+      effect: (s) => ({ general: { ...s.general, health: s.general.health + 15 } }) }
 ];
 
 // --- Achievements ---
 export const ACHIEVEMENTS: Record<string, Achievement> = {
     'first_blood': { id: 'first_blood', title: '初入八中', description: '成功开始你的高中生活。', icon: 'fa-school', rarity: 'common' },
     'nerd': { id: 'nerd', title: '卷王', description: '单科成绩达到满分。', icon: 'fa-book-reader', rarity: 'rare' },
-    'romance_master': { id: 'romance_master', title: '海王', description: '虽然学校不允许……', icon: 'fa-heart', rarity: 'legendary' },
-    'oi_god': { id: 'oi_god', title: '???', description: '获得五大竞赛省一。', icon: 'fa-code', rarity: 'legendary' },
-    'survival': { id: 'survival', title: '极限生存', description: '在健康低于10的情况下完成一个学期。', icon: 'fa-notes-medical', rarity: 'rare' },
+    'romance_master': { id: 'romance_master', title: '告白成功', description: '成功确立一段恋爱关系。', icon: 'fa-heart', rarity: 'legendary' },
+    'oi_god': { id: 'oi_god', title: 'NOIP 高分选手', description: '在 NOIP 中取得至少 195 分。', icon: 'fa-code', rarity: 'legendary' },
+    'survival': { id: 'survival', title: '极限生存', description: '在高一上半学期后半段健康低于10仍继续游戏。', icon: 'fa-notes-medical', rarity: 'rare' },
     'rich': { id: 'rich', title: '小金库', description: '持有金钱超过200。', icon: 'fa-coins', rarity: 'common' },
     'in_debt': { id: 'in_debt', title: '负债累累', description: '负债超过250。', icon: 'fa-file-invoice-dollar', rarity: 'common' },
     'top_rank': { id: 'top_rank', title: '一览众山小', description: '年级第一！（真的能实现！LA群里有人成功了！）', icon: 'fa-crown', rarity: 'legendary' },
@@ -399,8 +399,16 @@ WEEKEND_ACTIVITIES.push({
     condition: (s) => s.competition === 'OI' && s.isWeekend,
     description: '周六晚上22:35准时开打Div.2。熬夜打CF，周日上午注定要睡过去了。',
     resultText: (s) => '你熬夜打了一场CF，收获颇丰！（由于熬夜，周日上午都在补觉。详情见历史记录）',
+    previewAction: (s) => ({
+        general: { ...s.general, health: s.general.health - 8, mindset: s.general.mindset - 3 },
+        oiStats: s.oiStats ? {
+            ...s.oiStats,
+            dp: s.oiStats.dp + 1,
+            graph: s.oiStats.graph + 1
+        } : s.oiStats
+    }),
     action: (s) => {
-        const baseRating = s.oiStats?.rating || 1200;
+        const baseRating = s.oiStats?.rating ?? 1200;
         const totalAptitude = s.oiStats ? (s.oiStats.dp + s.oiStats.ds + s.oiStats.math + s.oiStats.string + s.oiStats.graph + s.oiStats.misc) : 0;
         
         // Rating formula: slower growth, higher variance
@@ -430,7 +438,7 @@ WEEKEND_ACTIVITIES.push({
                 ...s.oiStats, 
                 dp: s.oiStats.dp + 1, graph: s.oiStats.graph + 1,
                 rating: newRating,
-                history: [...(s.oiStats.history || []), historyRecord]
+                history: [...(s.oiStats.history || []), historyRecord].slice(-100)
             } : s.oiStats,
             log: [...s.log, { message: `打了一场Codeforces，Perf: ${perf}，Rating: ${baseRating} -> ${newRating} (${ratingChange > 0 ? '+' : ''}${ratingChange})。${rankStr}`, type: ratingChange > 0 ? 'success' : 'warning', timestamp: Date.now() }]
         };

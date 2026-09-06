@@ -16,6 +16,16 @@ const STAT_CONFIG = [
 ] as const;
 
 const FloatingStats: React.FC<Props> = ({ state, onShowHistory }) => {
+    const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+    const getVagueLabel = (value: number) => {
+        if (value < 0) return '负债/透支';
+        if (value >= 80) return '极高';
+        if (value >= 60) return '较高';
+        if (value >= 40) return '一般';
+        if (value >= 20) return '较低';
+        return '极低';
+    };
+
     return (
         <div className="absolute top-4 left-4 bottom-4 z-40 flex flex-col gap-4 pointer-events-none w-48 overflow-y-auto custom-scroll pr-2 pb-20">
             
@@ -27,7 +37,7 @@ const FloatingStats: React.FC<Props> = ({ state, onShowHistory }) => {
                         className="bg-white/95 backdrop-blur-md border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700 text-xs font-bold px-3 py-2 rounded-xl flex items-center justify-center gap-2 shadow-sm w-full"
                     >
                         <i className="fas fa-trophy text-yellow-500"></i>
-                        <span>Rating: <span className="text-indigo-600">{state.oiStats?.rating || 1200}</span></span>
+                         <span>Rating: <span className="text-indigo-600">{hideDetails ? '·' : (state.oiStats?.rating ?? 1200)}</span></span>
                     </button>
                 </div>
             )}
@@ -46,7 +56,7 @@ const FloatingStats: React.FC<Props> = ({ state, onShowHistory }) => {
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between text-[11px] font-bold mb-1">
                                     <span className="text-slate-500">{label}</span>
-                                    <span className="text-slate-800">{val.toFixed(0)}</span>
+                                    <span className="text-slate-800">{hideDetails ? getVagueLabel(val) : val.toFixed(0)}</span>
                                 </div>
                                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                     <div className={`h-full ${bar} transition-all duration-500`} style={{ width: `${height}%` }}></div>
@@ -67,8 +77,8 @@ const FloatingStats: React.FC<Props> = ({ state, onShowHistory }) => {
                          <div key={key} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-1 rounded transition-colors">
                              <span className="text-[11px] font-bold text-slate-600">{label}</span>
                              <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Lv.{sub.level}</span>
-                                <span className="text-[11px] font-black text-indigo-600 w-6 text-right">{sub.aptitude}</span>
+                                <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{hideDetails ? getVagueLabel(sub.level) : `Lv.${sub.level.toFixed(1)}`}</span>
+                                <span className="text-[11px] font-black text-indigo-600 w-6 text-right">{hideDetails ? '·' : sub.aptitude}</span>
                              </div>
                          </div>
                      );

@@ -96,10 +96,10 @@ export const ROMANCE_EVENTS: GameEvent[] = [
     {
         id: 'romance_study_together',
         title: '图书馆的偶遇',
-        description: '周末在首都图书馆，你正准备找个座位，抬头发现TA也在这里，正向你招手。',
+        description: '放学后在首都图书馆，你正准备找个座位，抬头发现TA也在这里，正向你招手。',
         type: 'positive',
         triggerType: 'RANDOM',
-        condition: (s) => (s.flags.ta_favorability || 0) >= 30 && (s.flags.ta_favorability || 0) < 70 && s.isWeekend && Math.random() < (0.30 + s.general.romance * 0.006),
+        condition: (s) => (s.flags.ta_favorability || 0) >= 30 && (s.flags.ta_favorability || 0) < 70 && Math.random() < (0.30 + s.general.romance * 0.006),
         choices: [
             {
                 text: '走过去坐在TA旁边',
@@ -206,7 +206,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
         description: '跨年夜，王府井大街上人山人海。新年的钟声即将敲响，满天繁星似乎都在见证这一刻。TA转过头，认真地看着你："其实，我喜欢你很久了。"',
         type: 'positive',
         triggerType: 'RANDOM',
-        condition: (s) => s.flags.ready_for_confession && !s.romancePartner && s.week === 19,
+        condition: (s) => s.flags.ready_for_confession && !s.romancePartner && s.phase === Phase.SEMESTER_1 && s.week === 19,
         choices: [
             {
                 text: '"我也喜欢你。"（握住TA的手）',

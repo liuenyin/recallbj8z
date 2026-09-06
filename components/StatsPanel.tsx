@@ -7,11 +7,20 @@ import { getRelationshipStage, RELATIONSHIP_PROFILES } from '../data/relationshi
 interface StatsPanelProps {
   state: GameState;
   onShowGuide?: () => void;
+  onShowContestHistory?: () => void;
 }
 
-const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
+const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowContestHistory }) => {
   const effectiveEfficiency = getEffectiveEfficiency(state);
   const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+  const vagueProgress = (value: number, max: number) => {
+    const ratio = Math.max(0, Math.min(1, value / max));
+    return ratio < 0.2 ? 12 : ratio < 0.4 ? 30 : ratio < 0.6 ? 50 : ratio < 0.8 ? 70 : 88;
+  };
+  const vagueLabel = (value: number, max = 100) => {
+    const ratio = value / max;
+    return ratio >= 0.8 ? '高' : ratio >= 0.6 ? '较高' : ratio >= 0.4 ? '一般' : ratio >= 0.2 ? '较低' : '低';
+  };
   const oiRouteLabel = state.flags.oi_setter_followup === 'accepted'
     ? '继续参与公开赛出题'
     : state.flags.oi_problem_feedback === 'positive' || state.flags.oi_problem_feedback === 'resolved'
@@ -41,15 +50,22 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
                 <i className="fas fa-globe-asia absolute -right-2 -bottom-4 text-6xl text-white/10"></i>
                 <div className="text-[10px] text-indigo-200 font-bold tracking-widest uppercase mb-1">背景城市 / 时代</div>
                 <div className="flex items-center justify-between z-10">
-                    <span className="font-black text-sm">来自{state.worldContext.region} · 就读八中</span>
+                    <span className="font-black text-sm">来自{state.worldContext.region} · 北京八中背景</span>
                     <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">{state.worldContext.yearStart} - {state.worldContext.yearEnd}</span>
                 </div>
             </div>
         )}
         <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <i className="fas fa-user-circle"></i> 个人档案
-            </h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <i className="fas fa-user-circle"></i> 个人档案
+              </h3>
+              {onShowGuide && (
+                <button type="button" onClick={onShowGuide} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1" title="查看难度与状态说明">
+                  <i className="fas fa-book-reader" /> 说明
+                </button>
+              )}
+            </div>
             {state.isAiGenerating && (
                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold border border-indigo-100 animate-pulse">
                      <i className="fas fa-robot"></i> 正在生成事件...
@@ -86,7 +102,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
           </span>
         </div>
         <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
-          <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, effectiveEfficiency * 5)}%` }}></div>
+          <div className="h-full bg-indigo-600" style={{ width: `${hideDetails ? vagueProgress(effectiveEfficiency, 30) : Math.min(100, effectiveEfficiency * 5)}%` }}></div>
         </div>
         {state.competition === 'OI' && (
           <div className="mt-2 text-[10px] font-bold text-indigo-600 truncate" title={oiRouteLabel}>
@@ -113,7 +129,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
       </div>
 
        {/* 天赋展示 */}
-       {state.talents.length > 0 && (
+      {state.talents.length > 0 && (
            <div>
                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                    <i className="fas fa-dna"></i> 天赋
@@ -126,7 +142,40 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
                    ))}
                </div>
            </div>
-       )}
+      )}
+
+      {state.competition === 'OI' && (
+        <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <i className="fas fa-code"></i> OI 能力
+            </h3>
+            <button
+              type="button"
+              onClick={onShowContestHistory}
+              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 disabled:text-slate-300"
+              disabled={!onShowContestHistory}
+            >
+              竞赛履历
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {([
+              ['dp', 'DP'], ['ds', '数据结构'], ['math', '数学'],
+              ['string', '字符串'], ['graph', '图论'], ['misc', '综合']
+            ] as const).map(([key, label]) => (
+              <div key={key} className="rounded-lg bg-white border border-slate-100 px-1.5 py-1.5 text-center">
+                <div className="text-[9px] text-slate-400 truncate" title={label}>{label}</div>
+                <div className="text-xs font-black text-indigo-600">{hideDetails ? '·' : Math.round(state.oiStats[key])}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between items-center text-[10px] font-bold text-slate-500">
+            <span>当前 Rating</span>
+            <span className="text-indigo-600">{hideDetails ? '·' : (state.oiStats.rating ?? 1200)}</span>
+          </div>
+        </div>
+      )}
 
       {/* 学科属性 */}
       <div className="flex-1 pb-4">
@@ -143,12 +192,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide }) => {
                         <span className="font-bold text-slate-700">{SUBJECT_NAMES[key]}</span>
                         {isSelected && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded text-[9px] font-bold">选考</span>}
                     </div>
-                    <span className="text-slate-400">{hideDetails ? '' : `天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`}</span>
+                    <span className="text-slate-400">{hideDetails ? `能力 ${vagueLabel(state.subjects[key].level)}` : `天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`}</span>
                   </div>
                   <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                     <div 
                        className="h-full bg-indigo-500 group-hover:bg-indigo-400 transition-all duration-700" 
-                       style={{ width: `${Math.min(100, state.subjects[key].level)}%` }}
+                       style={{ width: `${hideDetails ? vagueProgress(state.subjects[key].level, 100) : Math.min(100, state.subjects[key].level)}%` }}
                     />
                   </div>
                 </div>

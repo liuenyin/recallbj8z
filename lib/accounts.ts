@@ -18,22 +18,44 @@ const read = <T,>(key: string, fallback: T): T => {
 };
 
 export const getAccounts = (): LocalAccount[] => {
-  const accounts = read<LocalAccount[]>(ACCOUNTS_KEY, []);
+  const stored = read<unknown>(ACCOUNTS_KEY, []);
+  const accounts = Array.isArray(stored)
+    ? stored.filter((account): account is LocalAccount => !!account
+      && typeof account === 'object'
+      && typeof account.id === 'string'
+      && typeof account.name === 'string'
+      && typeof account.createdAt === 'number')
+    : [];
   if (accounts.length > 0) return accounts;
   return [{ id: DEFAULT_ACCOUNT_ID, name: '本机游客', createdAt: Date.now() }];
 };
 
 export const saveAccounts = (accounts: LocalAccount[]) => {
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  try {
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  } catch (error) {
+    console.error('Failed to save local accounts', error);
+  }
 };
 
 export const getActiveAccountId = (): string => {
   const accounts = getAccounts();
-  const active = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+  let active: string | null = null;
+  try {
+    active = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+  } catch (error) {
+    console.error('Failed to read active account', error);
+  }
   return accounts.some(account => account.id === active) ? active as string : accounts[0].id;
 };
 
-export const setActiveAccountId = (id: string) => localStorage.setItem(ACTIVE_ACCOUNT_KEY, id);
+export const setActiveAccountId = (id: string) => {
+  try {
+    localStorage.setItem(ACTIVE_ACCOUNT_KEY, id);
+  } catch (error) {
+    console.error('Failed to save active account', error);
+  }
+};
 
 export const createLocalAccount = (name: string): LocalAccount => {
   const trimmed = name.trim().slice(0, 24);
@@ -48,11 +70,14 @@ export const createLocalAccount = (name: string): LocalAccount => {
 
 export const deleteLocalAccount = (id: string) => {
   if (id === DEFAULT_ACCOUNT_ID) return;
-  localStorage.removeItem(getAccountSaveKey(id));
+  try {
+    localStorage.removeItem(getAccountSaveKey(id));
+  } catch (error) {
+    console.error('Failed to remove account save', error);
+  }
   const remaining = getAccounts().filter(account => account.id !== id);
   saveAccounts(remaining.length > 0 ? remaining : [{ id: DEFAULT_ACCOUNT_ID, name: '本机游客', createdAt: Date.now() }]);
   if (getActiveAccountId() === id) setActiveAccountId(DEFAULT_ACCOUNT_ID);
 };
 
 export const getAccountSaveKey = (accountId: string): string => `recall_save_v1_${accountId}`;
-

@@ -11,8 +11,12 @@ interface EndingScreenProps {
 }
 
 const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestart, onViewHistory }) => {
-            
-    
+    const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+    const vagueProgress = (value: number) => {
+        const ratio = Math.max(0, Math.min(1, value / 100));
+        return ratio < 0.2 ? 12 : ratio < 0.4 ? 30 : ratio < 0.6 ? 50 : ratio < 0.8 ? 70 : 88;
+    };
+    const vagueLabel = (value: number) => value >= 80 ? '高' : value >= 60 ? '较高' : value >= 40 ? '一般' : value >= 20 ? '较低' : '低';
     
     return (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md text-slate-800 flex flex-col items-center justify-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
@@ -84,10 +88,10 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                      <div key={i} className="flex flex-col gap-1">
                                          <div className="flex justify-between text-xs font-bold text-slate-600">
                                              <span>{stat.label}</span>
-                                             <span>{stat.val > 100 ? 'MAX' : Math.floor(stat.val)}</span>
+                                             <span>{hideDetails ? vagueLabel(stat.val) : stat.val > 100 ? 'MAX' : Math.floor(stat.val)}</span>
                                          </div>
                                          <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                             <div className={`h-full ${stat.color} transition-all duration-1000`} style={{ width: `${Math.max(0, Math.min(100, stat.val))}%` }}></div>
+                                             <div className={`h-full ${stat.color} transition-all duration-1000`} style={{ width: `${hideDetails ? vagueProgress(stat.val) : Math.max(0, Math.min(100, stat.val))}%` }}></div>
                                          </div>
                                      </div>
                                  ))}
@@ -115,7 +119,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                             <h3 className="font-black text-slate-400 uppercase text-xs mb-4">学期高光时刻</h3>
                             <div className="space-y-4 relative">
                                 <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-slate-100"></div>
-                                {state.history.slice(0, 4).map((h, i) => (
+                                {[...state.history].reverse().slice(0, 4).map((h, i) => (
                                     <div key={i} className="flex gap-4 relative">
                                         <div className="w-4 h-4 rounded-full bg-white border-4 border-indigo-500 flex-shrink-0 z-10"></div>
                                         <div>
@@ -136,7 +140,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                  </div>
                                  <div className="text-right">
                                      <div className="text-xs font-bold text-slate-400 uppercase">最终得分</div>
-                                     <div className="text-4xl font-black text-indigo-600">{Math.floor(endingData.score)}</div>
+                                     <div className="text-4xl font-black text-indigo-600">{hideDetails ? '已记录' : Math.floor(endingData.score)}</div>
                                  </div>
                              </div>
                              

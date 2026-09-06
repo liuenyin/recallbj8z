@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     GameState, Difficulty, GeneralStats, Talent, Challenge, AiConfig,
     Phase, GameStatus, SubjectKey, OIStats, GameEvent, 
@@ -7,16 +7,18 @@ import {
 } from '../types';
 import { DIFFICULTY_PRESETS, getDifficultyPreset } from '../data/constants';
 import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
-import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS } from '../data/mechanics';
-import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, getShopPriceMultiplier } from '../data/utils';
+import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS, CLUBS, TALENTS } from '../data/mechanics';
+import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, isHealthFatal, isStudyChoice, isLearningActivity, getShopPriceMultiplier, clampGameStateMetrics, getActivityBlockReason, normalizeActiveStatuses } from '../data/utils';
 import { getRandomWorldContext, CHARACTER_TEMPLATES } from '../data/world_context';
 import { getHistoricalEventsForWeek, loadCityEvents } from '../data/historical_events';
 import { OI_EVENTS_POOL } from '../data/events_oi';
-import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP } from '../data/timetable';
-import { getActivityRepeatMultiplier } from '../data/balance';
+import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries } from '../data/timetable';
+import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from '../data/balance';
 import { getRandomRelationshipProfile } from '../data/relationships';
 import { generateBatchGameEvents } from '../lib/gemini';
 import { getAccountSaveKey } from '../lib/accounts';
+import { hydrateProject } from '../data/project_effects';
+import { PHASE_ORDER, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
 
 const LEGACY_STORAGE_KEY = 'recall_save_v1';
 const SAVE_VERSION = 3;
@@ -33,14 +35,123 @@ const EVENT_REGISTRY: Record<string, GameEvent> = {
     ...OI_EVENTS_POOL.reduce((acc, event) => ({ ...acc, [event.id]: event }), {} as Record<string, GameEvent>)
 };
 
-const eventRef = (event: GameEvent | null) => event ? event.id : null;
+const isProjectOverdue = (project: Project, phase: Phase, week: number): boolean => {
+    const deadlineIndex = PHASE_ORDER.indexOf(project.deadlinePhase);
+    const currentIndex = PHASE_ORDER.indexOf(phase);
+    if (deadlineIndex < 0 || currentIndex < 0) return false;
+    // The deadline is inclusive: the player may still use the weekend in the
+    // declared deadline week. Failure is checked when the following week starts.
+    return currentIndex > deadlineIndex || (currentIndex === deadlineIndex && week > project.deadlineWeek);
+};
+
+const eventRef = (event: GameEvent | null): unknown => {
+    if (!event) return null;
+    // AI events may legally reuse an authored ID. Prefer their serialized
+    // payload so loading never silently swaps in a built-in event.
+    const persisted = event.serialized || (EVENT_REGISTRY[event.id] ? event.id : null);
+    if (!persisted || !event.queueContext) return persisted;
+    return typeof persisted === 'string'
+        ? { id: persisted, queueContext: event.queueContext }
+        : { ...persisted, queueContext: event.queueContext };
+};
+
+const restoreQueueContext = (event: GameEvent, value: any): GameEvent => {
+    const context = value?.queueContext;
+    if (!context || typeof context !== 'object') return event;
+    const phase = context.phase;
+    const week = Number(context.week);
+    const competition = context.competition;
+    if (!Object.values(Phase).includes(phase) || !Number.isFinite(week)
+        || !['None', 'OI', 'MO', 'PhO', 'ChO'].includes(competition)) return event;
+    return { ...event, queueContext: { phase, week: Math.max(1, Math.floor(week)), competition } };
+};
+
+const VALID_LOG_TYPES = new Set<GameLogEntry['type']>(['info', 'success', 'warning', 'error', 'event']);
+
+const restoreLogEntries = (value: unknown): GameLogEntry[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+        .filter((entry: any): entry is GameLogEntry => entry && typeof entry === 'object'
+            && typeof entry.message === 'string'
+            && VALID_LOG_TYPES.has(entry.type)
+            && Number.isFinite(entry.timestamp))
+        .map(entry => ({
+            message: entry.message.trim().slice(0, 500),
+            type: entry.type,
+            timestamp: Math.max(0, Math.floor(entry.timestamp))
+        }))
+        .filter(entry => entry.message.length > 0)
+        .slice(-1000);
+};
+
+const restoreStoryEntries = (value: unknown): StoryEntry[] => {
+    if (!Array.isArray(value)) return [];
+    const validPhases = new Set(Object.values(Phase));
+    return value
+        .filter((entry: any): entry is StoryEntry => entry && typeof entry === 'object'
+            && validPhases.has(entry.phase)
+            && Number.isFinite(entry.week)
+            && typeof entry.eventTitle === 'string'
+            && typeof entry.choiceText === 'string'
+            && typeof entry.resultSummary === 'string'
+            && Number.isFinite(entry.timestamp))
+        .map(entry => ({
+            week: Math.max(1, Math.floor(entry.week)),
+            phase: entry.phase,
+            eventTitle: entry.eventTitle.trim().slice(0, 120),
+            choiceText: entry.choiceText.trim().slice(0, 240),
+            resultSummary: entry.resultSummary.trim().slice(0, 500),
+            timestamp: Math.max(0, Math.floor(entry.timestamp))
+        }))
+        .filter(entry => entry.eventTitle.length > 0 && entry.choiceText.length > 0)
+        .slice(-1000);
+};
+
 const resolveEvent = (value: unknown): GameEvent | null => {
+    if (value && typeof value === 'object' && (value as any).source === 'ai'
+        && Array.isArray((value as any).choices)) {
+        return restoreQueueContext(mapAiEventToGameEvent(value), value);
+    }
     const id = typeof value === 'string'
         ? value
         : value && typeof value === 'object' && 'id' in value && typeof value.id === 'string'
             ? value.id
             : null;
-    return id ? EVENT_REGISTRY[id] || null : null;
+    if (id && EVENT_REGISTRY[id]) return restoreQueueContext(EVENT_REGISTRY[id], value);
+    if (value && typeof value === 'object' && Array.isArray((value as any).choices)
+        && typeof (value as any).title === 'string' && typeof (value as any).description === 'string') {
+        return restoreQueueContext(mapAiEventToGameEvent(value), value);
+    }
+    return null;
+};
+
+const shouldMarkEventTriggered = (event: GameEvent): boolean =>
+    (event.once || event.triggerType === 'FIXED') && event.id !== 'debt_collection';
+
+const markEventTriggered = (triggeredEvents: string[], event: GameEvent): string[] =>
+    shouldMarkEventTriggered(event) && !triggeredEvents.includes(event.id)
+        ? [...triggeredEvents, event.id]
+        : triggeredEvents;
+
+const trackRecentRandomEvent = (recentEventIds: string[], event: GameEvent): string[] => {
+    if (event.triggerType !== 'RANDOM' || recentEventIds.includes(event.id)) return recentEventIds;
+    return [...recentEventIds, event.id].slice(-4);
+};
+
+const addQueueContext = (events: GameEvent[], state: GameState): GameEvent[] => events.map(event => ({
+    ...event,
+    queueContext: event.queueContext || {
+        phase: state.phase,
+        week: state.week,
+        competition: state.competition
+    }
+}));
+
+const getHealthDeathMessage = (difficulty: Difficulty): string => {
+    const threshold = getDifficultyPreset(difficulty).healthDeathThreshold;
+    return threshold !== undefined && threshold > 0
+        ? '【极限失败】健康值低于' + threshold + '，身体再也承受不住了……游戏结束。'
+        : '【猝死】你的健康值降到了0，身体再也承受不住了……游戏结束。';
 };
 
 const getInitialSubjects = (): Record<SubjectKey, { aptitude: number; level: number }> => ({
@@ -56,14 +167,18 @@ const getInitialSubjects = (): Record<SubjectKey, { aptitude: number; level: num
 });
 
 const getInitialOIStats = (): OIStats => ({
-    dp: 0, ds: 0, math: 0, string: 0, graph: 0, misc: 0
+    dp: 0, ds: 0, math: 0, string: 0, graph: 0, misc: 0,
+    rating: 1200,
+    history: []
 });
 
 // Helper to get global achievements
 const getGlobalAchievements = (): string[] => {
     try {
         const stored = localStorage.getItem(ACHIEVEMENTS_KEY);
-        return stored ? JSON.parse(stored) : [];
+        if (!stored) return [];
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
     } catch (e) {
         console.error("Error loading global achievements", e);
         return [];
@@ -77,7 +192,6 @@ const getInitialGameState = (): GameState => ({
     isPlaying: false,
      
     eventQueue: [],
-    pendingHistoricalEvents: [],
      // Init AI Buffer
     recentEventIds: [], // Init Repetition Buffer
     phase: Phase.INIT,
@@ -89,6 +203,7 @@ const getInitialGameState = (): GameState => ({
     initialGeneral: { mindset: 50, experience: 0, luck: 50, romance: 0, health: 100, money: 0, efficiency: 10, excitement: 30 },
     oiStats: getInitialOIStats(),
     selectedSubjects: [],
+    subjectReselectionReturnPhase: null,
     competition: 'None',
     club: null,
     hasSelectedClub: false,
@@ -102,8 +217,6 @@ const getInitialGameState = (): GameState => ({
     history: [],
     examResult: null,
     midtermRank: null,
-    competitionResults: [],
-    popupCompetitionResult: null,
     popupExamResult: null,
     triggeredEvents: [],
     isSick: false,
@@ -116,9 +229,6 @@ const getInitialGameState = (): GameState => ({
     activeChallengeId: null,
     isWeekend: false,
     lastWeekSchedule: {},
-    lastHistoricalWeek: -3,
-    weekendProcessed: false,
-    activeMiniGame: null,
     sleepCount: 0,
     rejectionCount: 0,
     talents: [],
@@ -143,20 +253,51 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
     
     const [hasSave, setHasSave] = useState(false);
-    const [cityEventsReady, setCityEventsReady] = useState(true);
+    const latestStateRef = useRef(state);
+    const aiRequestToken = useRef(0);
+    const aiAbortController = useRef<AbortController | null>(null);
+    // React may batch two clicks before the next render. Remember the state
+    // object each transition consumed so the same snapshot cannot be applied
+    // twice (the next render produces a new object and unlocks the action).
+    const eventActionStateRef = useRef<GameState | null>(null);
+    const shopActionStateRef = useRef<GameState | null>(null);
+    const timetableActionStateRef = useRef<GameState | null>(null);
+    latestStateRef.current = state;
+
+    const cancelAiGeneration = useCallback(() => {
+        aiRequestToken.current += 1;
+        aiAbortController.current?.abort();
+        aiAbortController.current = null;
+    }, []);
 
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY) || (accountId === 'guest' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
-        setHasSave(!!saved);
-        if (!saved) {
-            const initial = getInitialGameState();
-            setState(prev => ({ ...initial, unlockedAchievements: prev.unlockedAchievements }));
+        cancelAiGeneration();
+        // Account changes must never retain the previous account's in-memory
+        // game. The player can explicitly load the selected account's save
+        // from the home screen after this reset.
+        let saved: string | null = null;
+        try {
+            saved = localStorage.getItem(STORAGE_KEY)
+                || (accountId === 'guest' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+        } catch (error) {
+            console.error('Failed to read save metadata', error);
         }
-    }, [STORAGE_KEY, accountId]);
+        setHasSave(!!saved);
+        const initial = getInitialGameState();
+        setState(prev => ({ ...initial, unlockedAchievements: prev.unlockedAchievements }));
+    }, [STORAGE_KEY, accountId, cancelAiGeneration]);
+
+    useEffect(() => () => cancelAiGeneration(), [cancelAiGeneration]);
 
     useEffect(() => {
-        const threshold = getDifficultyPreset(state.difficulty).healthDeathThreshold;
-        if (threshold !== undefined && state.general.health < threshold && state.phase !== Phase.ENDING && state.phase !== Phase.WITHDRAWAL) {
+        if (!state.isAiGenerating) return;
+        if (state.isPlaying && state.phase !== Phase.ENDING && state.phase !== Phase.WITHDRAWAL) return;
+        cancelAiGeneration();
+        setState(prev => ({ ...prev, isAiGenerating: false }));
+    }, [state.isAiGenerating, state.isPlaying, state.phase, cancelAiGeneration]);
+
+    useEffect(() => {
+        if (isHealthFatal(state.difficulty, state.general.health) && state.phase !== Phase.ENDING && state.phase !== Phase.WITHDRAWAL) {
             setState(prev => ({
                 ...prev,
                 phase: Phase.ENDING,
@@ -164,7 +305,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 eventQueue: [],
                 isPlaying: false,
                 isWeekend: false,
-                log: [...prev.log, { message: `【极限失败】健康值低于${threshold}，游戏结束。`, type: 'error', timestamp: Date.now() }]
+                log: [...prev.log, { message: getHealthDeathMessage(prev.difficulty), type: 'error', timestamp: Date.now() }]
             }));
         }
     }, [state.difficulty, state.general.health, state.phase]);
@@ -198,7 +339,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 phase: nextPhase,
                 week: 1,
                 totalWeeksInPhase: weeks,
-                isPlaying: nextPhase !== Phase.ENDING && nextPhase !== Phase.SELECTION && nextPhase !== Phase.FINAL_EXAM && nextPhase !== Phase.FINAL_EXAM_2 && nextPhase !== Phase.PLACEMENT_EXAM,
+                availableWeekendActivityIds: undefined,
+                isPlaying: nextPhase !== Phase.ENDING && nextPhase !== Phase.SELECTION && nextPhase !== Phase.SUBJECT_RESELECTION && nextPhase !== Phase.FINAL_EXAM && nextPhase !== Phase.FINAL_EXAM_2 && nextPhase !== Phase.PLACEMENT_EXAM,
                 log: [...prev.log, { message: `进入新阶段: ${nextPhase}`, type: 'info', timestamp: Date.now() }]
             };
         });
@@ -225,6 +367,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         if (state.general.health >= 100) add('sports_star');
         if (state.general.mindset <= 0) add('emotional_damage');
         if (state.general.romance >= 80) add('popular');
+        if (state.romancePartner) add('romance_master');
         if (state.flags.noip_score && state.flags.noip_score >= 195) add('oi_god');
 
         // Academic Achievements Check
@@ -250,7 +393,11 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             // Persist to Global Storage
             const globalAch = getGlobalAchievements();
             const merged = Array.from(new Set([...globalAch, ...newUnlocked]));
-            localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(merged));
+                try {
+                    localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(merged));
+                } catch (error) {
+                    console.error('Failed to persist achievements', error);
+                }
 
             setState(prev => ({
                 ...prev,
@@ -260,19 +407,21 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             
             setTimeout(() => setState(prev => ({ ...prev, achievementPopup: null })), 3000);
         }
-    }, [state.general, state.sleepCount, state.rejectionCount, state.examResult, state.difficulty, state.unlockedAchievements, state.phase, state.activeChallengeId]);
+    }, [state.general, state.sleepCount, state.rejectionCount, state.examResult, state.difficulty, state.unlockedAchievements, state.phase, state.activeChallengeId, state.romancePartner]);
 
 
     // --- MAIN GAME LOOP ---
     useEffect(() => {
-        if (!state.isPlaying || !cityEventsReady || state.currentEvent || state.isWeekend || state.weekendProcessed || state.isAiGenerating) return;
+        if (!state.isPlaying || state.currentEvent || state.isWeekend || state.isAiGenerating
+            || state.phase === Phase.SUBJECT_RESELECTION || state.phase === Phase.SELECTION
+            || state.phase === Phase.ENDING || state.phase === Phase.WITHDRAWAL) return;
 
         const processTurn = async () => {
             // Check Project Deadlines
             let failedProjects: Project[] = [];
             let activeProjects = [...state.activeProjects];
             activeProjects = activeProjects.filter(p => {
-                if (p.deadlinePhase === state.phase && p.deadlineWeek === state.week) {
+                if (isProjectOverdue(p, state.phase, state.week)) {
                     if (p.progress < p.requiredProgress) {
                         failedProjects.push(p);
                         return false;
@@ -284,21 +433,45 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             if (failedProjects.length > 0) {
                 let updates: Partial<GameState> = { activeProjects };
                 let logs: GameLogEntry[] = [];
+                let mergedGeneral: GeneralStats | undefined;
                 failedProjects.forEach(p => {
                     if (p.onFail) {
                         const failEffects = p.onFail(state);
                         updates = { ...updates, ...failEffects };
+                        if (failEffects.general) {
+                            if (!mergedGeneral) mergedGeneral = { ...state.general };
+                            (Object.keys(state.general) as Array<keyof GeneralStats>).forEach(key => {
+                                const nextValue = failEffects.general?.[key];
+                                if (typeof nextValue === 'number') {
+                                    mergedGeneral![key] += nextValue - state.general[key];
+                                }
+                            });
+                        }
                     }
                     logs.push({ message: `【课题失败】${p.title} 截止日期已过，未能完成。`, type: 'error', timestamp: Date.now() });
                 });
-                setState(prev => ({ ...prev, ...updates, log: [...prev.log, ...logs] }));
+                if (mergedGeneral) updates.general = mergedGeneral;
+                setState(prev => clampGameStateMetrics({ ...prev, ...updates, log: [...prev.log, ...logs] }));
                 return; // Let the state update and re-enter loop
             }
 
             // 0. Handle Queue first
             if (state.eventQueue.length > 0) {
-                const [next, ...rest] = state.eventQueue;
-                setState(prev => ({ ...prev, currentEvent: next, eventQueue: rest, isPlaying: false }));
+                setState(prev => {
+                    const eligibleQueue = prev.eventQueue.filter(event => isQueuedEventStillEligible(event, prev));
+                    const [next, ...rest] = eligibleQueue;
+                    return {
+                        ...prev,
+                        currentEvent: next || null,
+                        eventQueue: rest,
+                        triggeredEvents: next ? markEventTriggered(prev.triggeredEvents, next) : prev.triggeredEvents,
+                        recentEventIds: next ? trackRecentRandomEvent(prev.recentEventIds, next) : prev.recentEventIds,
+                        // If all queued conditional events became invalid, run
+                        // the normal phase/weekly flow on the next tick instead
+                        // of leaving the game paused with an empty screen.
+                        isPlaying: true
+                    };
+                });
                 return;
             }
 
@@ -343,6 +516,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             // 3a. Fixed Events in current Phase/Week (Priority)
             const pendingFixed = phasePool.filter(e => 
                 e.triggerType === 'FIXED' && 
+                (!e.fixedPhase || e.fixedPhase === state.phase) &&
                 e.fixedWeek === state.week && 
                 (!e.condition || e.condition(state)) &&
                 !state.triggeredEvents.includes(e.id)
@@ -367,8 +541,11 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 (!e.once || !state.triggeredEvents.includes(e.id)) &&
                 e.condition && e.condition(state)
             );
+            let deferredConditionalEvents: GameEvent[] = [];
             if (conditionalEvents.length > 0) {
-                 weekEvents.push(...conditionalEvents);
+                 const remainingPrioritySlots = Math.max(0, 2 - weekEvents.length);
+                 weekEvents.push(...conditionalEvents.slice(0, remainingPrioritySlots));
+                 deferredConditionalEvents = conditionalEvents.slice(remainingPrioritySlots);
             }
 
             // 3c. Regular Events (Phase Specific Randoms)
@@ -385,26 +562,51 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 weekEvents.push(romancePool[Math.floor(Math.random() * romancePool.length)]);
             }
 
+            // Remember which events were selected before random/AI filler is
+            // added, so deferred conditional events can retain their priority.
+            const priorityEventIds = new Set(weekEvents.map(event => event.id));
             let aiEventsGenerated = false;
             if (weekEvents.length === 0 || (weekEvents.length <= 1 && weekEvents[0]?.id?.startsWith('romance_'))) {
                 if (aiConfig?.enabled && weekEvents.length === 0) {
+                    const requestId = ++aiRequestToken.current;
+                    aiAbortController.current?.abort();
+                    const controller = new AbortController();
+                    aiAbortController.current = controller;
+                    const requestPhase = state.phase;
+                    const requestWeek = state.week;
+                    const requestCompetition = state.competition;
                     setState(prev => ({
                         ...prev,
                         isAiGenerating: true,
                         log: [...prev.log, { message: 'AI 正在根据本周状态编写事件...', type: 'info', timestamp: Date.now() }]
                     }));
                     try {
-                        const generatedEvents = await generateBatchGameEvents(state, aiConfig);
+                        const generatedEvents = await generateBatchGameEvents(state, aiConfig, controller.signal);
+                        const latest = latestStateRef.current;
+                        if (requestId !== aiRequestToken.current
+                            || latest.phase !== requestPhase
+                            || latest.week !== requestWeek
+                            || latest.competition !== requestCompetition
+                            || !latest.isPlaying
+                            || !!latest.currentEvent
+                            || latest.isWeekend) return;
                         weekEvents.push(...generatedEvents.map(mapAiEventToGameEvent));
                         aiEventsGenerated = generatedEvents.length > 0;
                     } catch (error) {
-                        const message = error instanceof Error ? error.message : '未知错误';
-                        setState(prev => ({
-                            ...prev,
-                            log: [...prev.log, { message: `AI 事件生成失败，已使用离线事件：${message}`, type: 'warning', timestamp: Date.now() }]
-                        }));
+                        if (requestId === aiRequestToken.current && !controller.signal.aborted) {
+                            const message = error instanceof Error ? error.message : '未知错误';
+                            setState(prev => ({
+                                ...prev,
+                                log: [...prev.log, { message: `AI 事件生成失败，已使用离线事件：${message}`, type: 'warning', timestamp: Date.now() }]
+                            }));
+                        } else {
+                            return;
+                        }
                     } finally {
-                        setState(prev => ({ ...prev, isAiGenerating: false }));
+                        if (requestId === aiRequestToken.current) {
+                            aiAbortController.current = null;
+                            setState(prev => ({ ...prev, isAiGenerating: false }));
+                        }
                     }
                 }
 
@@ -473,14 +675,78 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
             // AI Branch Logic has been moved to offline pre-generation.
 
-            const eventsToMark = weekEvents
-                .filter(e => (e.once || e.triggerType === 'FIXED') && e.id !== 'debt_collection')
-                .map(e => e.id);
+            // Generated and authored pools can contain the same event more
+            // than once. Keep the first occurrence so a single week cannot
+            // show duplicate cards or mark one ID multiple times.
+            const seenEventIds = new Set<string>();
+            weekEvents = weekEvents.filter(event => {
+                if (seenEventIds.has(event.id)) return false;
+                seenEventIds.add(event.id);
+                return true;
+            });
+            const priorityEvents = weekEvents.filter(event => priorityEventIds.has(event.id));
+            const fillerEvents = weekEvents.filter(event => !priorityEventIds.has(event.id));
+            const orderedWeekEvents = [...priorityEvents, ...fillerEvents];
 
-            const [first, ...rest] = weekEvents;
+            const [first, ...rest] = orderedWeekEvents;
             
             if (first) {
-                applyWeeklyUpdates(first, rest, eventsToMark);
+                // Keep deferred conditional events ahead of random filler while
+                // preserving the priority events already selected this week.
+                const priorityCount = Math.min(rest.length, Math.max(0, priorityEvents.length - 1));
+                const queuedRest = [
+                    ...rest.slice(0, priorityCount),
+                    ...deferredConditionalEvents,
+                    ...rest.slice(priorityCount)
+                ];
+                applyWeeklyUpdates(first, queuedRest);
+            } else if (state.phase === Phase.SUMMER || state.phase === Phase.MILITARY) {
+                // Summer and military weeks do not have a weekend planning
+                // step. This branch is reachable when every military random
+                // event is temporarily held by the repetition buffer. It must
+                // still run the same weekly settlement as an eventful week.
+                setState(prev => {
+                    const sleepChallengeFailed = prev.activeChallengeId === 'c_sleep_king' && !prev.hasSleptThisWeek;
+                    if (sleepChallengeFailed) {
+                        return {
+                            ...prev,
+                            phase: Phase.ENDING,
+                            isPlaying: false,
+                            currentEvent: null,
+                            eventResult: null,
+                            isWeekend: false,
+                            log: [...prev.log, { message: '你这周没有睡觉，挑战失败。', type: 'error' as const, timestamp: Date.now() }]
+                        };
+                    }
+                    const { updatedGeneral, updatedStatuses, updatedSubjects, updatedFatigue } = calculateWeeklyUpdates(prev);
+                    const weeklyState = clampGameStateMetrics({
+                        ...prev,
+                        general: updatedGeneral,
+                        activeStatuses: updatedStatuses,
+                        subjects: updatedSubjects,
+                        fatigue: updatedFatigue
+                    });
+                    if (isHealthFatal(weeklyState.difficulty, weeklyState.general.health)) {
+                        return {
+                            ...weeklyState,
+                            phase: Phase.ENDING,
+                            isPlaying: false,
+                            currentEvent: null,
+                            eventResult: null,
+                            isWeekend: false,
+                            log: [...weeklyState.log, { message: getHealthDeathMessage(weeklyState.difficulty), type: 'error' as const, timestamp: Date.now() }]
+                        };
+                    }
+                    return {
+                        ...weeklyState,
+                        week: weeklyState.week + 1,
+                        isPlaying: true,
+                        hasSleptThisWeek: false,
+                        currentEvent: null,
+                        eventResult: null,
+                        isWeekend: false
+                    };
+                });
             } else {
                 startWeekend();
             }
@@ -488,7 +754,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
         const timer = setTimeout(processTurn, 1000); 
         return () => clearTimeout(timer);
-    }, [state.isPlaying, cityEventsReady, state.currentEvent, state.isWeekend, state.week, state.phase, state.eventQueue.length, state.midtermRank, advancePhase, state.competition, state.triggeredEvents, state.isAiGenerating, state.recentEventIds, aiConfig]);
+    }, [state.isPlaying, state.currentEvent, state.isWeekend, state.week, state.phase, state.eventQueue.length, state.midtermRank, state.activeProjects, advancePhase, state.competition, state.triggeredEvents, state.isAiGenerating, state.recentEventIds, aiConfig]);
 
     const calculateWeeklyUpdates = (prevState: GameState) => {
         let moneyChange = 1; // Base weekly money (reduced from 2)
@@ -561,6 +827,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             mindset: Math.max(0, prevState.general.mindset - penaltyMindset - (prevState.fatigue >= 75 ? 2 : 0)),
             excitement: Math.min(100, Math.max(0, (prevState.general.excitement ?? 0) - 5))
         };
+        const healthBeforeRegression = updatedGeneral.health;
         const updatedFatigue = Math.min(100, Math.max(0, prevState.fatigue + phaseFatigue + (prevState.fatigue >= 75 ? Math.ceil(2 * difficultyPreset.fatigueGainMultiplier) : 0)));
 
         activeStatuses.forEach(status => {
@@ -585,7 +852,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             return Math.min(150, Math.max(0, val - diff * rate));
         };
         updatedGeneral.mindset = regress(updatedGeneral.mindset, 50);
-        updatedGeneral.health = regress(updatedGeneral.health, 60); // baseline lowered from 70 to 60
+        const regressedHealth = isHealthFatal(prevState.difficulty, healthBeforeRegression)
+            ? Math.max(0, healthBeforeRegression)
+            : regress(updatedGeneral.health, 60); // baseline lowered from 70 to 60
+        updatedGeneral.health = activeStatuses.some(status => status.id === 'exhausted')
+            ? Math.min(healthBeforeRegression, regressedHealth)
+            : regressedHealth;
         updatedGeneral.romance = Math.min(150, Math.max(0, updatedGeneral.romance));
         updatedGeneral.luck = regress(updatedGeneral.luck, 50, 0.02);
         updatedGeneral.efficiency = Math.min(30, Math.max(0, regress(updatedGeneral.efficiency, 10, 0.03)));
@@ -613,7 +885,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         return { updatedGeneral, updatedStatuses: newStatuses, updatedSubjects, updatedFatigue };
     };
 
-    const applyWeeklyUpdates = (currentEvent: GameEvent, nextQueue: GameEvent[] = [], newTriggeredEvents: string[] = []) => {
+    const applyWeeklyUpdates = (currentEvent: GameEvent, nextQueue: GameEvent[] = []) => {
         setState(prev => {
             const { updatedGeneral, updatedStatuses, updatedSubjects, updatedFatigue } = calculateWeeklyUpdates(prev);
 
@@ -630,14 +902,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             // Update Anti-Repetition Buffer
             let newRecentIds = [...prev.recentEventIds];
             // Only track RANDOM events for repetition prevention, ignore generated/fixed
-            if (currentEvent.triggerType === 'RANDOM') {
-                newRecentIds.push(currentEvent.id);
-                if (newRecentIds.length > 4) newRecentIds.shift(); // Keep last 4
-            }
+            newRecentIds = trackRecentRandomEvent(newRecentIds, currentEvent);
 
             // Death check: health <= 0 means game over (猝死)
-            const healthThreshold = getDifficultyPreset(prev.difficulty).healthDeathThreshold || 0;
-            if (updatedGeneral.health < healthThreshold) {
+            if (isHealthFatal(prev.difficulty, updatedGeneral.health)) {
                 return {
                     ...prev,
                     general: updatedGeneral,
@@ -646,7 +914,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     currentEvent: null,
                     eventQueue: [],
                     isPlaying: false,
-                    log: [...prev.log, ...statusLogs, { message: healthThreshold > 0 ? `【极限失败】健康值低于${healthThreshold}，身体再也承受不住了……游戏结束。` : '【猝死】你的健康值降到了0以下，身体再也承受不住了...游戏结束。', type: 'error', timestamp: Date.now() }]
+                    log: [...prev.log, ...statusLogs, { message: getHealthDeathMessage(prev.difficulty), type: 'error', timestamp: Date.now() }]
                 };
             }
 
@@ -657,8 +925,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 fatigue: updatedFatigue,
                 subjects: updatedSubjects,
                 currentEvent: currentEvent,
-                eventQueue: nextQueue,
-                triggeredEvents: [...prev.triggeredEvents, ...newTriggeredEvents],
+                eventQueue: addQueueContext(nextQueue, prev),
+                triggeredEvents: markEventTriggered(prev.triggeredEvents, currentEvent),
                 recentEventIds: newRecentIds,
                 isPlaying: false,
                 log: [...prev.log, ...statusLogs]
@@ -666,20 +934,33 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         });
     };
 
-    const startWeekend = () => {
-        if (state.phase === Phase.ENDING || state.phase === Phase.WITHDRAWAL) return;
-        setState(prev => {
-            let availableIds = undefined;
-            if (prev.difficulty === 'REALITY') {
-                const validActivities = WEEKEND_ACTIVITIES.filter(a => !a.condition || a.condition(prev));
-                let validIds = validActivities.map(a => a.id);
-                for (let i = validIds.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [validIds[i], validIds[j]] = [validIds[j], validIds[i]];
-                }
-                availableIds = validIds.slice(0, 6);
-            }
+    const getAvailableWeekendActivityIds = (snapshot: GameState): string[] | undefined => {
+        if (snapshot.difficulty !== 'REALITY') return undefined;
+        // Conditions are evaluated for the planning context. In particular,
+        // Codeforces is only valid while the weekend planner is open.
+        const weekendSnapshot = { ...snapshot, isWeekend: true };
+        const validIds = WEEKEND_ACTIVITIES
+            .filter(activity => (!activity.condition || activity.condition(weekendSnapshot))
+                && !getActivityBlockReason(weekendSnapshot, activity))
+            .map(activity => activity.id);
+        for (let i = validIds.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [validIds[i], validIds[j]] = [validIds[j], validIds[i]];
+        }
+        // Always leave a recovery option in the random pool so a bad draw
+        // cannot make a reality-mode week unwinnable by construction.
+        const guaranteed = validIds.includes('w_sleep') ? ['w_sleep'] : [];
+        return Array.from(new Set([...guaranteed, ...validIds])).slice(0, 6);
+    };
 
+    const startWeekend = () => {
+        const snapshot = latestStateRef.current;
+        if (snapshot.phase === Phase.ENDING || snapshot.phase === Phase.WITHDRAWAL) return;
+        const availableIds = getAvailableWeekendActivityIds(snapshot);
+        setState(prev => {
+            // Do not reopen a weekend if another action advanced the game
+            // between computing the snapshot and committing this update.
+            if (prev.phase !== snapshot.phase || prev.week !== snapshot.week) return prev;
             return {
                 ...prev,
                 currentEvent: null,
@@ -692,25 +973,59 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
     };
 
     const saveGame = () => {
+        const snapshot = latestStateRef.current;
+        const unstable = !!snapshot.currentEvent
+            || !!snapshot.chainedEvent
+            || snapshot.eventQueue.length > 0
+            || !!snapshot.isAiGenerating
+            || getPostEventFlow(snapshot.phase) === 'BLOCKED_PHASE';
+        if (unstable) {
+            setState(prev => ({
+                ...prev,
+                log: [...prev.log, { message: '当前流程尚未结算，暂时不能保存。', type: 'warning', timestamp: Date.now() }]
+            }));
+            return;
+        }
         const serializableState = {
-            ...state,
-            currentEvent: eventRef(state.currentEvent),
-            chainedEvent: eventRef(state.chainedEvent),
-            eventQueue: state.eventQueue.map(event => event.id),
-            activeProjects: state.activeProjects.map(({ onComplete, onFail, ...project }) => project),
-            talents: state.talents.map(({ effect, ...talent }) => talent),
-            eventResult: state.eventResult ? {
-                choiceText: state.eventResult.choice.text,
-                diff: state.eventResult.diff
+            ...snapshot,
+            isAiGenerating: false,
+            currentEvent: eventRef(snapshot.currentEvent),
+            chainedEvent: eventRef(snapshot.chainedEvent),
+            eventQueue: snapshot.eventQueue.map(event => eventRef(event)),
+            activeProjects: snapshot.activeProjects.map(({ onComplete, onFail, ...project }) => project),
+            talents: snapshot.talents.map(({ effect, ...talent }) => talent),
+            eventResult: snapshot.eventResult ? {
+                choiceText: snapshot.eventResult.choice.text,
+                diff: snapshot.eventResult.diff
             } : null
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: SAVE_VERSION, state: serializableState }));
-        setHasSave(true);
-        setState(s => ({ ...s, log: [...s.log, { message: "游戏进度已保存。", type: 'success', timestamp: Date.now() }] }));
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: SAVE_VERSION, state: serializableState }));
+            setHasSave(true);
+            setState(s => ({ ...s, log: [...s.log, { message: "游戏进度已保存。", type: 'success', timestamp: Date.now() }] }));
+        } catch (error) {
+            console.error('Failed to save game', error);
+            setState(s => ({ ...s, log: [...s.log, { message: '存档失败：浏览器存储空间不可用或已满。', type: 'error', timestamp: Date.now() }] }));
+        }
     };
 
     const loadGame = (): boolean => {
-        const saved = localStorage.getItem(STORAGE_KEY) || (accountId === 'guest' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+        cancelAiGeneration();
+        let saved: string | null = null;
+        let saveKeyUsed: string | null = null;
+        try {
+            saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                saveKeyUsed = STORAGE_KEY;
+            } else if (accountId === 'guest') {
+                saved = localStorage.getItem(LEGACY_STORAGE_KEY);
+                if (saved) saveKeyUsed = LEGACY_STORAGE_KEY;
+            }
+        } catch (error) {
+            console.error('Failed to read save', error);
+            setHasSave(false);
+            return false;
+        }
         if (saved) {
             try {
                 const payload = JSON.parse(saved);
@@ -730,40 +1045,144 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     })()
                     : null;
                 const restoredQueue = Array.isArray(loaded.eventQueue)
-                    ? loaded.eventQueue.map((entry: unknown) => typeof entry === 'string' ? resolveEvent(entry) : null).filter((event): event is GameEvent => !!event)
+                    ? loaded.eventQueue.map((entry: unknown) => resolveEvent(entry)).filter((event): event is GameEvent => !!event)
                     : [];
-                const restoredState: GameState = {
-                    ...getInitialGameState(),
+                const initialState = getInitialGameState();
+                const loadedSubjects = loaded.subjects && typeof loaded.subjects === 'object' && !Array.isArray(loaded.subjects) ? loaded.subjects : {};
+                const restoredSubjects = (Object.keys(initialState.subjects) as SubjectKey[]).reduce((subjects, key) => {
+                    const raw = loadedSubjects[key];
+                    subjects[key] = raw && typeof raw === 'object'
+                        ? { ...initialState.subjects[key], ...raw }
+                        : initialState.subjects[key];
+                    return subjects;
+                }, {} as GameState['subjects']);
+                const validPhases = new Set(Object.values(Phase));
+                const validDifficulties = new Set<Difficulty>(['CUSTOM', 'NORMAL', 'HARD', 'REALITY', 'HELL']);
+                const validCompetitions = new Set(['None', 'OI', 'MO', 'PhO', 'ChO']);
+                const validSubjectKeys = new Set(Object.keys(initialState.subjects));
+                const validClubIds = new Set(CLUBS.map(club => club.id));
+                const validTalentIds = new Set(TALENTS.map(talent => talent.id));
+                const restoredPhase = validPhases.has(loaded.phase) && loaded.phase !== Phase.INIT
+                    ? loaded.phase as Phase
+                    : null;
+                if (!restoredPhase) throw new Error('Invalid save phase');
+                const rawOiStats = loaded.oiStats && typeof loaded.oiStats === 'object' && !Array.isArray(loaded.oiStats)
+                    ? loaded.oiStats
+                    : {};
+                const restoredContestHistory = Array.isArray(rawOiStats.history)
+                    ? rawOiStats.history.filter((record: any) => record && typeof record.name === 'string'
+                        && Number.isFinite(record.date) && Number.isFinite(record.perf)
+                        && Number.isFinite(record.ratingChange) && Number.isFinite(record.newRating))
+                        .slice(-100)
+                    : [];
+                const restoredActiveStatuses = normalizeActiveStatuses(loaded.activeStatuses);
+                const validScheduleSlots = new Set<string>(SCHEDULE_SLOTS.map(slot => slot.id));
+                const validActivityIds = new Set<string>(WEEKEND_ACTIVITIES.map(activity => activity.id));
+                const rawSchedule = loaded.lastWeekSchedule && typeof loaded.lastWeekSchedule === 'object' && !Array.isArray(loaded.lastWeekSchedule)
+                    ? loaded.lastWeekSchedule
+                    : {};
+                const restoredSchedule = Object.fromEntries(Object.entries(rawSchedule)
+                    .filter(([slotId, activityId]) => validScheduleSlots.has(slotId) && typeof activityId === 'string' && validActivityIds.has(activityId)));
+                const restoredState = clampGameStateMetrics({
+                    ...initialState,
                     ...loaded,
-                    general: { ...getInitialGameState().general, ...(loaded.general || {}) },
-                    initialGeneral: { ...getInitialGameState().initialGeneral, ...(loaded.initialGeneral || loaded.general || {}) },
+                    phase: restoredPhase,
+                    difficulty: validDifficulties.has(loaded.difficulty) ? loaded.difficulty : 'NORMAL',
+                    competition: validCompetitions.has(loaded.competition) ? loaded.competition : 'None',
+                    activeChallengeId: loaded.activeChallengeId === 'c_debt_king' || loaded.activeChallengeId === 'c_sleep_king'
+                        ? loaded.activeChallengeId
+                        : null,
+                    isPlaying: loaded.isPlaying === true,
+                    isWeekend: loaded.isWeekend === true,
+                    isSick: loaded.isSick === true,
+                    isGrounded: loaded.isGrounded === true,
+                    hasSelectedClub: loaded.hasSelectedClub === true,
+                    debugMode: loaded.debugMode === true,
+                    hasSleptThisWeek: loaded.hasSleptThisWeek === true,
+                    dreamtExam: loaded.dreamtExam === true,
+                    club: typeof loaded.club === 'string' && validClubIds.has(loaded.club) && loaded.club !== 'none'
+                        ? loaded.club as ClubId
+                        : null,
+                    romancePartner: typeof loaded.romancePartner === 'string' && loaded.romancePartner.trim()
+                        ? loaded.romancePartner.trim().slice(0, 24)
+                        : null,
+                    week: Number.isFinite(loaded.week) ? Math.max(1, Math.floor(loaded.week)) : 1,
+                    totalWeeksInPhase: Number.isFinite(loaded.totalWeeksInPhase) ? Math.max(0, Math.floor(loaded.totalWeeksInPhase)) : 0,
+                    general: { ...initialState.general, ...(loaded.general && typeof loaded.general === 'object' ? loaded.general : {}) },
+                    initialGeneral: { ...initialState.initialGeneral, ...(loaded.initialGeneral && typeof loaded.initialGeneral === 'object' ? loaded.initialGeneral : loaded.general && typeof loaded.general === 'object' ? loaded.general : {}) },
+                    subjects: restoredSubjects,
+                    oiStats: { ...initialState.oiStats, ...rawOiStats, history: restoredContestHistory },
                     fatigue: typeof loaded.fatigue === 'number' ? Math.min(100, Math.max(0, loaded.fatigue)) : 20,
+                    flags: loaded.flags && typeof loaded.flags === 'object' && !Array.isArray(loaded.flags) ? loaded.flags : {},
+                    selectedSubjects: Array.isArray(loaded.selectedSubjects)
+                        ? Array.from(new Set(loaded.selectedSubjects.filter((key: unknown): key is SubjectKey => typeof key === 'string' && validSubjectKeys.has(key) && !['chinese', 'math', 'english'].includes(key)))).slice(0, 3)
+                        : [],
+                    subjectReselectionReturnPhase: loaded.subjectReselectionReturnPhase === Phase.SEMESTER_1 || loaded.subjectReselectionReturnPhase === Phase.SEMESTER_2
+                        ? loaded.subjectReselectionReturnPhase
+                        : null,
                     relationshipProfileId: typeof loaded.relationshipProfileId === 'string' ? loaded.relationshipProfileId : null,
                     currentEvent: restoredEvent,
                     chainedEvent: restoredChain,
                     eventQueue: restoredQueue,
                     eventResult: restoredResult,
-                    activeProjects: Array.isArray(loaded.activeProjects) ? loaded.activeProjects : [],
-                    completedProjects: Array.isArray(loaded.completedProjects) ? loaded.completedProjects : [],
-                    activeStatuses: Array.isArray(loaded.activeStatuses) ? loaded.activeStatuses : [],
-                    log: Array.isArray(loaded.log) ? loaded.log : [],
-                    history: Array.isArray(loaded.history) ? loaded.history : [],
-                    triggeredEvents: Array.isArray(loaded.triggeredEvents) ? loaded.triggeredEvents : [],
-                    recentEventIds: Array.isArray(loaded.recentEventIds) ? loaded.recentEventIds : [],
-                    unlockedAchievements: mergedAchievements
-                };
+                    activeProjects: Array.isArray(loaded.activeProjects)
+                        ? loaded.activeProjects
+                            .filter((project: any) => project && typeof project.id === 'string' && typeof project.title === 'string'
+                                && validPhases.has(project.deadlinePhase) && Number.isFinite(project.deadlineWeek)
+                                && Number.isFinite(project.progress) && Number.isFinite(project.requiredProgress))
+                            .map((project: Project) => hydrateProject(project))
+                        : [],
+                    completedProjects: Array.isArray(loaded.completedProjects)
+                        ? Array.from(new Set(loaded.completedProjects.filter((id: unknown): id is string => typeof id === 'string').map(id => id.slice(0, 80))))
+                        : [],
+                    activeStatuses: restoredActiveStatuses,
+                    log: restoreLogEntries(loaded.log),
+                    history: restoreStoryEntries(loaded.history),
+                    triggeredEvents: Array.isArray(loaded.triggeredEvents)
+                        ? loaded.triggeredEvents.filter((id: unknown): id is string => typeof id === 'string')
+                        : [],
+                    recentEventIds: Array.isArray(loaded.recentEventIds)
+                        ? loaded.recentEventIds.filter((id: unknown): id is string => typeof id === 'string')
+                        : [],
+                    unlockedAchievements: mergedAchievements,
+                    talents: Array.isArray(loaded.talents)
+                        ? loaded.talents.filter((talent: any) => talent && typeof talent.id === 'string' && validTalentIds.has(talent.id))
+                        : [],
+                    inventory: Array.isArray(loaded.inventory) ? loaded.inventory.filter((item: unknown): item is string => typeof item === 'string') : [],
+                    lastWeekSchedule: restoredSchedule,
+                    availableWeekendActivityIds: Array.isArray(loaded.availableWeekendActivityIds)
+                        ? loaded.availableWeekendActivityIds.filter((id: unknown): id is string => typeof id === 'string' && validActivityIds.has(id))
+                        : undefined,
+                    isAiGenerating: false
+                } as GameState);
                 if (loaded.currentEvent && !restoredEvent) {
                     restoredState.isPlaying = true;
                     restoredState.log = [...restoredState.log, { message: '存档中的临时事件已失效，已继续下一周。', type: 'warning', timestamp: Date.now() }];
                 }
+                if (!restoredState.currentEvent && !restoredState.isWeekend && restoredState.eventQueue.length > 0) {
+                    if (getPostEventFlow(restoredState.phase) === 'BLOCKED_PHASE') {
+                        restoredState.eventQueue = [];
+                    } else {
+                        restoredState.isPlaying = true;
+                    }
+                }
                 if (restoredState.worldContext) {
-                    setCityEventsReady(false);
-                    void loadCityEvents(restoredState.worldContext.code, restoredState.worldContext.region).finally(() => setCityEventsReady(true));
+                    void loadCityEvents(restoredState.worldContext.code, restoredState.worldContext.region);
                 }
                 setState(restoredState);
                 return true;
             } catch (e) {
                 console.error("Failed to load save", e);
+                // A malformed save cannot be resumed. Remove it so the home
+                // screen does not advertise a dead "continue" button after
+                // a refresh. Keep this scoped to the exact key we read.
+                if (saveKeyUsed) {
+                    try {
+                        localStorage.removeItem(saveKeyUsed);
+                    } catch (removeError) {
+                        console.error('Failed to remove malformed save', removeError);
+                    }
+                }
                 setHasSave(false);
                 return false;
             }
@@ -772,15 +1191,19 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
     };
 
     const startGameState = (difficulty: Difficulty, customStats: GeneralStats, selectedTalents: Talent[], activeChallenge?: Challenge | null) => {
-        localStorage.removeItem(STORAGE_KEY);
+        cancelAiGeneration();
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            if (accountId === 'guest') localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch (error) {
+            console.error('Failed to remove previous save', error);
+        }
         setHasSave(false);
         let initialGeneral = { ...DIFFICULTY_PRESETS['NORMAL'].stats };
         const effectiveDifficulty = activeChallenge ? 'REALITY' : (difficulty === 'CUSTOM' ? 'NORMAL' : difficulty);
         
         if (difficulty === 'CUSTOM' && !activeChallenge) {
             initialGeneral = { ...customStats };
-        } else if (false) {
-             initialGeneral = DIFFICULTY_PRESETS['AI_STORY'] ? { ...DIFFICULTY_PRESETS['AI_STORY'].stats } : { ...DIFFICULTY_PRESETS['NORMAL'].stats };
         } else {
              initialGeneral = { ...DIFFICULTY_PRESETS[effectiveDifficulty].stats };
         }
@@ -813,8 +1236,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         // Generate V2 World Context
         const worldContext = getRandomWorldContext();
         const relationshipProfile = getRandomRelationshipProfile();
-        setCityEventsReady(false);
-        void loadCityEvents(worldContext.code, worldContext.region).finally(() => setCityEventsReady(true));
+        void loadCityEvents(worldContext.code, worldContext.region);
         const charTemplate = CHARACTER_TEMPLATES.find(t => t.id === worldContext.characterTemplateId);
         
         if (charTemplate && charTemplate.baseStatsModifier) {
@@ -841,7 +1263,9 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             },
             talents: selectedTalents,
             oiStats: getInitialOIStats(),
-            difficulty: difficulty, 
+            // Preserve CUSTOM in saved state and UI; its mechanics still use
+            // the normal preset fallback through getDifficultyPreset.
+            difficulty: activeChallenge ? 'REALITY' : difficulty,
             activeChallengeId: activeChallenge ? activeChallenge.id : null,
             hasSleptThisWeek: false,
             unlockedAchievements: globalAchievements // Keep existing achievements
@@ -855,6 +1279,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 if(updates.oiStats) tempState.oiStats = { ...tempState.oiStats, ...updates.oiStats };
             }
         });
+        tempState = clampGameStateMetrics(tempState);
         tempState.initialGeneral = { ...tempState.general };
 
         const firstEvent = PHASE_EVENTS[Phase.SUMMER].find(e => e.id === 'sum_goal_selection');
@@ -880,7 +1305,11 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 }));
                 // Persist new achievement immediately
                 const currentGlobals = getGlobalAchievements();
-                localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify([...currentGlobals, 'first_blood']));
+                try {
+                    localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify([...currentGlobals, 'first_blood']));
+                } catch (error) {
+                    console.error('Failed to persist achievement', error);
+                }
 
                 setTimeout(() => setState(prev => ({ ...prev, achievementPopup: null })), 3000);
             }, 100);
@@ -888,170 +1317,245 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
     };
 
     const handleChoice = (choice: EventChoice, visualizer?: (oldS: GameState, newS: GameState) => string[]) => {
-        setState(prev => {
-            const oldState = { ...prev };
-            let updates = choice.action(prev);
+        const prev = latestStateRef.current;
+        if (prev.eventResult || eventActionStateRef.current === prev) return;
+        eventActionStateRef.current = prev;
+        const oldState = prev;
+        const choiceTags = choice.tags || [];
+        const isSleepChoice = choiceTags.includes('sleep') || /睡|梦|补觉/.test(choice.text);
+        const isRestChoice = isSleepChoice || choiceTags.includes('rest') || /休息|放松|躺平/.test(choice.text);
+        const isHardWorkChoice = isStudyChoice(choice);
+        let updates: Partial<GameState>;
+        if (isHardWorkChoice && isStudyBlocked(prev)) {
+            updates = {
+                log: [...prev.log, { message: '【极限难度】当前心态或疲劳状态不允许学习。', type: 'warning', timestamp: Date.now() }]
+            };
+        } else {
+            updates = choice.action(prev);
+            if (Array.isArray(updates.eventQueue)) {
+                // Choices add follow-up events; they must not discard events
+                // already queued for this week (for example an exam result).
+                updates = { ...updates, eventQueue: [...prev.eventQueue, ...addQueueContext(updates.eventQueue, prev)] };
+            }
             if (choice.nextEventId && CHAINED_EVENTS[choice.nextEventId]) {
                 updates = { ...updates, chainedEvent: CHAINED_EVENTS[choice.nextEventId] };
             }
-            const choiceTags = choice.tags || [];
-            const isSleepChoice = choiceTags.includes('sleep') || /睡|梦|补觉|休息|放松|躺平/.test(choice.text);
-            const isHardWorkChoice = choiceTags.includes('study') || /学习|刷题|复习|通宵|熬夜|集训|肝|认真听/.test(choice.text);
-            const actionFatigue = typeof updates.fatigue === 'number' ? updates.fatigue : prev.fatigue;
-            if (isHardWorkChoice && isStudyBlocked(prev)) {
-                updates = {
-                    log: [...prev.log, { message: '【极限难度】当前心态或疲劳状态不允许学习。', type: 'warning', timestamp: Date.now() }]
-                };
+        }
+        const actionFatigue = typeof updates.fatigue === 'number' ? updates.fatigue : prev.fatigue;
+        if (isRestChoice) {
+            if (updates.general) {
+                updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getRestRecoveryMultiplier(prev)) };
             }
-            if (isSleepChoice) {
-                if (updates.general) {
-                    updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getRestRecoveryMultiplier(prev)) };
-                }
-                const recoveryMultiplier = getRestRecoveryMultiplier(prev);
-                const explicitFatigueDelta = actionFatigue - prev.fatigue;
-                const fatigueTarget = typeof updates.fatigue === 'number'
-                    ? prev.fatigue + (explicitFatigueDelta < 0 ? explicitFatigueDelta * recoveryMultiplier : explicitFatigueDelta)
-                    : prev.fatigue - 20 * recoveryMultiplier;
-                updates = { ...updates, fatigue: Math.min(100, Math.max(0, fatigueTarget)) };
-                if (prev.activeChallengeId === 'c_sleep_king') updates.hasSleptThisWeek = true;
-            } else if (isHardWorkChoice && !isStudyBlocked(prev)) {
-                const difficulty = getDifficultyPreset(prev.difficulty);
-                const excitementFactor = 1 - Math.min(100, Math.max(0, prev.general.excitement ?? 0)) / 300;
-                updates = {
-                    ...updates,
-                    general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)),
-                    subjects: scalePositiveSubjectDeltas(prev, updates.subjects, getLearningMultiplier(prev))
-                };
-                updates = { ...updates, fatigue: Math.min(100, actionFatigue + Math.max(4, Math.round(8 * difficulty.fatigueGainMultiplier * excitementFactor))) };
-            } else if ((choiceTags.includes('sport') || /跑步|运动|体育|1000米|打球/.test(choice.text)) && updates.general) {
-                updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)) };
-            }
-            let newState = { ...prev, ...updates };
-            const healthThreshold = getDifficultyPreset(prev.difficulty).healthDeathThreshold;
-            if (healthThreshold !== undefined && newState.general.health < healthThreshold) {
-                newState = {
-                    ...newState,
-                    phase: Phase.ENDING,
-                    currentEvent: null,
-                    eventQueue: [],
-                    isPlaying: false,
-                    log: [...newState.log, { message: `【极限失败】健康值低于${healthThreshold}，游戏结束。`, type: 'error', timestamp: Date.now() }]
-                };
-            }
-            const diff = visualizer ? visualizer(oldState, newState) : [];
-            const entry: StoryEntry = {
-                week: prev.week,
-                phase: prev.phase,
-                eventTitle: prev.currentEvent?.title || '未知事件',
-                choiceText: choice.text,
-                resultSummary: choice.resultDescription || '无',
-                timestamp: Date.now()
+            const recoveryMultiplier = getRestRecoveryMultiplier(prev);
+            const explicitFatigueDelta = actionFatigue - prev.fatigue;
+            const fatigueTarget = typeof updates.fatigue === 'number'
+                ? prev.fatigue + (explicitFatigueDelta < 0 ? explicitFatigueDelta * recoveryMultiplier : explicitFatigueDelta)
+                : prev.fatigue - 20 * recoveryMultiplier;
+            updates = { ...updates, fatigue: fatigueTarget };
+            if (isSleepChoice && prev.activeChallengeId === 'c_sleep_king') updates.hasSleptThisWeek = true;
+        } else if (isHardWorkChoice && !isStudyBlocked(prev)) {
+            const difficulty = getDifficultyPreset(prev.difficulty);
+            const excitementFactor = 1 - Math.min(100, Math.max(0, prev.general.excitement ?? 0)) / 300;
+            updates = {
+                ...updates,
+                general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)),
+                subjects: scalePositiveSubjectDeltas(prev, updates.subjects, getLearningMultiplier(prev)),
+                oiStats: scalePositiveOIStatDeltas(prev, updates.oiStats, getLearningMultiplier(prev)),
+                fatigue: actionFatigue + Math.max(4, Math.round(8 * difficulty.fatigueGainMultiplier * excitementFactor))
             };
-            return { ...newState, history: [...prev.history, entry], eventResult: { choice, diff } };
-        });
+        } else if ((choiceTags.includes('sport') || /跑步|运动|体育|1000米|打球/.test(choice.text)) && updates.general) {
+            updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)) };
+        }
+        let newState = clampGameStateMetrics({ ...prev, ...updates });
+        if (isHealthFatal(prev.difficulty, newState.general.health)) {
+            newState = {
+                ...newState,
+                phase: Phase.ENDING,
+                currentEvent: null,
+                eventQueue: [],
+                isPlaying: false,
+                log: [...newState.log, { message: getHealthDeathMessage(prev.difficulty), type: 'error', timestamp: Date.now() }]
+            };
+        }
+        const diff = visualizer ? visualizer(oldState, newState) : [];
+        const entry: StoryEntry = {
+            week: prev.week,
+            phase: prev.phase,
+            eventTitle: prev.currentEvent?.title || '未知事件',
+            choiceText: choice.text,
+            resultSummary: choice.resultDescription || '无',
+            timestamp: Date.now()
+        };
+        setState({ ...newState, history: [...prev.history, entry], eventResult: { choice, diff } });
     };
 
     const handleEventConfirm = () => {
-        const miniGameId = state.currentEvent?.miniGameId;
+        const snapshot = latestStateRef.current;
+        if (eventActionStateRef.current === snapshot) return;
+        eventActionStateRef.current = snapshot;
+        // Resolve every branch from the same functional snapshot. Choices can
+        // change phase (notably OI arrival events), so the render-time `state`
+        // closure is not safe here.
+        setState(prev => {
+            const flow = getPostEventFlow(prev.phase);
+            let remainingQueue = prev.eventQueue;
 
-        if (state.chainedEvent) {
-            setState(prev => ({ ...prev, currentEvent: prev.chainedEvent, chainedEvent: null, eventResult: null }));
-            return;
-        }
-        
-        if (state.eventQueue.length > 0) {
-             setState(prev => {
-                 const [next, ...rest] = prev.eventQueue;
-                 return { ...prev, currentEvent: next, eventQueue: rest, eventResult: null, activeMiniGame: miniGameId || prev.activeMiniGame };
-             });
-             return;
-        }
+            if (flow === 'BLOCKED_PHASE') {
+                return {
+                    ...prev,
+                    currentEvent: null,
+                    chainedEvent: null,
+                    eventResult: null,
+                    isWeekend: false,
+                    isPlaying: false,
+                    eventQueue: []
+                };
+            }
 
-        const skipWeekend = state.phase === Phase.SUMMER || state.phase === Phase.MILITARY;
-        if (skipWeekend) {
-             setState(prev => ({ 
-                 ...prev, 
-                 currentEvent: null, 
-                 eventResult: null,
-                 isWeekend: false, 
-                 week: prev.week + 1, 
-                 hasSleptThisWeek: false, 
-                 isPlaying: !miniGameId,
-                 activeMiniGame: miniGameId || prev.activeMiniGame
-            }));
-            return;
-        }
-        
-        if (miniGameId) {
-            setState(prev => ({ ...prev, currentEvent: null, eventResult: null, isPlaying: false, activeMiniGame: miniGameId }));
-            return;
-        }
+            if (prev.chainedEvent) {
+                return { ...prev, currentEvent: prev.chainedEvent, chainedEvent: null, eventResult: null };
+            }
 
-        startWeekend();
+            if (prev.eventQueue.length > 0) {
+                const eligibleQueue = prev.eventQueue.filter(event => isQueuedEventStillEligible(event, prev));
+                if (eligibleQueue.length > 0) {
+                    const [next, ...rest] = eligibleQueue;
+                    return {
+                        ...prev,
+                        currentEvent: next,
+                        eventQueue: rest,
+                        eventResult: null,
+                        triggeredEvents: markEventTriggered(prev.triggeredEvents, next),
+                        recentEventIds: trackRecentRandomEvent(prev.recentEventIds, next)
+                    };
+                }
+                remainingQueue = [];
+            }
+
+            if (flow === 'ADVANCE_WITHOUT_WEEKEND') {
+                const sleepChallengeFailed = prev.activeChallengeId === 'c_sleep_king' && !prev.hasSleptThisWeek;
+                return {
+                    ...prev,
+                    ...(sleepChallengeFailed
+                        ? {
+                            phase: Phase.ENDING,
+                            isPlaying: false,
+                            log: [...prev.log, { message: '你这周没有睡觉，挑战失败。', type: 'error' as const, timestamp: Date.now() }]
+                        }
+                        : {
+                            week: prev.week + 1,
+                            isPlaying: true,
+                            hasSleptThisWeek: false
+                        }),
+                    currentEvent: null,
+                    eventResult: null,
+                    isWeekend: false,
+                    eventQueue: remainingQueue
+                };
+            }
+
+            return {
+                ...prev,
+                currentEvent: null,
+                eventResult: null,
+                isWeekend: true,
+                isPlaying: false,
+                eventQueue: remainingQueue,
+                availableWeekendActivityIds: getAvailableWeekendActivityIds(prev)
+            };
+        });
     };
     
     const handleClubSelect = (id: ClubId | 'none') => {
         setState(prev => ({ 
             ...prev, 
             club: id === 'none' ? null : id,
-            hasSelectedClub: true 
+            hasSelectedClub: true,
+            // The club dialog pauses the loop while it is open. Resume only
+            // when no event is waiting underneath it.
+            isPlaying: prev.phase === Phase.SEMESTER_1
+                && prev.week === 2
+                && !prev.currentEvent
+                && prev.eventQueue.length === 0
+                ? true
+                : prev.isPlaying
         }));
     };
     
     const handleShopPurchase = (item: Item, effectVisualizer?: (oldState: GameState, newState: GameState) => void) => {
-        setState(prev => {
-            const price = item.price * getShopPriceMultiplier(prev);
-            if (prev.general.money < price) return {
-                ...prev,
-                log: [...prev.log, { message: `买不起${item.name}，还差 ${Math.ceil(price - prev.general.money)} G。`, type: 'warning', timestamp: Date.now() }]
-            };
-            const baseUpdates = item.effect(prev);
-            const updates = baseUpdates.general
-                ? { ...baseUpdates, general: { ...baseUpdates.general, money: prev.general.money - price } }
-                : { ...baseUpdates, general: { ...prev.general, money: prev.general.money - price } };
-            let newState = { ...prev, ...updates };
-            const healthThreshold = getDifficultyPreset(prev.difficulty).healthDeathThreshold;
-            if (healthThreshold !== undefined && newState.general.health < healthThreshold) {
-                newState = { ...newState, phase: Phase.ENDING, isPlaying: false, currentEvent: null, isWeekend: false, log: [...newState.log, { message: `【极限失败】健康值低于${healthThreshold}，游戏结束。`, type: 'error', timestamp: Date.now() }] };
-            }
-            effectVisualizer?.(prev, newState);
-            return newState;
-        });
+        const prev = latestStateRef.current;
+        if (shopActionStateRef.current === prev) return;
+        if (prev.currentEvent || prev.isAiGenerating || getPostEventFlow(prev.phase) === 'BLOCKED_PHASE') return;
+        const price = item.price * getShopPriceMultiplier(prev);
+        shopActionStateRef.current = prev;
+        if (prev.general.money < price) {
+            setState(current => current === prev ? {
+                ...current,
+                log: [...current.log, { message: `买不起${item.name}，还差 ${Math.ceil(price - current.general.money)} G。`, type: 'warning', timestamp: Date.now() }]
+            } : current);
+            return;
+        }
+        const baseUpdates = item.effect(prev);
+        const updates = baseUpdates.general
+            ? { ...baseUpdates, general: { ...baseUpdates.general, money: prev.general.money - price } }
+            : { ...baseUpdates, general: { ...prev.general, money: prev.general.money - price } };
+        let newState = clampGameStateMetrics({ ...prev, ...updates });
+        if (isHealthFatal(prev.difficulty, newState.general.health)) {
+            newState = { ...newState, phase: Phase.ENDING, isPlaying: false, currentEvent: null, isWeekend: false, log: [...newState.log, { message: getHealthDeathMessage(prev.difficulty), type: 'error', timestamp: Date.now() }] };
+        }
+        effectVisualizer?.(prev, newState);
+        setState(current => current === prev ? newState : current);
     };
 
     const executeTimetable = (schedule: Record<string, string>) => {
-        let currentState = { ...state };
+        const snapshot = latestStateRef.current;
+        if (timetableActionStateRef.current === snapshot || !snapshot.isWeekend) return;
+        timetableActionStateRef.current = snapshot;
+        let currentState = { ...snapshot };
         const results: string[] = [];
-        let hasSlept = false;
+        let hasSlept = Boolean(currentState.hasSleptThisWeek);
         let weekendStudyCount = 0;
         const activityRepeatCounts = new Map<string, number>();
-        const difficultyPreset = getDifficultyPreset(state.difficulty);
+        const difficultyPreset = getDifficultyPreset(snapshot.difficulty);
 
         // Pre-build activity lookup map for O(1) access
         const activityMap = new Map(WEEKEND_ACTIVITIES.map(a => [a.id, a]));
         const batchLogs: typeof state.log = [];
         const blockedSlots = new Set<string>();
-        if (state.flags.joined_evening_study) {
+        if (snapshot.flags.joined_evening_study) {
             SCHEDULE_SLOTS.filter(slot => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(slot.day)).forEach(slot => blockedSlots.add(slot.id));
         }
 
         // Apply activities sequentially
-        for (const [slotId, actId] of Object.entries(schedule)) {
-            const blockedByOtherActivity = Object.entries(schedule).some(([otherSlot, otherActivityId]) =>
-                otherSlot !== slotId && (BLOCKED_SLOTS_MAP[otherActivityId] || []).includes(slotId as any)
-            );
-            if (blockedSlots.has(slotId) || blockedByOtherActivity) continue;
+        const orderedSchedule = getOrderedScheduleEntries(schedule);
+        for (const [slotId, actId] of orderedSchedule) {
+            if (blockedSlots.has(slotId)) continue;
             const activity = activityMap.get(actId);
             if (!activity) continue;
+            const allowedSlots = ALLOWED_SLOTS_MAP[activity.id];
+            if (allowedSlots && !allowedSlots.includes(slotId as any)) {
+                batchLogs.push({ message: `【计划跳过】${activity.name}：只能安排在指定时间段。`, type: 'warning', timestamp: Date.now() });
+                continue;
+            }
+            const activityBlockReason = getActivityBlockReason(currentState, activity);
+            if ((activity.condition && !activity.condition(currentState)) || activityBlockReason) {
+                batchLogs.push({ message: `【计划跳过】${activity.name}：${activityBlockReason || '当前条件已不满足'}。`, type: 'warning', timestamp: Date.now() });
+                continue;
+            }
 
-            if (activity.type === 'STUDY' && isStudyBlocked(currentState)) {
+            const learningActivity = isLearningActivity(activity);
+            if (learningActivity && isStudyBlocked(currentState)) {
                 batchLogs.push({ message: '【极限难度】当前心态或疲劳状态不允许学习型周末活动。', type: 'warning', timestamp: Date.now() });
                 continue;
             }
-            if (activity.type === 'STUDY' && difficultyPreset.weekendStudyLimit !== undefined && weekendStudyCount >= difficultyPreset.weekendStudyLimit) {
+            if (learningActivity && difficultyPreset.weekendStudyLimit !== undefined && weekendStudyCount >= difficultyPreset.weekendStudyLimit) {
                 batchLogs.push({ message: `【地狱难度】本周最多安排 ${difficultyPreset.weekendStudyLimit} 次学习型周末活动。`, type: 'warning', timestamp: Date.now() });
                 continue;
             }
+
+            // A blocking activity reserves its follow-up slots only after all
+            // conditions and limits above have accepted the activity.
+            (BLOCKED_SLOTS_MAP[activity.id] || []).forEach(blockedSlot => blockedSlots.add(blockedSlot));
 
             const oldS = { ...currentState };
             let updates = activity.action(oldS);
@@ -1060,12 +1564,13 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             activityRepeatCounts.set(activity.id, repeatCount);
             const repeatMultiplier = getActivityRepeatMultiplier(repeatCount);
 
-            if (activity.type === 'STUDY') {
+            if (learningActivity) {
                 weekendStudyCount += 1;
                 updates = {
                     ...updates,
                     general: scalePositiveGeneralDeltas(oldS, updates.general, getLearningMultiplier(oldS)),
-                    subjects: scalePositiveSubjectDeltas(oldS, updates.subjects, getLearningMultiplier(oldS))
+                    subjects: scalePositiveSubjectDeltas(oldS, updates.subjects, getLearningMultiplier(oldS)),
+                    oiStats: scalePositiveOIStatDeltas(oldS, updates.oiStats, getLearningMultiplier(oldS))
                 };
             } else if (activity.id === 'act_sport') {
                 const sportMultiplier = getLearningMultiplier(oldS);
@@ -1095,15 +1600,11 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             }
 
             const restMultiplier = getRestRecoveryMultiplier(oldS);
-            const fatigueDelta = activity.id === 'w_sleep'
-                ? -35 * restMultiplier
-                : activity.type === 'REST'
-                    ? -10 * restMultiplier
-                    : activity.type === 'SOCIAL' || activity.type === 'LOVE'
-                        ? 4
-                        : activity.type === 'OI'
-                            ? 14
-                            : 10 * difficultyPreset.fatigueGainMultiplier;
+            const fatigueDelta = getWeekendActivityFatigueDelta(
+                activity,
+                restMultiplier,
+                difficultyPreset.fatigueGainMultiplier
+            );
 
             // Extract logs from updates before merging
             if (updates.log) {
@@ -1111,7 +1612,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 batchLogs.push(...updates.log.filter(entry => !previousLogEntries.has(entry)));
                 delete updates.log;
             }
-            currentState = { ...currentState, ...updates };
+            currentState = clampGameStateMetrics({ ...currentState, ...updates });
             const trackedOiActivities = new Set(['w_luogu', 'w_cf', 'w_atc', 'w_oi_wiki', 'act_cf']);
             if (currentState.competition === 'OI' && trackedOiActivities.has(activity.id)) {
                 const practiceSessions = Number(currentState.flags.oi_practice_sessions || 0) + 1;
@@ -1122,12 +1623,11 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 };
             }
             currentState.fatigue = Math.min(100, Math.max(0, (currentState.fatigue || 0) + fatigueDelta));
-            const healthThreshold = difficultyPreset.healthDeathThreshold;
-            if (healthThreshold !== undefined && currentState.general.health < healthThreshold) {
+            if (isHealthFatal(currentState.difficulty, currentState.general.health)) {
                 currentState.phase = Phase.ENDING;
                 currentState.isPlaying = false;
                 currentState.isWeekend = false;
-                currentState.log = [...(currentState.log || []), { message: `【极限失败】健康值低于${healthThreshold}，游戏结束。`, type: 'error', timestamp: Date.now() }];
+                currentState.log = [...(currentState.log || []), { message: getHealthDeathMessage(currentState.difficulty), type: 'error', timestamp: Date.now() }];
                 break;
             }
             if (resultText) {
@@ -1150,32 +1650,34 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         }];
 
         // Challenge Check
-        if (currentState.activeChallengeId === 'c_sleep_king' && !hasSlept) {
+        if (currentState.activeChallengeId === 'c_sleep_king' && currentState.phase !== Phase.ENDING && !hasSlept) {
             currentState.phase = Phase.ENDING;
             currentState.isPlaying = false;
             currentState.log = [...(currentState.log || []), { message: "你这周没有睡觉，困死了！！！(挑战失败)", type: 'error', timestamp: Date.now() }];
             results.push("挑战失败：你这周没有睡觉！");
-        } else {
+        } else if (currentState.phase !== Phase.ENDING && currentState.phase !== Phase.WITHDRAWAL) {
             currentState.week += 1;
             currentState.isPlaying = true;
             currentState.hasSleptThisWeek = false;
         }
 
-        currentState.lastWeekSchedule = schedule;
+        currentState.lastWeekSchedule = currentState.flags.joined_evening_study
+            ? clearWeekdaySchedule(schedule)
+            : schedule;
+        currentState.isGrounded = false;
         currentState.isWeekend = false; // Turn off planning UI
+        currentState.availableWeekendActivityIds = undefined;
         
-        setState(prev => ({ ...prev, ...currentState }));
+        setState(currentState);
         
         // Return results to display maybe? We can set it to a new state `timetableResult` if we want a summary popup
     };
 
-    const calculateRank = (score: number, phase: Phase) => {
+    const calculateRank = (score: number, phase: Phase, maxScore = 750) => {
         const ALL_OI_PHASES = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM];
         // OI exams don't have school rankings
         if (ALL_OI_PHASES.includes(phase)) return -1;
-        
-        let maxScore = 750;
-        
+
         const percentage = score / maxScore;
         const totalStudents = 633;
         
@@ -1196,9 +1698,28 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
     const handleExamFinish = (result: ExamResult) => {
         const ALL_OI_PHASES = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM];
-        const rank = calculateRank(result.totalScore, state.phase);
         const isOI = ALL_OI_PHASES.includes(state.phase);
+        const academicMaxScore = getAcademicMaxScore(Object.keys(result.scores));
+        const rank = calculateRank(result.totalScore, state.phase, academicMaxScore || 750);
         const resultWithRank: ExamResult = { ...result, rank: isOI ? undefined : rank, type: isOI ? 'COMPETITION' : 'ACADEMIC' };
+
+        const oiContestNames: Partial<Record<Phase, string>> = {
+            [Phase.CSP_EXAM]: 'CSP-S',
+            [Phase.NOIP_EXAM]: 'NOIP-S',
+            [Phase.WC_EXAM]: 'NOIWC',
+            [Phase.PROVINCIAL_EXAM]: '联合省选',
+            [Phase.APIO_EXAM]: 'APIO',
+            [Phase.NOI_EXAM]: 'NOI'
+        };
+        const oiHistoryRecord = isOI
+            ? {
+                name: oiContestNames[state.phase] || state.phase,
+                date: state.week,
+                perf: result.totalScore,
+                ratingChange: 0,
+                newRating: state.oiStats.rating ?? 1200
+            }
+            : null;
         
         let newClassName = state.className;
         if (state.phase === Phase.PLACEMENT_EXAM) {
@@ -1216,23 +1737,42 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         else if (state.phase === Phase.NOI_EXAM) newFlags.noi_score = result.totalScore;
 
         setState(prev => ({ 
-            ...prev, 
+            ...prev,
             examResult: resultWithRank, 
             popupExamResult: resultWithRank,
             midtermRank: state.phase === Phase.MIDTERM_EXAM ? 'SEMESTER_1_DONE' : (state.phase === Phase.MIDTERM_EXAM_2 ? 'SEMESTER_2_DONE' : prev.midtermRank),
             className: newClassName,
-            flags: newFlags
+            flags: { ...prev.flags, ...newFlags },
+            oiStats: oiHistoryRecord
+                ? {
+                    ...prev.oiStats,
+                    history: (() => {
+                        const history = prev.oiStats.history || [];
+                        const alreadyRecorded = history.some(record =>
+                            record.name === oiHistoryRecord.name && record.date === oiHistoryRecord.date
+                        );
+                        return alreadyRecorded ? history : [...history, { ...oiHistoryRecord, newRating: prev.oiStats.rating ?? 1200 }].slice(-100);
+                    })()
+                }
+                : prev.oiStats
         }));
     };
-    
-    const closeCompetitionPopup = () => setState(prev => ({ ...prev, popupCompetitionResult: null }));
     
     const closeExamResult = () => {
         setState(prev => {
             const nextState = { ...prev, popupExamResult: null };
             
             if (prev.phase === Phase.MIDTERM_EXAM) {
-                 return { ...nextState, phase: Phase.SUBJECT_RESELECTION, week: 11, isPlaying: true };
+                 // The selection overlay owns this phase. Resume only after the
+                 // player confirms subjects, otherwise the main loop can spawn
+                 // an unrelated event underneath it.
+                 return {
+                     ...nextState,
+                     phase: Phase.SUBJECT_RESELECTION,
+                     subjectReselectionReturnPhase: Phase.SEMESTER_1,
+                     week: 11,
+                     isPlaying: false
+                 };
             }
             if (prev.phase === Phase.PLACEMENT_EXAM) {
                  return { ...nextState, phase: Phase.SEMESTER_1, week: 1, totalWeeksInPhase: 21, isPlaying: true };
@@ -1252,49 +1792,35 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             if (prev.phase === Phase.WC_EXAM) {
                  // Push wc_result event and stop playing so the event pops up
                  const resultEvent = OI_EVENTS_POOL.find((e: GameEvent) => e.id === 'oi_wc_result') as GameEvent;
-                 return { ...nextState, phase: Phase.WINTER_BREAK, week: prev.week + 1, totalWeeksInPhase: 5, isPlaying: true, eventQueue: [...prev.eventQueue, resultEvent] };
+                 return { ...nextState, phase: Phase.WINTER_BREAK, week: prev.week + 1, totalWeeksInPhase: 5, isPlaying: true, eventQueue: resultEvent ? [...prev.eventQueue, resultEvent] : prev.eventQueue };
             }
             if ([Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM].includes(prev.phase)) {
                  const resultEventId = prev.phase === Phase.PROVINCIAL_EXAM ? 'oi_provincial_result' : 'oi_apio_result';
                  const resultEvent = OI_EVENTS_POOL.find((e: GameEvent) => e.id === resultEventId) as GameEvent;
-                 return { ...nextState, phase: Phase.SEMESTER_2, week: prev.week + 1, totalWeeksInPhase: 21, isPlaying: true, eventQueue: [...prev.eventQueue, resultEvent] };
+                 return { ...nextState, phase: Phase.SEMESTER_2, week: prev.week + 1, totalWeeksInPhase: 21, isPlaying: true, eventQueue: resultEvent ? [...prev.eventQueue, resultEvent] : prev.eventQueue };
             }
             if (prev.phase === Phase.NOI_EXAM) {
                  const socialPractice = OI_EVENTS_POOL.find((e: GameEvent) => e.id === 'oi_noi_social_practice') as GameEvent;
-                 return { ...nextState, phase: Phase.SUMMER_BREAK, week: prev.week + 1, totalWeeksInPhase: 8, isPlaying: true, eventQueue: [...prev.eventQueue, socialPractice] };
+                 return { ...nextState, phase: Phase.SUMMER_BREAK, week: prev.week + 1, totalWeeksInPhase: 8, isPlaying: true, eventQueue: socialPractice ? [...prev.eventQueue, socialPractice] : prev.eventQueue };
             }
             return { ...nextState, isPlaying: true };
         });
     };
 
-    const closeMiniGame = (res?: Partial<GameState>) => {
-        setState(prev => {
-            const next = { ...prev, activeMiniGame: null, ...res };
-            const skipWeekend = next.phase === Phase.SUMMER || next.phase === Phase.MILITARY;
-            if (skipWeekend) {
-                return { ...next, week: next.week + 1, isPlaying: true };
-            }
-            // Trigger startWeekend logic inline because we can't easily call startWeekend() inside setState callback cleanly if startWeekend uses setState itself, but wait, startWeekend uses setState, so we can just call it AFTER.
-            return next;
-        });
-        
-        // Wait, startWeekend uses setState. So we can just call it here based on phase!
-        if (state.phase !== Phase.SUMMER && state.phase !== Phase.MILITARY) {
-            setTimeout(() => startWeekend(), 0);
-        }
-    };
-    
+    const weekendContext = state.isWeekend ? state : { ...state, isWeekend: true };
     const weekendOptions = WEEKEND_ACTIVITIES.filter(a => {
-        if (state.availableWeekendActivityIds) {
-            return state.availableWeekendActivityIds.includes(a.id) && (!a.condition || a.condition(state));
+        if (state.isWeekend && state.availableWeekendActivityIds) {
+            return state.availableWeekendActivityIds.includes(a.id)
+                && (!a.condition || a.condition(weekendContext))
+                && !getActivityBlockReason(state, a);
         }
-        return !a.condition || a.condition(state);
+        return (!a.condition || a.condition(weekendContext)) && !getActivityBlockReason(state, a);
     });
 
     return {
         state, setState, hasSave, saveGame, loadGame,
         startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
-        executeTimetable, handleExamFinish, closeCompetitionPopup, closeExamResult, closeMiniGame,
+        executeTimetable, handleExamFinish, closeExamResult,
         weekendOptions
     };
 };

@@ -25,6 +25,11 @@ export const BLOCKED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
     'act_cf': ['Sun_Morn'], // Codeforces blocks Sunday Morning
 };
 
+/** Activities that are only meaningful in a specific time slot. */
+export const ALLOWED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
+    'act_cf': ['Sat_Night'],
+};
+
 const WEEKDAY_DAYS = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
 
 /** Remove evening slots made unavailable by the evening-study agreement. */
@@ -33,3 +38,12 @@ export const clearWeekdaySchedule = (schedule: Record<string, string> = {}): Rec
         const slot = SCHEDULE_SLOTS.find(candidate => candidate.id === slotId);
         return !slot || !WEEKDAY_DAYS.has(slot.day);
     }));
+
+const SLOT_ORDER = new Map(SCHEDULE_SLOTS.map((slot, index) => [slot.id, index]));
+
+/** Object insertion order depends on the order in which the player clicked slots. */
+export const getOrderedScheduleEntries = (schedule: Record<string, string> = {}): Array<[string, string]> =>
+    Object.entries(schedule).sort(([left], [right]) =>
+        (SLOT_ORDER.get(left as TimeSlotId) ?? Number.MAX_SAFE_INTEGER)
+        - (SLOT_ORDER.get(right as TimeSlotId) ?? Number.MAX_SAFE_INTEGER)
+    );

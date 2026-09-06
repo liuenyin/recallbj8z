@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameEvent, EventChoice, GameState } from '../types';
-import { isStudyBlocked } from '../data/utils';
+import { isStudyBlocked, isStudyChoice } from '../data/utils';
 
 interface EventModalProps {
     event: GameEvent;
@@ -15,19 +15,21 @@ interface EventModalProps {
 const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm }) => {
     const formatStoryText = (text: string) => text.replace(/\bTA\b/g, state.flags.relationship_name || 'TA');
     const getDiffClass = (diff: string) => {
-        if (diff.startsWith('疲劳 ')) {
-            return diff.includes('+')
+        const isPositive = /\+|上升|提升|增加/.test(diff);
+        const isNegative = /-|下降|降低|减少/.test(diff);
+        if (diff.startsWith('疲劳')) {
+            return isPositive
                 ? 'bg-rose-50 text-rose-600 border border-rose-100'
                 : 'bg-emerald-50 text-emerald-600 border border-emerald-100';
         }
-        if (diff.startsWith('兴奋 ')) {
-            return diff.includes('+')
+        if (diff.startsWith('兴奋')) {
+            return isPositive
                 ? 'bg-orange-50 text-orange-600 border border-orange-100'
                 : 'bg-amber-50 text-amber-600 border border-amber-100';
         }
-        return diff.includes('+')
+        return isPositive
             ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-            : diff.includes('-')
+            : isNegative
                 ? 'bg-rose-50 text-rose-600 border border-rose-100'
                 : 'bg-blue-50 text-blue-600 border border-blue-100';
     };
@@ -63,8 +65,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                       </p>
                       <div className="space-y-3">
                          {visibleChoices.map((c, i) => {
-                           const isStudyChoice = (c.tags || []).includes('study') || /学习|刷题|复习|通宵|熬夜|集训|肝|认真听/.test(c.text);
-                           const disabled = studyBlocked && isStudyChoice;
+                           const disabled = studyBlocked && isStudyChoice(c);
                            return (
                            <motion.button 
                              whileHover={{ scale: 1.02 }}
@@ -79,6 +80,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                            );
                          })}
                          {studyBlocked && <div className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">极限难度：心态低于 20 或疲劳超过 90，学习选项暂时不可用。</div>}
+                         {studyBlocked && visibleChoices.length > 0 && visibleChoices.every(isStudyChoice) && (
+                           <button type="button" onClick={onConfirm} className="w-full p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 font-bold hover:bg-amber-100">
+                             跳过本次学习机会
+                           </button>
+                         )}
                          {visibleChoices.length === 0 && (
                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center text-sm font-bold text-amber-700">
                              当前没有可用选项，已跳过此事件。

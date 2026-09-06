@@ -3,7 +3,6 @@ import { AiConfig, Difficulty, GeneralStats } from '../types';
 import { DIFFICULTY_PRESETS, CHANGELOG_DATA } from '../data/constants';
 import { ACHIEVEMENTS } from '../data/mechanics';
 import { motion } from 'framer-motion';
-import AchievementDesk from './AchievementDesk';
 import AiSettingsModal from './AiSettingsModal';
 import { LocalAccount } from '../lib/accounts';
 
@@ -86,8 +85,8 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                      </span>
-                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visitors</span>
-                                     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Fliuenyin%2Frecallbj8z&label=&countColor=%234f46e5&style=flat&labelStyle=none" alt="views" className="h-4" />
+                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">运行状态</span>
+                                     <span className="text-[10px] font-bold text-emerald-500">正常</span>
                                  </div>
                              </div>
                          </div>
@@ -126,7 +125,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
                                      <div key={key} className="flex items-center gap-3">
                                          <span className="text-[10px] font-bold text-slate-500 w-12">{CUSTOM_STAT_LABELS[key] || key}</span>
-                                         <input type="range" min="0" max="100" value={customStats[key]} onChange={(e) => onCustomStatsChange({...customStats, [key]: parseInt(e.target.value)})} 
+                                         <input type="range" min="0" max={key === 'efficiency' ? 30 : 100} value={Math.min(customStats[key], key === 'efficiency' ? 30 : 100)} onChange={(e) => onCustomStatsChange({...customStats, [key]: parseInt(e.target.value)})}
                                             className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                                          />
                                          <span className="text-xs font-bold text-indigo-600 w-8 text-right">{customStats[key]}</span>
@@ -166,6 +165,14 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                          <button type="button" onClick={onManageAccounts} className="mt-4 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1">
                              <i className="fas fa-users-cog" /> 管理本地账号与存档
                          </button>
+
+                         <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
+                             <UtilityButton icon="fa-history" label="更新日志" onClick={() => setShowChangelog(true)} color="bg-slate-100 text-slate-600 hover:bg-slate-200" />
+                             <UtilityButton icon="fa-info-circle" label="关于 / FAQ" onClick={() => setShowSettings(true)} color="bg-slate-100 text-slate-600 hover:bg-slate-200" />
+                             <UtilityButton icon="fa-users" label="加入组织" onClick={() => setShowQQGroup(true)} color="bg-indigo-50 text-indigo-600 hover:bg-indigo-100" />
+                             <UtilityButton icon="fa-play-circle" label="视频介绍" onClick={() => setShowVideo(true)} color="bg-rose-50 text-rose-600 hover:bg-rose-100" />
+                             <UtilityButton icon="fa-bolt" label="支持作者" onClick={() => setShowSponsor(true)} color="bg-amber-50 text-amber-700 hover:bg-amber-100" />
+                         </div>
                          
                          {/* Hints */}
                          {selectedDifficulty !== 'REALITY'  && (
@@ -177,11 +184,6 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <div className="mt-3 text-xs text-rose-600 font-bold flex items-start gap-1.5 bg-rose-50 w-fit max-w-xl px-3 py-2 rounded-xl border border-rose-100">
                                  <i className="fas fa-skull-crossbones mt-0.5" />
                                  <span>极限规则：健康低于 10 立即结束；心态低于 20 或疲劳超过 90 时不能学习。开局天赋点为 -1，需选择负面天赋补足；商店价格翻倍。</span>
-                             </div>
-                         )}
-                         {false && (
-                             <div className="mt-4 text-xs text-indigo-600 font-bold flex items-center gap-1.5 bg-indigo-50 w-fit px-3 py-1 rounded-full border border-indigo-100">
-                                 <i className="fas fa-robot"></i> 实验性功能：事件将由 DeepSeek API 实时生成，请确保网络通畅。
                              </div>
                          )}
                      </div>
@@ -337,8 +339,8 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <div className="space-y-4">
                                  <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">游戏机制</h3>
                                  <div className="text-sm text-slate-600 space-y-2">
-                                     <p><span className="font-bold text-slate-800">最终得分计算公式：</span><br/>
-                                     得分 = 心态 + 健康 + (效率 × 5) + (成就数 × 50)</p>
+                                     <p><span className="font-bold text-slate-800">最终评价：</span><br/>
+                                     以各科水平为主，结合经验、效率、长期项目、社团和关键路线成果；不同路线会影响结局。</p>
                                  </div>
                              </div>
 

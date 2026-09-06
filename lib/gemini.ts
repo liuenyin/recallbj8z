@@ -68,13 +68,25 @@ export const saveAiConfig = (config: AiConfig): void => {
 };
 
 export const normalizeAiEndpoint = (rawUrl: string): string => {
-  const value = rawUrl.trim().replace(/\/+$/, '');
+  const value = rawUrl.trim();
   if (!value) throw new Error('请先填写 API 地址');
   if (!/^https?:\/\//i.test(value)) throw new Error('API 地址必须以 http:// 或 https:// 开头');
-  if (/\/chat\/completions$/i.test(value)) return value;
-  if (/\/v\d+$/i.test(value)) return `${value}/chat/completions`;
-  if (/deepseek\.com/i.test(value)) return `${value}/chat/completions`;
-  return `${value}/v1/chat/completions`;
+
+  let endpoint: URL;
+  try {
+    endpoint = new URL(value);
+  } catch {
+    throw new Error('API 地址格式无效');
+  }
+  const pathname = endpoint.pathname.replace(/\/+$/, '');
+  if (/\/chat\/completions$/i.test(pathname)) {
+    endpoint.pathname = pathname;
+  } else if (/\/v\d+$/i.test(pathname) || /deepseek\.com$/i.test(endpoint.hostname)) {
+    endpoint.pathname = `${pathname}/chat/completions`;
+  } else {
+    endpoint.pathname = `${pathname}/v1/chat/completions`;
+  }
+  return endpoint.toString();
 };
 
 const readCompletionText = (data: any): string => {
@@ -89,7 +101,7 @@ const readCompletionText = (data: any): string => {
 const requestCompletion = async (
   config: AiConfig,
   messages: Array<{ role: 'system' | 'user'; content: string }>,
-  options: { temperature?: number; maxTokens?: number; retries?: number } = {}
+  options: { temperature?: number; maxTokens?: number; retries?: number; signal?: AbortSignal } = {}
 ): Promise<string> => {
   const endpoint = normalizeAiEndpoint(config.apiUrl);
   const model = config.model.trim();
@@ -101,7 +113,10 @@ const requestCompletion = async (
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    const abortFromCaller = () => controller.abort();
+    if (options.signal?.aborted) controller.abort();
+    else options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -121,11 +136,15 @@ const requestCompletion = async (
       }
       return readCompletionText(await response.json());
     } catch (error: any) {
-      if (error?.name === 'AbortError') throw new Error('API 请求超时（30 秒）');
+      if (error?.name === 'AbortError') {
+        if (options.signal?.aborted) throw new Error('AI 请求已取消');
+        throw new Error('API 请求超时（30 秒）');
+      }
       if (error instanceof TypeError) throw new Error('无法连接 API，可能是地址错误或服务端未允许浏览器跨域访问');
       throw error;
     } finally {
-      window.clearTimeout(timeout);
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
     }
   }
 
@@ -148,6 +167,23 @@ const sanitizeEffect = (raw: any): SerializableEffect => {
   GENERAL_EFFECT_KEYS.forEach(key => {
     const value = toFiniteNumber(raw?.[key]);
     if (value !== undefined) (effect as any)[key] = clamp(value, ...generalLimits[key]);
+  });
+
+  const legacyAliases: Record<string, (typeof GENERAL_EFFECT_KEYS)[number]> = {
+    enjoyment: 'mindset',
+    hunger: 'health',
+    intellect: 'experience',
+    knowledge: 'experience',
+    knowlege: 'experience',
+    wealth: 'money',
+    social: 'romance',
+    study: 'experience'
+  };
+  Object.entries(legacyAliases).forEach(([legacyKey, target]) => {
+    const value = toFiniteNumber(raw?.[legacyKey]);
+    if (value !== undefined) {
+      effect[target] = clamp((effect[target] || 0) + value, ...generalLimits[target]);
+    }
   });
 
   if (raw?.romancePartner !== undefined && raw.romancePartner !== null) {
@@ -184,10 +220,16 @@ const sanitizeEvents = (rawEvents: any[]): AiGeneratedEvent[] => rawEvents
     const choices: AiGeneratedEventChoice[] = raw.choices
       .map((choice: any) => {
         if (!choice || typeof choice.text !== 'string') return null;
+        const rawEffect = choice.effect && typeof choice.effect === 'object'
+          ? { ...choice, ...choice.effect }
+          : choice;
         return {
           text: choice.text.trim().slice(0, 160),
           resultDescription: typeof choice.resultDescription === 'string' ? choice.resultDescription.trim().slice(0, 500) : '事情暂时告一段落。',
-          effect: sanitizeEffect(choice.effect || {})
+          effect: sanitizeEffect(rawEffect),
+          tags: Array.isArray(choice.tags)
+            ? choice.tags.filter((tag: unknown) => ['sleep', 'study', 'sport', 'rest', 'social', 'risky'].includes(String(tag))).slice(0, 3)
+            : undefined
         };
       })
       .filter((choice: AiGeneratedEventChoice | null): choice is AiGeneratedEventChoice => !!choice && !!choice.text)
@@ -225,29 +267,40 @@ const buildPrompt = (state: GameState): string => {
   const region = state.worldContext?.region || '未知城市';
   const year = state.worldContext?.yearStart || '当代';
   const statuses = state.activeStatuses.map(status => status.name).join('、') || '无';
-  return `你是一个高中生活模拟游戏的事件编剧。玩家来自${region}，在八中背景学校就读，入学年份约为${year}。
+  const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+  const describe = (value: number, max: number) => {
+    const ratio = value / max;
+    return ratio >= 0.8 ? '高' : ratio >= 0.6 ? '较高' : ratio >= 0.4 ? '一般' : ratio >= 0.2 ? '较低' : '低';
+  };
+  const generalLine = hideDetails
+    ? `心态${describe(state.general.mindset, 100)}、健康${describe(state.general.health, 100)}、疲劳${describe(state.fatigue, 100)}、兴奋${describe(state.general.excitement ?? 0, 100)}、金钱${describe(state.general.money, 200)}、效率${describe(state.general.efficiency, 30)}、桃花${describe(state.general.romance, 100)}、经验${describe(state.general.experience, 100)}`
+    : `心态${Math.round(state.general.mindset)}、健康${Math.round(state.general.health)}、疲劳${Math.round(state.fatigue)}、兴奋${Math.round(state.general.excitement ?? 0)}、金钱${Math.round(state.general.money)}、效率${Math.round(state.general.efficiency)}、桃花${Math.round(state.general.romance)}、经验${Math.round(state.general.experience)}`;
+  const subjectLine = hideDetails
+    ? (Object.entries(state.subjects) as [SubjectKey, { level: number }][]).map(([key, value]) => `${SUBJECT_NAMES[key]}:${describe(value.level, 100)}`).join('、')
+    : subjects;
+  return `你是一个高中生活模拟游戏的事件编剧。玩家来自${region}，在北京八中背景下就读，入学年份约为${year}。
 当前阶段：${state.phase}，第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : state.competition === 'MO' ? '数学竞赛（MO）' : '课内综合'}。
-当前属性：心态${Math.round(state.general.mindset)}、健康${Math.round(state.general.health)}、疲劳${Math.round(state.fatigue)}、兴奋${Math.round(state.general.excitement ?? 0)}、金钱${Math.round(state.general.money)}、效率${Math.round(state.general.efficiency)}、桃花${Math.round(state.general.romance)}、经验${Math.round(state.general.experience)}。
-学科水平：${subjects}。
+当前属性：${generalLine}。
+学科水平：${subjectLine}。
 当前状态：${statuses}。
 重要同学：${relationshipName}；关系状态：${state.romancePartner ? '已确立关系' : '尚未确立关系'}。
 天赋：${state.talents.map(talent => talent.name).join('、') || '无'}。
 最近剧情：\n${recentHistory || '暂无，这是新的学期。'}
 
 请生成 2-3 个彼此主题不同、贴近中国高中校园的事件。事件要让玩家在学习、健康、关系、金钱、社团或竞赛之间做取舍，避免空泛鸡汤和重复最近剧情。
-每个事件必须有 2-4 个有效选项，其中至少一个选项风险较低但收益也较小。每个选项必须有 resultDescription 和 effect。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、excitement、romancePartner、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 和 excitement 在 -15 到 +15。不要让单个选项直接造成死亡、满值或不可逆的大幅惩罚。
+每个事件必须有 2-4 个有效选项，其中至少一个选项风险较低但收益也较小。每个选项必须有 resultDescription、effect 和 tags。tags 只能从 sleep、study、sport、rest、social、risky 中选择。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、excitement、romancePartner、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 和 excitement 在 -15 到 +15。不要让单个选项直接造成死亡、满值或不可逆的大幅惩罚。
 只在确实确立恋爱关系时填写 romancePartner；不要返回 flags、代码、Markdown 或解释文字。
 
 严格返回 JSON 数组，格式：
-[{"title":"事件标题","description":"事件描述","type":"positive|negative|neutral","choices":[{"text":"选项文本","resultDescription":"选择后的结果反馈","effect":{"mindset":0,"health":0,"fatigue":0}}]}]`;
+[{"title":"事件标题","description":"事件描述","type":"positive|negative|neutral","choices":[{"text":"选项文本","resultDescription":"选择后的结果反馈","tags":["study"],"effect":{"mindset":0,"health":0,"fatigue":0}}]}]`;
 };
 
-export const generateBatchGameEvents = async (state: GameState, config: AiConfig = getEnvironmentConfig()): Promise<AiGeneratedEvent[]> => {
+export const generateBatchGameEvents = async (state: GameState, config: AiConfig = getEnvironmentConfig(), signal?: AbortSignal): Promise<AiGeneratedEvent[]> => {
   if (!config.enabled) throw new Error('AI 模式未开启');
   const content = await requestCompletion(config, [
     { role: 'system', content: buildPrompt(state) },
     { role: 'user', content: '请根据当前状态生成本周事件。' }
-  ], { temperature: 1.05, maxTokens: 2200, retries: 1 });
+  ], { temperature: 1.05, maxTokens: 2200, retries: 1, signal });
   return parseEvents(content);
 };
 

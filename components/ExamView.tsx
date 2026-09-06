@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ExamResult, SubjectKey, SUBJECT_NAMES, Phase, OIProblem, OIStats } from '../types';
 import { OI_PROBLEMS } from '../data/oi_data';
 import { getEffectiveEfficiency } from '../data/utils';
+import { getAcademicMaxScore } from '../data/game_flow';
 
 interface ExamViewProps {
   title: string;
@@ -10,11 +11,18 @@ interface ExamViewProps {
   onFinish: (result: ExamResult) => void;
 }
 
+interface ExamLogEntry {
+  message: string;
+  timestamp: number;
+}
+
 const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   const [examStep, setExamStep] = useState(0);
-  const [examLogs, setExamLogs] = useState<string[]>([]);
+  const [examLogs, setExamLogs] = useState<ExamLogEntry[]>([]);
   const [currentScores, setCurrentScores] = useState<Record<string, number>>({});
   const [isFinished, setIsFinished] = useState(false);
+  const finishSubmittedRef = useRef(false);
+  const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
 
   // Determine which subjects to test based on phase
   const getSubjectsToTest = (): string[] => {
@@ -42,7 +50,14 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   const [oiProblems] = useState<OIProblem[]>(() => {
        if ([Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM].includes(state.phase)) {
            const problemCount = [Phase.NOI_EXAM].includes(state.phase) ? 8 : [Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM].includes(state.phase) ? 6 : 4;
-           const shuffled = [...OI_PROBLEMS].sort(() => 0.5 - Math.random());
+           const maxLevel = state.phase === Phase.CSP_EXAM ? 3
+             : state.phase === Phase.NOIP_EXAM ? 5
+             : state.phase === Phase.PROVINCIAL_EXAM ? 8
+             : state.phase === Phase.APIO_EXAM ? 9
+             : 10;
+           const authored = OI_PROBLEMS.filter(problem => problem.level <= maxLevel);
+           const pool = authored.length >= problemCount ? authored : OI_PROBLEMS;
+           const shuffled = [...pool].sort(() => 0.5 - Math.random());
            return shuffled.slice(0, problemCount);
        }
        return [];
@@ -136,7 +151,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
              if (finalRatio >= 0.95) score = 100; 
              else score = Math.max(0, Math.floor(Math.min(100, finalRatio * 100)));
              
-             logMsg = `题目 "${prob.name}" 测试结束，获得 ${score} 分${extraLog}。`;
+             logMsg = `题目 "${prob.name}" 测试结束，${hideDetails ? '表现已记录' : `获得 ${score} 分`}${extraLog}。`;
 
         } else {
             // Standard Exam Logic
@@ -168,11 +183,11 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
             let finalPercentage = Math.min(100, Math.max(0, finalScoreRaw)) / 100;
 
             score = Math.floor(finalPercentage * maxScore);
-            logMsg = `${SUBJECT_NAMES[subject]} 考试结束，得分 ${score}/${maxScore}${extraLog}。`;
+            logMsg = `${SUBJECT_NAMES[subject]} 考试结束，${hideDetails ? '表现已记录' : `得分 ${score}/${maxScore}`}${extraLog}。`;
         }
 
         setCurrentScores(prev => ({ ...prev, [subjectKey]: score }));
-        setExamLogs(prev => [...prev, logMsg]);
+        setExamLogs(prev => [...prev, { message: logMsg, timestamp: Date.now() }]);
         setExamStep(prev => prev + 1);
       }, 800);
       return () => clearTimeout(timer);
@@ -182,19 +197,21 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   }, [examStep, state, currentScores, isFinished, subjectsToTest, oiProblems]);
 
   const handleFinishConfirm = () => {
+      if (finishSubmittedRef.current) return;
+      finishSubmittedRef.current = true;
       const total = (Object.values(currentScores) as number[]).reduce((a, b) => a + b, 0);
       
       let comment = "继续努力。";
       // Comments based on relative performance (Phase sensitive)
       const isOIExam = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM].includes(state.phase);
-      const maxTotal = isOIExam ? subjectsToTest.length * 100 : subjectsToTest.reduce((acc, s) => acc + (['chinese', 'math', 'english'].includes(s) ? 150 : 100), 0);
+      const maxTotal = isOIExam ? subjectsToTest.length * 100 : getAcademicMaxScore(subjectsToTest);
       const ratio = total / maxTotal;
 
-      if ([Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM].includes(state.phase)) {
-          if (total >= 300) comment = "神乎其技，你就是机房的传说！";
-          else if (total >= 200) comment = "发挥稳定，应该能拿奖。";
-          else if (total >= 100) comment = "有些遗憾，明年再战。";
-          else comment = "技不如人，甘拜下风。";
+      if (isOIExam) {
+          if (ratio >= 0.85) comment = "发挥很强，已经进入奖项或选拔机会的竞争区间，等待正式结果。";
+          else if (ratio >= 0.65) comment = "发挥稳定，成绩有竞争力，但奖项仍取决于当年分数线和名额。";
+          else if (ratio >= 0.4) comment = "拿到了一部分分数，赛后补题和复盘比猜奖项更重要。";
+          else comment = "这场发挥不理想，先把失分点记下来，之后再决定是否继续参赛。";
       } else {
           if (ratio > 0.90) comment = "傲视群雄，你是八中当之无愧的传说！"; 
           else if (ratio > 0.80) comment = "表现优异，稳居年级前列。";
@@ -207,6 +224,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
         title,
         scores: currentScores,
         totalScore: total,
+        totalStudents: isOIExam ? undefined : 633,
         comment
       });
   };
@@ -228,8 +246,8 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
       <div className="flex-1 overflow-y-auto space-y-4 font-mono text-sm custom-scroll pr-4 bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
         {examLogs.map((log, i) => (
           <div key={i} className="flex gap-4 items-start animate-fadeIn">
-            <span className="text-slate-400">[{new Date().toLocaleTimeString()}]</span>
-            <span className={`text-slate-700 ${log.includes('超常发挥') ? 'text-amber-600 font-bold' : log.includes('失误') ? 'text-rose-600' : ''}`}>{log}</span>
+            <span className="text-slate-400">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+            <span className={`text-slate-700 ${log.message.includes('超常发挥') ? 'text-amber-600 font-bold' : log.message.includes('失误') ? 'text-rose-600' : ''}`}>{log.message}</span>
           </div>
         ))}
         {examStep < subjectsToTest.length && (
@@ -251,13 +269,13 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
             <div className="text-[10px] text-slate-500 uppercase truncate mb-1">
                 {[Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM].includes(state.phase) ? oiProblems[idx]?.name : SUBJECT_NAMES[sub as SubjectKey]}
             </div>
-            <div className="text-xl font-black text-indigo-600">{currentScores[sub] ?? '--'}</div>
+            <div className="text-xl font-black text-indigo-600">{currentScores[sub] === undefined ? '--' : hideDetails ? '·' : currentScores[sub]}</div>
           </div>
         ))}
       </div>
       
       {isFinished && (
-          <button onClick={handleFinishConfirm} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl transition-all animate-fadeIn flex items-center justify-center gap-2 active:scale-95">
+           <button onClick={handleFinishConfirm} disabled={finishSubmittedRef.current} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl transition-all animate-fadeIn flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50">
               查看排名 / 继续 <i className="fas fa-arrow-right"></i>
           </button>
       )}

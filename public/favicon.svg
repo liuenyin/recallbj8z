@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="八中重开模拟器">
+  <rect width="64" height="64" rx="14" fill="#4f46e5"/>
+  <path d="M12 27 32 13l20 14v24H12z" fill="#fff" opacity=".96"/>
+  <path d="M23 51V34h18v17M18 29h28M32 13v8" fill="none" stroke="#4f46e5" stroke-width="4" stroke-linejoin="round"/>
+</svg>

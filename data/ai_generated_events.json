@@ -6615,7 +6615,7 @@
   {
     "id": "evt_random_011",
     "title": "研学旅行Day1: 启程与大巴睡死",
-    "description": "",
+    "description": "研学大巴缓缓驶出校门，车上的同学很快安静下来。你在一路颠簸中和周围的人一起等待抵达目的地。",
     "type": "neutral",
     "triggerType": "CHAIN",
     "choices": [

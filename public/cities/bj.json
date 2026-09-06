@@ -6190,7 +6190,7 @@
       "season": "autumn",
       "title": "AI换脸诈骗惊动校园",
       "description": "新闻报道有人用AI换脸冒充班主任在群里收资料费，差点骗走家长钱。学校紧急开班会教育，还让大家下载反诈App。你第一次意识到科技原来也能这么危险。",
-      "type": "negativ",
+      "type": "negative",
       "choices": [
         {
           "text": "主动给爸妈科普AI诈骗套路",

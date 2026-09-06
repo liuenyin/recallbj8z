@@ -130,7 +130,7 @@ export const BASE_EVENTS: Record<string, GameEvent> = {
             { 
                 text: '还钱 (金钱归零)', 
                 action: (s) => ({ 
-                    general: { ...s.general, money: 0, mindset: s.general.mindset - 40, health: s.general.health - 20,romance: s.general.romance-=10 },
+                    general: { ...s.general, money: 0, mindset: s.general.mindset - 40, health: s.general.health - 20, romance: s.general.romance - 10 },
                     log: [...s.log, { message: "你被迫还清了所有债务（虽然本来就是负的）。", type: 'warning', timestamp: Date.now() }]
                 }) 
             },
