@@ -13,17 +13,28 @@
     "test:regression": "node --experimental-strip-types --test scripts/regression.test.ts",
     "test:shop": "node --experimental-strip-types --test scripts/shop.test.ts",
     "test:flow": "node --experimental-strip-types --test scripts/game_flow.test.ts",
-    "test:data": "node --experimental-strip-types --test scripts/data_integrity.test.ts"
+    "test:data": "node --experimental-strip-types --test scripts/data_integrity.test.ts",
+    "test": "node --experimental-strip-types --test scripts/*.test.ts scripts/*.test.mjs",
+    "check": "npm run typecheck && npm test && npm run build",
+    "test:browser": "node scripts/browser-smoke.mjs"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.4.0",
     "framer-motion": "^12.42.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^5.0.0",
+    "puppeteer-core": "^25.3.0",
+    "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

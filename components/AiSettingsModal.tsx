@@ -39,8 +39,13 @@ const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ config, onSave, onClo
   };
 
   const handleSave = () => {
-    onSave({ ...draft, apiUrl: draft.apiUrl.trim(), model: draft.model.trim() });
-    onClose();
+    try {
+      onSave({ ...draft, apiUrl: draft.apiUrl.trim(), model: draft.model.trim() });
+      onClose();
+    } catch (error) {
+      setTestMessage(error instanceof Error ? error.message : '配置保存失败');
+      setTestOk(false);
+    }
   };
 
   return (

@@ -66,12 +66,12 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
 
                      <div className="relative z-10">
                          <div className="flex justify-between items-start">
-                             <div className="flex items-center gap-5 mb-2">
-                                 <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-4xl shadow-lg shadow-indigo-200 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                             <div className="flex items-center gap-3 md:gap-5 mb-2">
+                                 <div className="w-14 h-14 md:w-20 md:h-20 shrink-0 bg-indigo-600 rounded-2xl md:rounded-3xl flex items-center justify-center text-white text-4xl shadow-lg shadow-indigo-200 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                                     <i className="fas fa-school"></i>
                                  </div>
                                  <div>
-                                     <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-slate-900">八中重开模拟器</h1>
+                                     <h1 className="text-2xl md:text-5xl font-black tracking-tighter text-slate-900">八中重开模拟器</h1>
                                      <p className="text-slate-400 font-bold text-sm mt-1">Made by liuenyin</p>
                                  </div>
                              </div>
@@ -80,14 +80,6 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  <button type="button" onClick={onManageAccounts} className="bg-white/80 backdrop-blur-sm border border-slate-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 text-xs font-bold text-slate-600 hover:border-indigo-200">
                                      <i className="fas fa-user-circle text-indigo-500" /> {account.name}
                                  </button>
-                                 <div className="bg-white/80 backdrop-blur-sm border border-slate-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2">
-                                     <span className="relative flex h-2 w-2">
-                                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                     </span>
-                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">运行状态</span>
-                                     <span className="text-[10px] font-bold text-emerald-500">正常</span>
-                                 </div>
                              </div>
                          </div>
                          

@@ -18,9 +18,9 @@ import EventModal from './components/EventModal';
 import FloatingTextLayer, { FloatingTextItem } from './components/FloatingTextLayer';
 import RealityGuideModal from './components/RealityGuideModal';
 import { loadAiConfig, saveAiConfig } from './lib/gemini';
-import { getActiveAccountId, getAccounts, setActiveAccountId, getAccountSaveKey } from './lib/accounts';
+import { getActiveAccountId, getAccounts, getAccountSaveKey } from './lib/accounts';
 import AccountModal from './components/AccountModal';
-import { getAcademicMaxScore, getSubjectReselectionReturnPhase, isExamPhase } from './data/game_flow';
+import { getAcademicMaxScore, getSubjectReselectionReturnPhase, isExamPhase, getPhaseLabel, formatStoryDiary } from './data/game_flow';
 import { clearWeekdaySchedule } from './data/timetable';
 
 import { SUBJECT_NAMES, SubjectKey } from './types';
@@ -205,8 +205,17 @@ const App: React.FC = () => {
   };
 
   const handleAiConfigChange = (config: AiConfig) => {
-      setAiConfig(config);
       saveAiConfig(config);
+      setAiConfig(config);
+  };
+
+  const downloadDiary = () => {
+      const url = URL.createObjectURL(new Blob(['\uFEFF', formatStoryDiary(state)], { type: 'text/plain;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '八中校园手记.txt';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const calculateProgress = () => state.totalWeeksInPhase === 0 ? 0 : Math.min(100, (state.week / state.totalWeeksInPhase) * 100);
@@ -360,7 +369,7 @@ const App: React.FC = () => {
               account={getAccounts().find(account => account.id === activeAccountId) || getAccounts()[0]}
               onManageAccounts={() => setShowAccounts(true)}
             />
-            {showAccounts && <AccountModal activeAccountId={activeAccountId} onClose={() => setShowAccounts(false)} onChanged={(id) => { setActiveAccountId(id); setAccountId(id); }} />}
+            {showAccounts && <AccountModal activeAccountId={activeAccountId} onClose={() => setShowAccounts(false)} onChanged={setAccountId} />}
           </>
       );
   }
@@ -455,12 +464,12 @@ const App: React.FC = () => {
                <div className="flex items-center justify-between mt-0 md:mt-8">
                    <div className="flex flex-col gap-1 w-full mr-4">
                        <h2 className="font-black text-slate-800 text-lg flex items-center gap-2 uppercase tracking-tight truncate">
-                            <span title={isHealthWarning ? '健康状态需要注意' : '状态正常'} className={`w-2 h-2 rounded-full flex-shrink-0 ${isHealthWarning ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span> {state.phase}
+                            <span title={isHealthWarning ? '健康状态需要注意' : '状态正常'} className={`w-2 h-2 rounded-full flex-shrink-0 ${isHealthWarning ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'}`}></span> {getPhaseLabel(state.phase)}
                         </h2>
                         <div className="flex gap-2 items-center flex-wrap">
                             {state.activeStatuses.map(s => (
                                 <div key={s.id} title={`${s.description}${s.effectDescription ? ` ${s.effectDescription}` : ''}`} className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-                                    <i className={`fas ${s.icon}`}></i> {s.name} ({s.duration}w)
+                                    <i className={`fas ${s.icon}`}></i> {s.name} （{s.duration} 周）
                                 </div>
                             ))}
                             {state.talents.map(t => (
@@ -482,7 +491,7 @@ const App: React.FC = () => {
                     <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                        <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${calculateProgress()}%` }}></div>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">Week {state.week}/{state.totalWeeksInPhase || '-'}</span>
+                    <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">第 {state.week} / {state.totalWeeksInPhase || '—'} 周</span>
                </div>
         </header>
 
@@ -530,7 +539,7 @@ const App: React.FC = () => {
         {/* Exams */}
         {(state.phase === Phase.PLACEMENT_EXAM || state.phase === Phase.FINAL_EXAM || state.phase === Phase.MIDTERM_EXAM || state.phase === Phase.MIDTERM_EXAM_2 || state.phase === Phase.FINAL_EXAM_2 || state.phase === Phase.CSP_EXAM || state.phase === Phase.NOIP_EXAM || state.phase === Phase.WC_EXAM || state.phase === Phase.PROVINCIAL_EXAM || state.phase === Phase.APIO_EXAM || state.phase === Phase.NOI_EXAM) && (
              <div className="absolute inset-0 z-40 rounded-2xl overflow-hidden">
-                 <ExamView title={state.phase} state={state} onFinish={handleExamFinish} />
+                 <ExamView title={getPhaseLabel(state.phase)} state={state} onFinish={handleExamFinish} />
              </div>
         )}
 
@@ -659,15 +668,16 @@ const App: React.FC = () => {
              <div className="absolute inset-0 z-[110] flex justify-end bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => closeGameOverlay(setShowHistory)}>
                 <div className="w-full md:w-96 bg-white h-full shadow-2xl p-6 md:p-8 flex flex-col animate-slideInRight" onClick={e => e.stopPropagation()}>
                    <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
-                      <h2 className="text-2xl font-black text-slate-800 tracking-tight">故事线存档</h2>
+                      <h2 className="text-2xl font-black text-slate-800 tracking-tight">校园手记</h2>
                       <button onClick={() => closeGameOverlay(setShowHistory)} className="text-slate-400 hover:text-slate-800 text-xl"><i className="fas fa-times"></i></button>
                    </div>
+                   <button type="button" onClick={downloadDiary} disabled={!state.history.length} className="mb-5 py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-sm font-bold text-indigo-600 hover:bg-indigo-100 disabled:opacity-40"><i className="fas fa-file-arrow-down mr-2"></i>导出这段经历</button>
                    <div className="flex-1 overflow-y-auto custom-scroll space-y-6">
                       {state.history.length === 0 ? <div className="text-slate-300 text-center py-20 italic">尚未开启故事...</div> : 
                         state.history.map((h, i) => (
                           <div key={i} className="relative pl-6 border-l-2 border-indigo-100">
                              <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 border-4 border-white shadow-sm"></div>
-                             <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{h.phase} | Week {h.week}</div>
+                             <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{getPhaseLabel(h.phase)} · 第 {h.week} 周</div>
                              <h4 className="font-black text-slate-800 mt-1">{h.eventTitle}</h4>
                              <p className="text-xs text-slate-600 mt-1">决策：{h.choiceText}</p>
                              <div className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-50 p-2 rounded-lg">{h.resultSummary}</div>

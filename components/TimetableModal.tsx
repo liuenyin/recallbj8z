@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GameState, WeekendActivity } from '../types';
 import { WEEKEND_ACTIVITIES } from '../data/mechanics';
 import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries } from '../data/timetable';
 import { getDifficultyPreset } from '../data/constants';
-import { clampGameStateMetrics, getLearningMultiplier, getRestRecoveryMultiplier, isStudyBlocked, isLearningActivity, getActivityBlockReason, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isHealthFatal } from '../data/utils';
-import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from '../data/balance';
+import { clampGameStateMetrics, isStudyBlocked, isLearningActivity, getActivityBlockReason, isHealthFatal, getWeekendActivityUpdates } from '../data/utils';
 
 interface Props {
     state: GameState;
@@ -38,7 +37,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
         offeredActivities.includes(activity) || retainedActivityIds.has(activity.id)
     );
 
-    const [schedule, setSchedule] = useState<Record<string, string>>(() => {
+    const [initialSchedule] = useState<Record<string, string>>(() => {
         const last = state.flags.joined_evening_study
             ? clearWeekdaySchedule(state.lastWeekSchedule || {})
             : (state.lastWeekSchedule || {});
@@ -52,6 +51,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
         return valid;
     });
 
+    const [schedule, setSchedule] = useState(initialSchedule);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const difficultyPreset = getDifficultyPreset(state.difficulty);
     const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
@@ -92,42 +92,11 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
             previewBlockers.set(blockedSlot, activity.name);
         });
 
-        // Mirror executeTimetable's positive-gain scaling and repeat penalty so
-        // later slots see the same fatigue/status conditions as execution.
-        const oldPreview = previewState;
-        let updates = (activity.previewAction || activity.action)(oldPreview);
-        if (learningActivity) {
-            const multiplier = getLearningMultiplier(oldPreview);
-            updates = {
-                ...updates,
-                general: scalePositiveGeneralDeltas(oldPreview, updates.general, multiplier),
-                subjects: scalePositiveSubjectDeltas(oldPreview, updates.subjects, multiplier),
-                oiStats: scalePositiveOIStatDeltas(oldPreview, updates.oiStats, multiplier)
-            };
-        } else if (activity.id === 'act_sport') {
-            updates = { ...updates, general: scalePositiveGeneralDeltas(oldPreview, updates.general, getLearningMultiplier(oldPreview)) };
-        } else if (activity.type === 'REST') {
-            updates = { ...updates, general: scalePositiveGeneralDeltas(oldPreview, updates.general, getRestRecoveryMultiplier(oldPreview)) };
-        }
         const repeatCount = (previewRepeatCounts.get(activity.id) || 0) + 1;
         previewRepeatCounts.set(activity.id, repeatCount);
-        const repeatMultiplier = getActivityRepeatMultiplier(repeatCount);
-        if (repeatMultiplier < 1) {
-            const repeatedUpdates = { ...updates };
-            if (updates.general) repeatedUpdates.general = scalePositiveGeneralDeltas(oldPreview, updates.general, repeatMultiplier);
-            if (updates.subjects) repeatedUpdates.subjects = scalePositiveSubjectDeltas(oldPreview, updates.subjects, repeatMultiplier);
-            if (updates.oiStats) repeatedUpdates.oiStats = scalePositiveOIStatDeltas(oldPreview, updates.oiStats, repeatMultiplier);
-            updates = repeatedUpdates;
-        }
-        const fatigueDelta = getWeekendActivityFatigueDelta(
-            activity,
-            getRestRecoveryMultiplier(oldPreview),
-            difficultyPreset.fatigueGainMultiplier
-        );
         previewState = clampGameStateMetrics({
-            ...oldPreview,
-            ...updates,
-            fatigue: Math.min(100, Math.max(0, (oldPreview.fatigue || 0) + fatigueDelta))
+            ...previewState,
+            ...getWeekendActivityUpdates(previewState, activity, repeatCount, true)
         });
         if (isHealthFatal(previewState.difficulty, previewState.general.health)) break;
     }
@@ -175,7 +144,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
         .filter(([, count]) => count > 1)
         .map(([id]) => activityById.get(id)?.name)
         .filter((name): name is string => !!name);
-    const restMultiplier = getRestRecoveryMultiplier(state);
+
     const estimatedFatigueDelta = previewState.fatigue - state.fatigue;
     const projectedFatigue = previewState.fatigue;
     const fatigueRisk = projectedFatigue >= 90 ? '高' : projectedFatigue >= 75 ? '中' : '低';
@@ -187,28 +156,34 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                 {/* Left: Timetable Grid */}
                 <div className="flex-1 p-4 md:p-6 flex flex-col min-h-0 overflow-y-auto custom-scroll md:border-r border-b md:border-b-0 border-slate-200 bg-white">
                     <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight mb-1 md:mb-2">周计划时间表</h2>
-                    <p className="text-xs md:text-sm text-slate-500 mb-3 md:mb-6">规划你放学后和周末的时间。合理安排，劳逸结合。</p>
+                    <p className="text-xs md:text-sm text-slate-500 mb-3 md:mb-6">{Object.keys(initialSchedule).length ? '已带入上次安排，点时间段即可调整。' : '点时间段安排活动；留白也没关系，给自己一点空闲。'}</p>
                     
-                    <div className="grid grid-cols-1 gap-2 md:gap-4">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        <button type="button" onClick={() => { setSchedule({}); setSelectedSlot(null); }} disabled={!Object.keys(schedule).length} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40">清空安排</button>
+                        <button type="button" onClick={() => { setSchedule({ ...initialSchedule }); setSelectedSlot(null); }} disabled={!Object.keys(initialSchedule).length} className="px-3 py-1.5 rounded-lg border border-indigo-100 text-xs font-bold text-indigo-600 hover:bg-indigo-50 disabled:opacity-40">恢复上次</button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 md:gap-3">
                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                            <div key={day} className="flex flex-col gap-1 md:gap-2 p-2 md:p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <h3 className="font-bold text-slate-700 text-sm md:text-base">{day}</h3>
-                                <div className="flex flex-wrap gap-1.5 md:gap-2">
+                            <div key={day} className={`flex flex-col gap-2 p-2 md:p-3 rounded-xl border ${day === 'Sat' || day === 'Sun' ? 'col-span-full bg-indigo-50/40 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                                <h3 className="font-bold text-slate-700 text-sm md:text-base">{{ Mon: '周一', Tue: '周二', Wed: '周三', Thu: '周四', Fri: '周五', Sat: '周六', Sun: '周日' }[day]}</h3>
+                                <div className={`grid gap-2 ${day === 'Sat' || day === 'Sun' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'}`}>
                                     {SCHEDULE_SLOTS.filter(s => s.day === day).map(slot => {
                                         const isBlocked = isSlotBlocked(slot.id);
                                         const blocker = getBlocker(slot.id);
-                                                                                 const actId = schedule[slot.id];
-                                                                                 const act = activityById.get(actId);
-                                                                                 const isRetained = !!act && useRandomWeekendPool && !offeredActivities.some(activity => activity.id === act.id);
-                                                                                 const isSelected = selectedSlot === slot.id;
+                                        const actId = schedule[slot.id];
+                                        const act = activityById.get(actId);
+                                        const isRetained = !!act && useRandomWeekendPool && !offeredActivities.some(activity => activity.id === act.id);
+                                        const isSelected = selectedSlot === slot.id;
+                                        const willSkip = !!act && !isBlocked && !executableSlotIds.has(slot.id);
                                         
                                         return (
                                             <div 
                                                 key={slot.id} 
                                                 onClick={() => handleSlotClick(slot.id)}
-                                                className={`relative flex flex-col p-2 md:p-3 border-2 rounded-xl cursor-pointer transition-all w-24 md:w-32 h-16 md:h-20 ${
+                                                className={`relative flex flex-col p-2 md:p-3 border-2 rounded-xl cursor-pointer transition-all w-full min-w-0 min-h-20 ${
                                                     isBlocked ? 'bg-slate-200 border-slate-300 opacity-50 cursor-not-allowed' :
                                                     isSelected ? 'border-indigo-500 bg-indigo-50' : 
+                                                    willSkip ? 'border-amber-200 bg-amber-50' :
                                                     act ? 'border-blue-300 bg-blue-50 hover:border-blue-400' : 
                                                     'border-slate-200 bg-white hover:border-slate-300'
                                                 }`}
@@ -218,10 +193,10 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                                     <span className="text-[10px] md:text-xs text-rose-500 font-bold leading-tight">被占用 ({blocker})</span>
                                                 ) : act ? (
                                                     <div className="flex justify-between items-start">
-                                                         <span className="text-[10px] md:text-xs font-bold text-blue-800 leading-tight">{act.name}{isRetained && <span className="block text-[9px] text-slate-500 font-medium">计划保留</span>}</span>
+                                                         <span className="text-[10px] md:text-xs font-bold text-blue-800 leading-tight">{act.name}{willSkip && <span className="block text-[9px] text-amber-700 font-medium">暂不可执行</span>}{isRetained && <span className="block text-[9px] text-slate-500 font-medium">计划保留</span>}</span>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleClearSlot(slot.id); }}
-                                                            className="text-slate-400 hover:text-rose-500"
+                                                            aria-label={`移除${slot.label}的${act.name}`} className="text-slate-400 hover:text-rose-500"
                                                         ><i className="fas fa-times-circle"></i></button>
                                                     </div>
                                                 ) : (
@@ -282,11 +257,9 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                     const MAX_SLOTS: Record<string, number> = { 'act_cf': 1, 'w_cf': 1, 'w_atc': 1, 'w_game_late': 1, 'w_game': 2 };
                                     const maxSlots = MAX_SLOTS[act.id] || 3;
                                     const currentCount = Object.values(schedule).filter(v => v === act.id).length;
-                                    
-                                    const allowedSlots = ALLOWED_SLOTS_MAP[act.id];
+                                        const allowedSlots = ALLOWED_SLOTS_MAP[act.id];
                                     const isAllowedSlot = !allowedSlots || allowedSlots.includes(selectedSlot as TimeSlotId);
-                                    
-                                    const currentSlotActivity = activityById.get(schedule[selectedSlot as string]);
+                                        const currentSlotActivity = activityById.get(schedule[selectedSlot as string]);
                                     const currentSlotIsStudy = !!currentSlotActivity && isLearningActivity(currentSlotActivity);
                                     const currentSlotIsExecutableStudy = currentSlotIsStudy && executableSlotIds.has(selectedSlot);
                                     // Count only activities that will actually run. A
@@ -326,7 +299,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center py-4 md:py-0">
                             <i className="fas fa-hand-pointer text-3xl md:text-4xl mb-3 md:mb-4 opacity-50"></i>
-                            <p className="font-bold text-sm md:text-base">点击上方的时间段<br/>安排活动</p>
+                            <p className="font-bold text-sm md:text-base">选择一个时间段<br/>安排这一周的小事</p>
                         </div>
                     )}
                     {state.isWeekend ? (
@@ -341,7 +314,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                         onClick={() => onConfirm(schedule)}
                         className="w-full mt-4 md:mt-6 py-3 md:py-4 bg-slate-600 hover:bg-slate-700 text-white rounded-2xl font-black text-base md:text-lg shadow-lg transition-all active:scale-95"
                     >
-                        关闭 <i className="fas fa-times ml-2"></i>
+                        保存安排 <i className="fas fa-check ml-2"></i>
                     </button>
                 )}
                 </div>

@@ -102,7 +102,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
           </span>
         </div>
         <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
-          <div className="h-full bg-indigo-600" style={{ width: `${hideDetails ? vagueProgress(effectiveEfficiency, 30) : Math.min(100, effectiveEfficiency * 5)}%` }}></div>
+          <div className="h-full bg-indigo-600" style={{ width: `${hideDetails ? vagueProgress(effectiveEfficiency, 30) : Math.min(100, effectiveEfficiency / 30 * 100)}%` }}></div>
         </div>
         {state.competition === 'OI' && (
           <div className="mt-2 text-[10px] font-bold text-indigo-600 truncate" title={oiRouteLabel}>

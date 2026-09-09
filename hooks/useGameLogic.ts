@@ -8,15 +8,15 @@ import {
 import { DIFFICULTY_PRESETS, getDifficultyPreset } from '../data/constants';
 import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
 import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS, CLUBS, TALENTS } from '../data/mechanics';
-import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, isHealthFatal, isStudyChoice, isLearningActivity, getShopPriceMultiplier, clampGameStateMetrics, getActivityBlockReason, normalizeActiveStatuses } from '../data/utils';
-import { getRandomWorldContext, CHARACTER_TEMPLATES } from '../data/world_context';
+import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, isHealthFatal, isStudyChoice, isLearningActivity, getShopPriceMultiplier, clampGameStateMetrics, getActivityBlockReason, normalizeActiveStatuses, getWeekendActivityUpdates } from '../data/utils';
+import { getRandomWorldContext, CHARACTER_TEMPLATES, WORLD_REGIONS } from '../data/world_context';
 import { getHistoricalEventsForWeek, loadCityEvents } from '../data/historical_events';
 import { OI_EVENTS_POOL } from '../data/events_oi';
 import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries } from '../data/timetable';
-import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from '../data/balance';
 import { getRandomRelationshipProfile } from '../data/relationships';
 import { generateBatchGameEvents } from '../lib/gemini';
 import { getAccountSaveKey } from '../lib/accounts';
+import { restoreExamResult, restoreWorldContext, restoreFlags } from '../lib/save_validation';
 import { hydrateProject } from '../data/project_effects';
 import { PHASE_ORDER, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
 
@@ -1041,7 +1041,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 const restoredResult = loaded.eventResult && restoredEvent
                     ? (() => {
                         const choice = restoredEvent.choices?.find(candidate => candidate.text === loaded.eventResult.choiceText);
-                        return choice ? { choice, diff: Array.isArray(loaded.eventResult.diff) ? loaded.eventResult.diff : [] } : null;
+                        return choice ? { choice, diff: Array.isArray(loaded.eventResult.diff) ? loaded.eventResult.diff.filter((line: unknown) => typeof line === 'string') : [] } : null;
                     })()
                     : null;
                 const restoredQueue = Array.isArray(loaded.eventQueue)
@@ -1061,7 +1061,6 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 const validCompetitions = new Set(['None', 'OI', 'MO', 'PhO', 'ChO']);
                 const validSubjectKeys = new Set(Object.keys(initialState.subjects));
                 const validClubIds = new Set(CLUBS.map(club => club.id));
-                const validTalentIds = new Set(TALENTS.map(talent => talent.id));
                 const restoredPhase = validPhases.has(loaded.phase) && loaded.phase !== Phase.INIT
                     ? loaded.phase as Phase
                     : null;
@@ -1087,6 +1086,18 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     ...initialState,
                     ...loaded,
                     phase: restoredPhase,
+                    worldContext: restoreWorldContext(loaded.worldContext, WORLD_REGIONS, CHARACTER_TEMPLATES),
+                    className: typeof loaded.className === 'string' ? loaded.className.slice(0, 80) : '',
+                    examResult: restoreExamResult(loaded.examResult),
+                    popupExamResult: (() => {
+                        const result = restoreExamResult(loaded.popupExamResult);
+                        return result ? { ...result, nextPhase: validPhases.has(loaded.popupExamResult.nextPhase) ? loaded.popupExamResult.nextPhase : undefined } : null;
+                    })(),
+                    achievementPopup: null,
+                    sleepCount: Number.isFinite(loaded.sleepCount) ? Math.max(0, Math.floor(loaded.sleepCount)) : 0,
+                    rejectionCount: Number.isFinite(loaded.rejectionCount) ? Math.max(0, Math.floor(loaded.rejectionCount)) : 0,
+                    midtermRank: Number.isFinite(loaded.midtermRank) || ['SEMESTER_1_DONE', 'SEMESTER_2_DONE'].includes(loaded.midtermRank) ? loaded.midtermRank : null,
+                    theme: loaded.theme === 'dark' ? 'dark' : 'light',
                     difficulty: validDifficulties.has(loaded.difficulty) ? loaded.difficulty : 'NORMAL',
                     competition: validCompetitions.has(loaded.competition) ? loaded.competition : 'None',
                     activeChallengeId: loaded.activeChallengeId === 'c_debt_king' || loaded.activeChallengeId === 'c_sleep_king'
@@ -1113,7 +1124,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     subjects: restoredSubjects,
                     oiStats: { ...initialState.oiStats, ...rawOiStats, history: restoredContestHistory },
                     fatigue: typeof loaded.fatigue === 'number' ? Math.min(100, Math.max(0, loaded.fatigue)) : 20,
-                    flags: loaded.flags && typeof loaded.flags === 'object' && !Array.isArray(loaded.flags) ? loaded.flags : {},
+                    flags: restoreFlags(loaded.flags),
                     selectedSubjects: Array.isArray(loaded.selectedSubjects)
                         ? Array.from(new Set(loaded.selectedSubjects.filter((key: unknown): key is SubjectKey => typeof key === 'string' && validSubjectKeys.has(key) && !['chinese', 'math', 'english'].includes(key)))).slice(0, 3)
                         : [],
@@ -1146,7 +1157,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                         : [],
                     unlockedAchievements: mergedAchievements,
                     talents: Array.isArray(loaded.talents)
-                        ? loaded.talents.filter((talent: any) => talent && typeof talent.id === 'string' && validTalentIds.has(talent.id))
+                        ? TALENTS.filter(talent => loaded.talents.some((raw: any) => raw?.id === talent.id))
                         : [],
                     inventory: Array.isArray(loaded.inventory) ? loaded.inventory.filter((item: unknown): item is string => typeof item === 'string') : [],
                     lastWeekSchedule: restoredSchedule,
@@ -1173,11 +1184,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 return true;
             } catch (e) {
                 console.error("Failed to load save", e);
-                // A malformed save cannot be resumed. Remove it so the home
+                // Preserve the original bytes before removing an unusable save so the home
                 // screen does not advertise a dead "continue" button after
                 // a refresh. Keep this scoped to the exact key we read.
                 if (saveKeyUsed) {
                     try {
+                        localStorage.setItem(saveKeyUsed + '_corrupt_backup', saved);
                         localStorage.removeItem(saveKeyUsed);
                     } catch (removeError) {
                         console.error('Failed to remove malformed save', removeError);
@@ -1558,53 +1570,16 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             (BLOCKED_SLOTS_MAP[activity.id] || []).forEach(blockedSlot => blockedSlots.add(blockedSlot));
 
             const oldS = { ...currentState };
-            let updates = activity.action(oldS);
-            let resultText = typeof activity.resultText === 'function' ? activity.resultText(oldS) : activity.resultText;
             const repeatCount = (activityRepeatCounts.get(activity.id) || 0) + 1;
             activityRepeatCounts.set(activity.id, repeatCount);
-            const repeatMultiplier = getActivityRepeatMultiplier(repeatCount);
+            if (learningActivity) weekendStudyCount += 1;
+            let updates = getWeekendActivityUpdates(oldS, activity, repeatCount);
+            const resultText = typeof activity.resultText === 'function' ? activity.resultText(oldS) : activity.resultText;
 
-            if (learningActivity) {
-                weekendStudyCount += 1;
-                updates = {
-                    ...updates,
-                    general: scalePositiveGeneralDeltas(oldS, updates.general, getLearningMultiplier(oldS)),
-                    subjects: scalePositiveSubjectDeltas(oldS, updates.subjects, getLearningMultiplier(oldS)),
-                    oiStats: scalePositiveOIStatDeltas(oldS, updates.oiStats, getLearningMultiplier(oldS))
-                };
-            } else if (activity.id === 'act_sport') {
-                const sportMultiplier = getLearningMultiplier(oldS);
-                updates = { ...updates, general: scalePositiveGeneralDeltas(oldS, updates.general, sportMultiplier) };
-            } else if (activity.type === 'REST') {
-                updates = { ...updates, general: scalePositiveGeneralDeltas(oldS, updates.general, getRestRecoveryMultiplier(oldS)) };
-            }
-
-            // Repeating the same activity in one week still works, but each
-            // repetition contributes less positive progress. Costs and
-            // negative effects remain unchanged so the trade-off stays clear.
-            if (repeatMultiplier < 1) {
-                const scaledGeneral = scalePositiveGeneralDeltas(oldS, updates.general, repeatMultiplier);
-                if (scaledGeneral && updates.general && typeof oldS.general.excitement === 'number' && typeof updates.general.excitement === 'number' && updates.general.excitement > oldS.general.excitement) {
-                    scaledGeneral.excitement = oldS.general.excitement + (updates.general.excitement - oldS.general.excitement) * repeatMultiplier;
-                }
-                const repeatedUpdates = { ...updates };
-                if (updates.general) repeatedUpdates.general = scaledGeneral;
-                if (updates.subjects) repeatedUpdates.subjects = scalePositiveSubjectDeltas(oldS, updates.subjects, repeatMultiplier);
-                if (updates.oiStats) repeatedUpdates.oiStats = scalePositiveOIStatDeltas(oldS, updates.oiStats, repeatMultiplier);
-                updates = repeatedUpdates;
-            }
-            
             if (currentState.activeChallengeId === 'c_sleep_king' && (activity.id === 'w_sleep' || activity.name.includes('睡'))) {
                 updates = { ...updates, hasSleptThisWeek: true };
                 hasSlept = true;
             }
-
-            const restMultiplier = getRestRecoveryMultiplier(oldS);
-            const fatigueDelta = getWeekendActivityFatigueDelta(
-                activity,
-                restMultiplier,
-                difficultyPreset.fatigueGainMultiplier
-            );
 
             // Extract logs from updates before merging
             if (updates.log) {
@@ -1622,7 +1597,6 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     ...(activity.id === 'act_cf' ? { oi_cf_sessions: Number(currentState.flags.oi_cf_sessions || 0) + 1 } : {})
                 };
             }
-            currentState.fatigue = Math.min(100, Math.max(0, (currentState.fatigue || 0) + fatigueDelta));
             if (isHealthFatal(currentState.difficulty, currentState.general.health)) {
                 currentState.phase = Phase.ENDING;
                 currentState.isPlaying = false;
@@ -1632,7 +1606,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             }
             if (resultText) {
                 const repeatNote = repeatCount > 1 ? '（重复安排，收益递减）' : '';
-                results.push(`[${slotId}] ${resultText}${repeatNote}`);
+                results.push(`[${SCHEDULE_SLOTS.find(slot => slot.id === slotId)?.label || slotId}] ${resultText}${repeatNote}`);
             }
         }
         // Apply batch logs once

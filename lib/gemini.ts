@@ -63,7 +63,7 @@ export const saveAiConfig = (config: AiConfig): void => {
       model: config.model.trim()
     }));
   } catch (error) {
-    console.warn('Unable to persist AI configuration', error);
+    throw new Error('配置保存失败：浏览器存储空间不可用或已满。');
   }
 };
 
@@ -256,7 +256,7 @@ const parseEvents = (text: string): AiGeneratedEvent[] => {
   const candidates = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.events) ? parsed.events : Object.values(parsed || {}).find(value => Array.isArray(value));
   if (!Array.isArray(candidates)) throw new Error('AI 返回中没有事件数组');
   const events = sanitizeEvents(candidates);
-  if (events.length === 0) throw new Error('AI 返回的事件格式不完整');
+  if (events.length < 2) throw new Error('AI 返回的有效事件不足两个');
   return events;
 };
 

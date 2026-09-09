@@ -24,17 +24,22 @@ export const getAccounts = (): LocalAccount[] => {
       && typeof account === 'object'
       && typeof account.id === 'string'
       && typeof account.name === 'string'
-      && typeof account.createdAt === 'number')
+      && account.id.trim().length > 0
+      && account.name.trim().length > 0
+      && Number.isFinite(account.createdAt))
+      .filter((account, index, all) => all.findIndex(other => other.id === account.id) === index)
     : [];
-  if (accounts.length > 0) return accounts;
-  return [{ id: DEFAULT_ACCOUNT_ID, name: '本机游客', createdAt: Date.now() }];
+  if (!accounts.some(account => account.id === DEFAULT_ACCOUNT_ID)) {
+    accounts.unshift({ id: DEFAULT_ACCOUNT_ID, name: '本机游客', createdAt: Date.now() });
+  }
+  return accounts;
 };
 
 export const saveAccounts = (accounts: LocalAccount[]) => {
   try {
     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
   } catch (error) {
-    console.error('Failed to save local accounts', error);
+    throw new Error('账号保存失败：浏览器存储空间不可用或已满。');
   }
 };
 
@@ -50,10 +55,11 @@ export const getActiveAccountId = (): string => {
 };
 
 export const setActiveAccountId = (id: string) => {
+  if (!getAccounts().some(account => account.id === id)) throw new Error('账号不存在');
   try {
     localStorage.setItem(ACTIVE_ACCOUNT_KEY, id);
   } catch (error) {
-    console.error('Failed to save active account', error);
+    throw new Error('账号切换失败：浏览器存储不可用。');
   }
 };
 
@@ -64,20 +70,28 @@ export const createLocalAccount = (name: string): LocalAccount => {
   if (accounts.some(account => account.name === trimmed)) throw new Error('这个账号名称已经存在');
   const account = { id: `account_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: trimmed, createdAt: Date.now() };
   saveAccounts([...accounts, account]);
-  setActiveAccountId(account.id);
+  try {
+    setActiveAccountId(account.id);
+  } catch (error) {
+    saveAccounts(accounts);
+    throw error;
+  }
   return account;
 };
 
 export const deleteLocalAccount = (id: string) => {
   if (id === DEFAULT_ACCOUNT_ID) return;
+  const wasActive = getActiveAccountId() === id;
+  const remaining = getAccounts().filter(account => account.id !== id);
+  // Switch before removing the active profile; otherwise the getter has
+  // already fallen back and can no longer detect the deleted active id.
+  if (wasActive) setActiveAccountId(DEFAULT_ACCOUNT_ID);
+  saveAccounts(remaining);
   try {
     localStorage.removeItem(getAccountSaveKey(id));
   } catch (error) {
-    console.error('Failed to remove account save', error);
+    throw new Error('账号已移除，但浏览器未能清理其存档。');
   }
-  const remaining = getAccounts().filter(account => account.id !== id);
-  saveAccounts(remaining.length > 0 ? remaining : [{ id: DEFAULT_ACCOUNT_ID, name: '本机游客', createdAt: Date.now() }]);
-  if (getActiveAccountId() === id) setActiveAccountId(DEFAULT_ACCOUNT_ID);
 };
 
 export const getAccountSaveKey = (accountId: string): string => `recall_save_v1_${accountId}`;

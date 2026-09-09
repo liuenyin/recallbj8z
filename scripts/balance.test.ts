@@ -35,7 +35,7 @@ test('staying up to play games increases fatigue instead of receiving rest recov
   const mechanicsSource = fs.readFileSync(new URL('../data/mechanics.ts', import.meta.url), 'utf8');
   assert.match(mechanicsSource, /id: 'w_game_late'[\s\S]*?type: 'REST'/);
   assert.match(mechanicsSource, /w_game_late'[\s\S]*?头痛/);
-  const source = fs.readFileSync(new URL('../hooks/useGameLogic.ts', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../data/utils.ts', import.meta.url), 'utf8');
   assert.match(source, /getWeekendActivityFatigueDelta\(/);
 });
 

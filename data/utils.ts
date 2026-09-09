@@ -1,6 +1,7 @@
 
 import { GameState, GameStatus, SubjectKey, OIStats, SerializableEffect, GameEvent, GeneralStats, EventChoice, WeekendActivity, Difficulty, SUBJECT_NAMES } from '../types';
 import { getDifficultyPreset } from './constants';
+import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from './balance';
 
 export const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
   const newSubs = { ...s.subjects };
@@ -410,5 +411,47 @@ export const mapAiEventToGameEvent = (aiEvent: any): GameEvent => {
                 effect: normalizeAiEffect(c)
             }))
         }
+    };
+};
+
+/** Apply one activity's rewards and costs; previews only replace its random action. */
+export const getWeekendActivityUpdates = (
+    state: GameState, activity: WeekendActivity, repeatCount: number, preview = false
+): Partial<GameState> => {
+    let updates = (preview ? activity.previewAction || activity.action : activity.action)(state);
+    if (isLearningActivity(activity)) {
+        const multiplier = getLearningMultiplier(state);
+        updates = {
+            ...updates,
+            general: scalePositiveGeneralDeltas(state, updates.general, multiplier),
+            subjects: scalePositiveSubjectDeltas(state, updates.subjects, multiplier),
+            oiStats: scalePositiveOIStatDeltas(state, updates.oiStats, multiplier)
+        };
+    } else if (activity.id === 'act_sport' || activity.type === 'REST') {
+        const multiplier = activity.id === 'act_sport' ? getLearningMultiplier(state) : getRestRecoveryMultiplier(state);
+        updates = { ...updates, general: scalePositiveGeneralDeltas(state, updates.general, multiplier) };
+    }
+    const repeatMultiplier = getActivityRepeatMultiplier(repeatCount);
+    if (repeatMultiplier < 1) {
+        const general = scalePositiveGeneralDeltas(state, updates.general, repeatMultiplier);
+        // Excitement is not a recovery stat, but repeated activities also reduce its positive gain.
+        if (general && updates.general.excitement > state.general.excitement) {
+            general.excitement = state.general.excitement + (updates.general.excitement - state.general.excitement) * repeatMultiplier;
+        }
+        updates = {
+            ...updates, general,
+            subjects: scalePositiveSubjectDeltas(state, updates.subjects, repeatMultiplier),
+            oiStats: scalePositiveOIStatDeltas(state, updates.oiStats, repeatMultiplier)
+        };
+    }
+    // Keep absent fields absent so partial activity updates don't erase game state.
+    if (!updates.general) delete updates.general;
+    if (!updates.subjects) delete updates.subjects;
+    if (!updates.oiStats) delete updates.oiStats;
+    return {
+        ...updates,
+        fatigue: Math.min(100, Math.max(0, (updates.fatigue ?? state.fatigue) + getWeekendActivityFatigueDelta(
+            activity, getRestRecoveryMultiplier(state), getDifficultyPreset(state.difficulty).fatigueGainMultiplier
+        )))
     };
 };

@@ -13,9 +13,13 @@ const AccountModal: React.FC<Props> = ({ activeAccountId, onClose, onChanged }) 
   const [error, setError] = useState('');
 
   const switchAccount = (id: string) => {
-    setActiveAccountId(id);
-    onChanged(id);
-    onClose();
+    try {
+      setActiveAccountId(id);
+      onChanged(id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '切换失败');
+    }
   };
 
   const addAccount = () => {
@@ -32,8 +36,14 @@ const AccountModal: React.FC<Props> = ({ activeAccountId, onClose, onChanged }) 
 
   const removeAccount = (id: string) => {
     if (id === activeAccountId) return;
-    deleteLocalAccount(id);
-    setAccounts(getAccounts());
+    try {
+      deleteLocalAccount(id);
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除失败');
+    } finally {
+      setAccounts(getAccounts());
+    }
   };
 
   return (

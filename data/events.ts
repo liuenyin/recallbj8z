@@ -683,7 +683,34 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
             { text: '冲！', action: (s) => ({ general: { ...s.general, health: s.general.health + 1, efficiency: s.general.efficiency + 1 } }) },
             { text: '等人少了再去', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 1 } }) }
         ]
-    }
+    },
+    {
+        id: 's1_class_board',
+        title: '班级板报谁来画',
+        description: '教室后面的黑板报空了半个月，班主任把粉笔递到你手里：这次主题是“我的高中第一印象”。',
+        condition: (s) => s.phase === Phase.SEMESTER_1 && s.week >= 3 && s.week <= 8 && !s.flags.class_board_started,
+        triggerType: 'CONDITIONAL',
+        once: true,
+        type: 'neutral',
+        choices: [
+            { text: '我来画，先把框架搭起来', action: (s) => ({ flags: { ...s.flags, class_board_started: true }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 4, mindset: s.general.mindset - 1 }, log: [...s.log, { message: '你接下了板报，和几位同学约好周五放学后一起完成。', type: 'info', timestamp: Date.now() }] }) },
+            { text: '帮忙找素材，别让我主笔', action: (s) => ({ flags: { ...s.flags, class_board_started: true }, general: { ...s.general, experience: s.general.experience + 2, romance: s.general.romance + 1 } }) },
+            { text: '假装低头找笔', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 1 } }) }
+        ]
+    },
+    {
+        id: 's1_class_board_finish',
+        title: '板报交稿前夜',
+        description: '板报的截止时间到了。标题已经写好，剩下的空白却像在等你做最后决定。',
+        condition: (s) => s.phase === Phase.SEMESTER_1 && s.flags.class_board_started === true && s.week >= 6 && !s.flags.class_board_finished,
+        triggerType: 'CONDITIONAL',
+        once: true,
+        type: 'positive',
+        choices: [
+            { text: '熬一会儿，把细节补完', action: (s) => ({ flags: { ...s.flags, class_board_finished: true }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 6, fatigue: s.fatigue + 5, mindset: s.general.mindset + 2 }, log: [...s.log, { message: '板报赶在早读前完成，路过的同学都停下来多看了一眼。', type: 'success', timestamp: Date.now() }] }) },
+            { text: '保留空白，交一份清爽的', action: (s) => ({ flags: { ...s.flags, class_board_finished: true }, general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 4 } }) }
+        ]
+    },
 ];
 
 const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any, eventIndex: number) => {
@@ -724,3 +751,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.APIO_EXAM]: [],
     [Phase.NOI_EXAM]: []
 };
+
+
+
+

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { GameState, Phase } from '../types';
+import { getPhaseLabel } from '../data/game_flow';
 import { DIFFICULTY_PRESETS } from '../data/constants';
 
 interface EndingScreenProps {
@@ -59,7 +60,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                              <div className="flex justify-between gap-4 text-center">
                                  <div className="flex-1">
                                      <div className="text-xs text-slate-500 mb-1">考试类型</div>
-                                     <div className="text-xl font-black text-slate-800">{state.examResult?.title || '未参加'}</div>
+                                     <div className="text-xl font-black text-slate-800">{state.examResult ? getPhaseLabel(state.examResult.title) : '未参加'}</div>
                                  </div>
                                  <div className="w-px bg-slate-200"></div>
                                  <div className="flex-1">
@@ -123,7 +124,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                     <div key={i} className="flex gap-4 relative">
                                         <div className="w-4 h-4 rounded-full bg-white border-4 border-indigo-500 flex-shrink-0 z-10"></div>
                                         <div>
-                                            <div className="text-[10px] font-bold text-indigo-400 uppercase">{h.phase}</div>
+                                            <div className="text-[10px] font-bold text-indigo-400 uppercase">{getPhaseLabel(h.phase)}</div>
                                             <div className="text-sm font-bold text-slate-800">{h.eventTitle}</div>
                                             <div className="text-xs text-slate-500">{h.resultSummary}</div>
                                         </div>

@@ -123,7 +123,8 @@ test('randomized weekend activities expose a side-effect-free timetable projecti
   const modalSource = read('../components/TimetableModal.tsx');
   assert.match(typesSource, /previewAction\?:/);
   assert.match(mechanicsSource, /id: 'act_cf'[\s\S]*?previewAction:/);
-  assert.match(modalSource, /\(activity\.previewAction \|\| activity\.action\)\(oldPreview\)/);
+  assert.match(modalSource, /getWeekendActivityUpdates\(previewState, activity, repeatCount, true\)/);
+  assert.match(utilsSource, /preview \? activity\.previewAction \|\| activity\.action : activity\.action/);
 });
 
 test('club selection pauses the loop and resumes only without pending events', () => {
