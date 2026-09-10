@@ -1378,7 +1378,13 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         } else if ((choiceTags.includes('sport') || /跑步|运动|体育|1000米|打球/.test(choice.text)) && updates.general) {
             updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)) };
         }
-        let newState = clampGameStateMetrics({ ...prev, ...updates });
+        // Scaling an untouched stat group returns undefined; preserve its current value.
+        let newState = clampGameStateMetrics({
+            ...prev, ...updates,
+            general: updates.general ?? prev.general,
+            subjects: updates.subjects ?? prev.subjects,
+            oiStats: updates.oiStats ?? prev.oiStats
+        });
         if (isHealthFatal(prev.difficulty, newState.general.health)) {
             newState = {
                 ...newState,

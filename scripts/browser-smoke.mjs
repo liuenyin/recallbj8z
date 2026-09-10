@@ -48,7 +48,7 @@ try {
     localStorage.setItem(`recall_save_v1_${id}`, JSON.stringify({version:3,state:{
       phase:'SEMESTER_1',week:3,totalWeeksInPhase:20,general:{health:80,efficiency:15},subjects:{},
       isPlaying:false,isWeekend:true,hasSelectedClub:true,className:{bad:true},
-      lastWeekSchedule:{Sat_Aft:'w_sleep',Sun_Aft:'w_game'},
+      lastWeekSchedule:{Sat_Aft:'w_library',Sun_Aft:'w_game'},
       history:[{phase:'SUMMER',week:1,eventTitle:'暑假的抉择',choiceText:'专注课内综合',resultSummary:'新生活开始了。',timestamp:1}],
       popupExamResult:{title:'bad',scores:null,totalScore:1,comment:''},
       achievementPopup:{title:{bad:true}},worldContext:{code:'../bad',region:{}},

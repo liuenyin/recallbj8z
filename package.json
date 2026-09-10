@@ -16,7 +16,7 @@
     "test:data": "node --experimental-strip-types --test scripts/data_integrity.test.ts",
     "test": "node --experimental-strip-types --test scripts/*.test.ts scripts/*.test.mjs",
     "check": "npm run typecheck && npm test && npm run build",
-    "test:browser": "node scripts/browser-smoke.mjs"
+    "test:browser": "node scripts/browser-smoke.mjs && node scripts/choice-browser.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.0",
