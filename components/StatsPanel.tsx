@@ -44,6 +44,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
   return (
     <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-5 space-y-6 h-full border border-white/40 overflow-y-auto custom-scroll flex flex-col transition-colors duration-300">
       {/* 状态概览 */}
+      {state.phase === 'SEMESTER_1' && state.flags.class_board_started && !state.flags.class_board_finished && (
+        <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-xs text-amber-800">
+          <div className="font-bold mb-1">最近的小事 · 班级板报</div>
+          <p>第 {Math.max(6, Number(state.flags.class_board_start_week ?? 5) + 1)} 周交稿，记得和同学碰个面。</p>
+        </div>
+      )}
       <div>
         {state.worldContext && (
             <div className="mb-4 p-3 bg-gradient-to-r from-slate-800 to-indigo-900 rounded-xl text-white shadow-inner flex flex-col gap-1 relative overflow-hidden">

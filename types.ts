@@ -286,6 +286,8 @@ export type EventTriggerType = 'RANDOM' | 'CONDITIONAL' | 'FIXED' | 'CHAINED';
 
 export interface GameEvent {
   id: string;
+  /** Short everyday scenes can continue after showing their feedback. */
+  autoContinue?: boolean;
   title: string;
   description: string | ((state: GameState) => string);
   type: 'positive' | 'negative' | 'neutral';

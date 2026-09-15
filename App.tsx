@@ -121,7 +121,7 @@ const App: React.FC = () => {
   };
 
   const { 
-      state, setState, hasSave, saveGame, loadGame,
+      state, setState, hasSave, saveGame, loadGame, saveNotice,
       startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
       executeTimetable, handleExamFinish, closeExamResult,
       weekendOptions 
@@ -436,6 +436,7 @@ const App: React.FC = () => {
 
       {/* Main Area */}
       <main className="flex-1 flex flex-col gap-2 md:gap-4 relative h-full overflow-hidden">
+        <div role="status" className={`text-[11px] text-right px-2 ${saveNotice.includes('失败') ? 'text-rose-600' : 'text-slate-500'}`}>{saveNotice}</div>
         
         {/* Mobile Toolbar */}
         <div className="flex md:hidden gap-2 overflow-x-auto pb-1 flex-shrink-0">

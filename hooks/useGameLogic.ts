@@ -253,6 +253,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
     
     const [hasSave, setHasSave] = useState(false);
+    const [saveNotice, setSaveNotice] = useState('结算后自动保存');
+    const savedCheckpoint = useRef({ key: STORAGE_KEY, value: '' });
     const latestStateRef = useRef(state);
     const aiRequestToken = useRef(0);
     const aiAbortController = useRef<AbortController | null>(null);
@@ -972,20 +974,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         });
     };
 
-    const saveGame = () => {
-        const snapshot = latestStateRef.current;
-        const unstable = !!snapshot.currentEvent
-            || !!snapshot.chainedEvent
-            || snapshot.eventQueue.length > 0
-            || !!snapshot.isAiGenerating
-            || getPostEventFlow(snapshot.phase) === 'BLOCKED_PHASE';
-        if (unstable) {
-            setState(prev => ({
-                ...prev,
-                log: [...prev.log, { message: '当前流程尚未结算，暂时不能保存。', type: 'warning', timestamp: Date.now() }]
-            }));
-            return;
-        }
+    const persistGame = useCallback((snapshot: GameState, automatic: boolean) => {
         const serializableState = {
             ...snapshot,
             isAiGenerating: false,
@@ -1002,11 +991,49 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: SAVE_VERSION, state: serializableState }));
             setHasSave(true);
-            setState(s => ({ ...s, log: [...s.log, { message: "游戏进度已保存。", type: 'success', timestamp: Date.now() }] }));
+            setSaveNotice(`${automatic ? '自动' : '手动'}保存于 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
+            if (!automatic) setState(s => ({ ...s, log: [...s.log, { message: '游戏进度已保存。', type: 'success', timestamp: Date.now() }] }));
         } catch (error) {
             console.error('Failed to save game', error);
+            setSaveNotice('保存失败，请检查浏览器存储');
             setState(s => ({ ...s, log: [...s.log, { message: '存档失败：浏览器存储空间不可用或已满。', type: 'error', timestamp: Date.now() }] }));
         }
+    }, [STORAGE_KEY]);
+
+    useEffect(() => {
+        // Account switches render once with the previous game's state before resetting it.
+        if (savedCheckpoint.current.key !== STORAGE_KEY) {
+            savedCheckpoint.current = { key: STORAGE_KEY, value: '' };
+            setSaveNotice('结算后自动保存');
+            return;
+        }
+        if (state.phase === Phase.INIT) {
+            savedCheckpoint.current.value = '';
+            return;
+        }
+        if (state.phase !== Phase.ENDING && (state.currentEvent || state.chainedEvent || state.eventResult || state.eventQueue.length
+            || state.isAiGenerating || getPostEventFlow(state.phase) === 'BLOCKED_PHASE')) return;
+        const checkpoint = `${state.phase}:${state.week}:${state.isWeekend}`;
+        if (savedCheckpoint.current.value === checkpoint) return;
+        savedCheckpoint.current.value = checkpoint;
+        persistGame(state, true);
+    }, [state, STORAGE_KEY, persistGame]);
+
+    const saveGame = () => {
+        const snapshot = latestStateRef.current;
+        const unstable = !!snapshot.currentEvent
+            || !!snapshot.chainedEvent
+            || snapshot.eventQueue.length > 0
+            || !!snapshot.isAiGenerating
+            || getPostEventFlow(snapshot.phase) === 'BLOCKED_PHASE';
+        if (unstable) {
+            setState(prev => ({
+                ...prev,
+                log: [...prev.log, { message: '当前流程尚未结算，暂时不能保存。', type: 'warning', timestamp: Date.now() }]
+            }));
+            return;
+        }
+        persistGame(snapshot, false);
     };
 
     const loadGame = (): boolean => {
@@ -1401,7 +1428,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             phase: prev.phase,
             eventTitle: prev.currentEvent?.title || '未知事件',
             choiceText: choice.text,
-            resultSummary: choice.resultDescription || '无',
+            resultSummary: choice.resultDescription
+                || updates.log?.filter(entry => !prev.log.includes(entry)).map(entry => entry.message).join('；')
+                || diff.join('；')
+                || '这次选择没有直接改变属性。',
             timestamp: Date.now()
         };
         setState({ ...newState, history: [...prev.history, entry], eventResult: { choice, diff } });
@@ -1798,7 +1828,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
     });
 
     return {
-        state, setState, hasSave, saveGame, loadGame,
+        state, setState, hasSave, saveGame, loadGame, saveNotice,
         startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
         executeTimetable, handleExamFinish, closeExamResult,
         weekendOptions

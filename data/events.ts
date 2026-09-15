@@ -693,25 +693,46 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         once: true,
         type: 'neutral',
         choices: [
-            { text: '我来画，先把框架搭起来', action: (s) => ({ flags: { ...s.flags, class_board_started: true }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 4, mindset: s.general.mindset - 1 }, log: [...s.log, { message: '你接下了板报，和几位同学约好周五放学后一起完成。', type: 'info', timestamp: Date.now() }] }) },
-            { text: '帮忙找素材，别让我主笔', action: (s) => ({ flags: { ...s.flags, class_board_started: true }, general: { ...s.general, experience: s.general.experience + 2, romance: s.general.romance + 1 } }) },
+            { text: '我来画，先把框架搭起来', action: (s) => ({ flags: { ...s.flags, class_board_started: true, class_board_start_week: s.week, class_board_role: 'draw' }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 4, mindset: s.general.mindset - 1 }, log: [...s.log, { message: '你接下了板报，和几位同学约好周五放学后一起完成。', type: 'info', timestamp: Date.now() }] }) },
+            { text: '帮忙找素材，别让我主笔', action: (s) => ({ flags: { ...s.flags, class_board_started: true, class_board_start_week: s.week, class_board_role: 'research' }, general: { ...s.general, experience: s.general.experience + 2, romance: s.general.romance + 1 } }) },
             { text: '假装低头找笔', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 1 } }) }
         ]
     },
     {
         id: 's1_class_board_finish',
         title: '板报交稿前夜',
-        description: '板报的截止时间到了。标题已经写好，剩下的空白却像在等你做最后决定。',
-        condition: (s) => s.phase === Phase.SEMESTER_1 && s.flags.class_board_started === true && s.week >= 6 && !s.flags.class_board_finished,
+        description: (s) => s.flags.class_board_role === 'research' ? '你找来的素材已经贴上板报，同学想请你帮忙检查最后几段文字。放学了，黑板前还剩你们两个人。' : '板报的截止时间到了。你画的标题已经写好，剩下的空白却像在等你做最后决定。',
+        condition: (s) => s.phase === Phase.SEMESTER_1 && s.flags.class_board_started === true && s.week >= Math.max(6, Number(s.flags.class_board_start_week ?? 5) + 1) && !s.flags.class_board_finished,
         triggerType: 'CONDITIONAL',
         once: true,
         type: 'positive',
         choices: [
-            { text: '熬一会儿，把细节补完', action: (s) => ({ flags: { ...s.flags, class_board_finished: true }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 6, fatigue: s.fatigue + 5, mindset: s.general.mindset + 2 }, log: [...s.log, { message: '板报赶在早读前完成，路过的同学都停下来多看了一眼。', type: 'success', timestamp: Date.now() }] }) },
-            { text: '保留空白，交一份清爽的', action: (s) => ({ flags: { ...s.flags, class_board_finished: true }, general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 4 } }) }
+            { text: '熬一会儿，把细节补完', action: (s) => ({ flags: { ...s.flags, class_board_finished: true, class_board_finish_week: s.week }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 6, mindset: s.general.mindset + 2 }, fatigue: s.fatigue + 5, log: [...s.log, { message: '板报赶在早读前完成，路过的同学都停下来多看了一眼。', type: 'success', timestamp: Date.now() }] }) },
+            { text: '保留空白，交一份清爽的', action: (s) => ({ flags: { ...s.flags, class_board_finished: true, class_board_finish_week: s.week }, general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 4 } }) }
         ]
     },
 ];
+
+SEMESTER_1_EVENTS_RAW.push({
+    id: 's1_class_board_reunion',
+    title: '有人记得那块板报',
+    description: (s) => s.flags.class_board_role === 'research'
+        ? '整理复习资料时，一起做板报的同学把笔记递给你：“上次你找素材帮了大忙，这次换我。周末要不要一起看看？”'
+        : '一起画板报的同学在走廊叫住你：“那次你忙到最后，我一直记着。周末一起看错题吧，我整理了一份。”',
+    triggerType: 'CONDITIONAL', once: true, type: 'positive',
+    condition: s => s.phase === Phase.SEMESTER_1 && s.flags.class_board_finished === true
+        && s.week >= Number(s.flags.class_board_finish_week ?? 6) + 2 && !s.flags.class_board_reunited,
+    choices: [
+        { text: '一起看看，互相讲讲', tags: ['social'],
+          resultDescription: '你们各自讲明白了一道题。临走时约好，有不懂的地方还可以来找对方。',
+          action: s => ({ flags: { ...s.flags, class_board_reunited: true },
+            subjects: modifySub(s, ['math'], 2), general: { ...s.general, mindset: s.general.mindset + 3 } }) },
+        { text: '收下笔记，改天请你喝饮料', tags: ['social'],
+          resultDescription: '你先记下这份好意。板报早已擦掉，一起忙过的人却没有就此变成陌生人。',
+          action: s => ({ flags: { ...s.flags, class_board_reunited: true },
+            general: { ...s.general, mindset: s.general.mindset + 4, romance: s.general.romance + 2 } }) }
+    ]
+});
 
 const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any, eventIndex: number) => {
     if (e.childrens && Array.isArray(e.childrens)) {
@@ -722,7 +743,8 @@ const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any, 
             acc.push(mapAiEventToGameEvent({ ...child, id: `offline_${eventIndex}_${childIndex}` }));
         });
     } else if (e.choices || e.effect) {
-        acc.push(mapAiEventToGameEvent({ ...e, id: `offline_${eventIndex}` }));
+        const event = mapAiEventToGameEvent({ ...e, id: e.id || `offline_${eventIndex}` });
+        acc.push({ ...event, autoContinue: e.id?.startsWith('campus_') === true });
     }
     return acc;
 }, []);
@@ -751,7 +773,3 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.APIO_EXAM]: [],
     [Phase.NOI_EXAM]: []
 };
-
-
-
-

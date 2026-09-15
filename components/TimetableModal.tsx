@@ -56,7 +56,6 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     const difficultyPreset = getDifficultyPreset(state.difficulty);
     const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
     const weekendStudyLimit = difficultyPreset.weekendStudyLimit;
-    const studyBlocked = isStudyBlocked(state);
 
     // Simulate the same sequential blocking rules used by the executor. A
     // blocked slot is created only by an activity that is itself executable;
@@ -72,9 +71,12 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     }
     let previewStudyCount = 0;
     let previewState = activityState;
+    let selectedSlotState = activityState;
     const previewRepeatCounts = new Map<string, number>();
     const executableSlotIds = new Set<string>();
-    for (const [slotId, actId] of getOrderedScheduleEntries(schedule)) {
+    for (const { id: slotId } of SCHEDULE_SLOTS) {
+        if (slotId === selectedSlot) selectedSlotState = previewState;
+        const actId = schedule[slotId];
         if (previewBlockedSlots.has(slotId)) continue;
         const activity = availableActivities.find(a => a.id === actId);
         if (!activity) continue;
@@ -267,8 +269,8 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                     // activity must not consume the HELL weekly limit.
                                     const studyCountAfterReplacingSlot = previewStudyCount - (currentSlotIsExecutableStudy ? 1 : 0);
                                     const isStudyLimit = isLearningActivity(act) && weekendStudyLimit !== undefined && studyCountAfterReplacingSlot >= weekendStudyLimit;
-                                    const isActivityStudyBlocked = isLearningActivity(act) && studyBlocked;
-                                    const activityBlockReason = getActivityBlockReason(state, act);
+                                    const isActivityStudyBlocked = isLearningActivity(act) && isStudyBlocked(selectedSlotState);
+                                    const activityBlockReason = getActivityBlockReason(selectedSlotState, act);
                                     const isAtLimit = currentCount >= maxSlots || !isAllowedSlot || isStudyLimit || isActivityStudyBlocked || !!activityBlockReason;
                                     
                                     return (

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameEvent, EventChoice, GameState } from '../types';
 import { isStudyBlocked, isStudyChoice } from '../data/utils';
@@ -13,6 +13,11 @@ interface EventModalProps {
 }
 
 const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm }) => {
+    useEffect(() => {
+        if (!event.autoContinue || !eventResult || state.chainedEvent || eventResult.choice.nextEventId) return;
+        const timer = setTimeout(onConfirm, 3000);
+        return () => clearTimeout(timer);
+    }, [event.id, event.autoContinue, eventResult, state.chainedEvent, onConfirm]);
     const formatStoryText = (text: string) => text.replace(/\bTA\b/g, state.flags.relationship_name || 'TA');
     const getDiffClass = (diff: string) => {
         const isPositive = /\+|上升|提升|增加/.test(diff);
@@ -123,6 +128,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                            ))}
                         </div>
                       )}
+                      {event.autoContinue && <p className="text-xs text-slate-500 mb-3">片刻后自动继续，结果会留在校园手记中。</p>}
                       <motion.button 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.95 }}

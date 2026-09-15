@@ -132,6 +132,30 @@ try {
   console.log('PASS: AI event count, bounded effects and configuration write failure');
   await page.evaluate(() => {
     const key = `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`;
+    localStorage.setItem(key, JSON.stringify({version:3,state:{
+      phase:'SEMESTER_1',week:6,general:{health:80,mindset:70},subjects:{},
+      isPlaying:false,isWeekend:false,hasSelectedClub:true,currentEvent:'campus_borrow_pen',eventQueue:[]
+    }}));
+  });
+  await page.reload({waitUntil:'networkidle0'});
+  await clickText('继续');
+  await clickText('借用备用笔');
+  await page.waitForFunction(() => document.body.innerText.includes('片刻后自动继续'));
+  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  const automaticSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
+    `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
+  assert.equal(automaticSave.history.filter(entry => entry.eventTitle === '借一支笔').length, 1);
+  assert.equal(automaticSave.currentEvent, null);
+  await page.reload({waitUntil:'networkidle0'});
+  await clickText('继续');
+  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  const resumedSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
+    `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
+  assert.deepEqual(resumedSave.history, automaticSave.history);
+  assert.deepEqual(resumedSave.general, automaticSave.general);
+  console.log('PASS: daily scene auto-continues, autosaves, and reloads without repeating its reward');
+  await page.evaluate(() => {
+    const key = `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`;
     localStorage.setItem(key, '{broken-json');
   });
   await page.reload({waitUntil:'networkidle0'});
