@@ -98,11 +98,27 @@ const readCompletionText = (data: any): string => {
   throw new Error('API 返回中没有可读取的 message.content');
 };
 
+const RATE_LIMIT_WINDOW_MS = 60000;
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const requestTimestamps: number[] = [];
+
+const enforceRateLimit = (): void => {
+  const now = Date.now();
+  while (requestTimestamps.length > 0 && now - requestTimestamps[0] > RATE_LIMIT_WINDOW_MS) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
+    throw new Error('请求过于频繁，请稍后再试（超出速率限制）');
+  }
+  requestTimestamps.push(now);
+};
+
 const requestCompletion = async (
   config: AiConfig,
   messages: Array<{ role: 'system' | 'user'; content: string }>,
   options: { temperature?: number; maxTokens?: number; retries?: number; signal?: AbortSignal } = {}
 ): Promise<string> => {
+  enforceRateLimit();
   const endpoint = normalizeAiEndpoint(config.apiUrl);
   const model = config.model.trim();
   if (!model) throw new Error('请先填写模型名称');
