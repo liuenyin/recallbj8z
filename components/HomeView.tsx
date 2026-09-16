@@ -14,6 +14,8 @@ interface HomeViewProps {
     onStart: () => void;
     hasSave: boolean;
     onLoadGame: () => void;
+    hasManualSave: boolean;
+    onLoadManual: () => void;
     unlockedAchievements: string[];
     aiConfig: AiConfig;
     onAiConfigChange: (config: AiConfig) => void;
@@ -39,7 +41,7 @@ const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void
     </button>
 );
 
-const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, unlockedAchievements, aiConfig, onAiConfigChange, account, onManageAccounts }) => {
+const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, hasManualSave, onLoadManual, unlockedAchievements, aiConfig, onAiConfigChange, account, onManageAccounts }) => {
     const [showChangelog, setShowChangelog] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
     const [showSettings, setShowSettings] = React.useState(false);
@@ -154,6 +156,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  </button>
                              )}
                          </div>
+                         {hasManualSave && <button onClick={onLoadManual} className="mt-4 text-sm font-bold text-indigo-600">读取手动存档 · 回到亲手留的那一刻</button>}
                          <button type="button" onClick={onManageAccounts} className="mt-4 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1">
                              <i className="fas fa-users-cog" /> 管理本地账号与存档
                          </button>

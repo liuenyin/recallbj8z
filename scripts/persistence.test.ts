@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getAccounts, createLocalAccount, deleteLocalAccount, setActiveAccountId, getActiveAccountId, getAccountSaveKey } from '../lib/accounts.ts';
+import { getAccounts, createLocalAccount, deleteLocalAccount, setActiveAccountId, getActiveAccountId, getAccountSaveKey, getAccountManualSaveKey } from '../lib/accounts.ts';
 import { restoreExamResult, restoreWorldContext, restoreFlags } from '../lib/save_validation.ts';
 
 const storage = () => {
@@ -21,11 +21,13 @@ test('deleting the active account resets persisted selection and preserves other
   const entries = storage();
   const account = createLocalAccount('测试');
   entries.set(getAccountSaveKey(account.id), 'progress');
+  entries.set(getAccountManualSaveKey(account.id), 'manual progress');
   entries.set(getAccountSaveKey('guest'), 'guest progress');
   deleteLocalAccount(account.id);
   assert.equal(getActiveAccountId(), 'guest');
   assert.equal(entries.get('recall_active_account_v1'), 'guest');
   assert.equal(entries.has(getAccountSaveKey(account.id)), false);
+  assert.equal(entries.has(getAccountManualSaveKey(account.id)), false);
   assert.equal(entries.get(getAccountSaveKey('guest')), 'guest progress');
 });
 test('failed writes report errors instead of claiming creation or switching succeeded', () => {

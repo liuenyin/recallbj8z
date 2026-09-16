@@ -19,12 +19,59 @@ try {
     const { default: { flushSync } } = await import('/node_modules/.vite/deps/react-dom.js');
     const { useGameLogic } = await import('/hooks/useGameLogic.ts');
     const { PHASE_EVENTS } = await import('/data/events.ts');
+    const { getOrderedScheduleEntries } = await import('/data/timetable.ts');
     const { default: TimetableModal } = await import('/components/TimetableModal.tsx');
+    const { default: EventModal } = await import('/components/EventModal.tsx');
     let game;
     const root = createRoot(document.body.appendChild(document.createElement('div')));
     function Harness({ account = 'choice-regression' }) { game = useGameLogic(undefined, account); return null; }
     flushSync(() => root.render(React.createElement(Harness)));
     const initial = game.state;
+    const legacyPlan = getOrderedScheduleEntries({Sat_Aft:'act_library'})[0][1] === 'w_library';
+    const delayedChoices = [];
+    for (const [id, followupId, index] of [['campus_borrow_pen','campus_pen_return',0],['campus_lost_card','campus_card_return',1]]) {
+      const event = PHASE_EVENTS.SEMESTER_1.find(e=>e.id===id);
+      const followup = PHASE_EVENTS.SEMESTER_1.find(e=>e.id===followupId);
+      const before = {...initial,phase:'SEMESTER_1',week:4};
+      const help = {...before,...event.choices[index].action(before)};
+      const other = {...before,...event.choices[1-index].action(before),week:5};
+      delayedChoices.push(!followup.condition(help),followup.condition({...help,week:5}),!followup.condition(other));
+      delayedChoices.push(!followup.condition({...help,phase:'SEMESTER_2',week:5}));
+    }
+    const feedbackRoot = createRoot(document.body.appendChild(document.createElement('div')));
+    const nativeSetTimeout = window.setTimeout;
+    const nativeClearTimeout = window.clearTimeout;
+    const timers = new Map();
+    let createdTimers = 0;
+    const confirmations = [];
+    let stableTimer, pausedTimer, resumedTimer, importantManual;
+    const daily = PHASE_EVENTS.SEMESTER_1.find(event => event.id === 'campus_borrow_pen');
+    const feedback = { choice:daily.choices[0],diff:[] };
+    try {
+      window.setTimeout = (callback, delay, ...args) => {
+        if (delay !== 3000) return nativeSetTimeout(callback,delay,...args);
+        const id = -(++createdTimers);
+        timers.set(id, callback);
+        return id;
+      };
+      window.clearTimeout = id => { if (id < 0) timers.delete(id); else nativeClearTimeout(id); };
+      const renderFeedback = (marker, paused = false, autoContinue = true) => flushSync(() => feedbackRoot.render(
+        React.createElement(EventModal,{event:{...daily,autoContinue},state:initial,eventResult:feedback,
+          paused,onChoice:()=>{},onConfirm:()=>confirmations.push(marker)})));
+      for (let i=0;i<5;i++) renderFeedback(i);
+      stableTimer = createdTimers === 1 && timers.size === 1;
+      renderFeedback(5,true);
+      pausedTimer = timers.size === 0;
+      renderFeedback(6);
+      resumedTimer = timers.size === 1;
+      for (const callback of timers.values()) callback();
+      renderFeedback(7,false,false);
+      importantManual = timers.size === 0 && confirmations.length === 1 && confirmations[0] === 6;
+    } finally {
+      feedbackRoot.unmount();
+      window.setTimeout = nativeSetTimeout;
+      window.clearTimeout = nativeClearTimeout;
+    }
     const board = PHASE_EVENTS.SEMESTER_1.find(event => event.id === 's1_class_board');
     const finish = PHASE_EVENTS.SEMESTER_1.find(event => event.id === 's1_class_board_finish');
     const boardChecks = [];
@@ -98,7 +145,14 @@ try {
     flushSync(() => game.setState({ ...initial, phase: 'SEMESTER_1', week: 3, isPlaying: false, isWeekend: true }));
     flushSync(() => game.executeTimetable({ Sat_Aft: 'w_library', Sun_Aft: 'w_library' }));
     const plannedLibrary = game.state.subjects.math.level > initial.subjects.math.level
-      && game.state.log.some(entry => entry.message.includes('图书馆'));
+      && game.state.log.some(entry => entry.details?.some(line => line.includes('图书馆')));
+    flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:4,difficulty:'HELL',
+      isPlaying:false,isWeekend:true,general:{...initial.general,health:100,mindset:80},
+      flags:{joined_evening_study:true}}));
+    flushSync(() => game.executeTimetable({Mon_Eve:'w_read',Sat_Aft:'w_library',Sun_Aft:'w_library'}));
+    const planLog = game.state.log.find(entry=>entry.message.startsWith('【本周计划】'));
+    const completeSummary = planLog.message.includes('完成 1 项，跳过 2 项') && planLog.details.length === 3
+      && planLog.details.some(line=>line.includes('晚自习')) && planLog.details.some(line=>line.includes('本周最多'));
     const plannerRoot = createRoot(document.body.appendChild(document.createElement('div')));
     const plannerState = { ...initial, difficulty:'HELL', fatigue:95, isWeekend:true,
       general:{...initial.general, mindset:80}, availableWeekendActivityIds:['w_sleep','w_library'],
@@ -113,6 +167,15 @@ try {
     const libraryOption = [...document.querySelectorAll('span')].find(el => el.textContent === '上图书馆');
     flushSync(() => libraryOption.parentElement.parentElement.click());
     const restThenStudy = document.body.innerText.includes('2 项可执行');
+    flushSync(() => plannerRoot.render(React.createElement(TimetableModal, {key:'limit',
+      state:{...plannerState,difficulty:'NORMAL',fatigue:20,availableWeekendActivityIds:['w_game'],
+        lastWeekSchedule:{Sat_Aft:'w_game',Sun_Aft:'w_game'}},onConfirm:()=>{}})));
+    const saturdayAgain = [...document.querySelectorAll('h3')].find(el => el.textContent === '周六').parentElement;
+    const afternoonAgain = [...saturdayAgain.querySelectorAll('[class]')].find(el => el.textContent === '周六下午');
+    flushSync(() => afternoonAgain.closest('[class*="cursor-pointer"]').click());
+    const gameOption = [...document.querySelectorAll('span')].find(el => el.textContent === '打游戏' && el.parentElement.parentElement.textContent.includes('适度游戏益脑'));
+    flushSync(() => gameOption.parentElement.parentElement.click());
+    const keepExistingAtLimit = !document.body.innerText.includes('选择活动');
     plannerRoot.unmount();
     const saveKey = 'recall_save_v1_choice-regression';
     flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:7,isPlaying:false,isWeekend:true}));
@@ -124,6 +187,13 @@ try {
     const afterChoice = JSON.parse(localStorage.getItem(saveKey)).state;
     flushSync(() => game.loadGame());
     const restored = game.state.week === 8 && game.state.subjects.chinese.level === afterChoice.subjects.chinese.level;
+    flushSync(() => game.saveGame());
+    const manualBytes = localStorage.getItem(saveKey + '_manual');
+    flushSync(() => game.setState(prev => ({...prev,week:9})));
+    const manualIndependent = localStorage.getItem(saveKey + '_manual') === manualBytes
+      && JSON.parse(localStorage.getItem(saveKey)).state.week === 9;
+    flushSync(() => game.loadGame('manual'));
+    const manualRestored = game.state.week === 8;
     const originalSetItem = Storage.prototype.setItem;
     let failedWrites = 0;
     Storage.prototype.setItem = function(key, value) {
@@ -143,7 +213,8 @@ try {
       && localStorage.getItem(saveKey) === beforeSwitch;
     root.unmount();
     return { checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures,
-      autoSaved,pendingNotSaved,restored,failureReported,isolated };
+      autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
+      stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
   });
   console.log(JSON.stringify(results));
   for (const check of results.checks) {
@@ -153,7 +224,10 @@ try {
   assert.ok(results.plannedLibrary);
   assert.ok(results.boardChecks.every(Boolean), 'board timing, fatigue, diary and old saves');
   assert.ok(results.restThenStudy, 'resting first must unlock learning in a later slot');
-  for (const key of ['autoSaved','pendingNotSaved','restored','failureReported','isolated']) assert.ok(results[key],key);
+  assert.ok(results.keepExistingAtLimit, 'keeping an existing activity does not consume another slot');
+  assert.ok(results.legacyPlan && results.completeSummary && results.delayedChoices.every(Boolean), 'legacy plans, complete summaries and delayed choice outcomes');
+  for (const key of ['stableTimer','pausedTimer','resumedTimer','importantManual']) assert.ok(results[key],key);
+  for (const key of ['autoSaved','pendingNotSaved','restored','failureReported','isolated','manualIndependent','manualRestored']) assert.ok(results[key],key);
   assert.deepEqual(results.auditFailures, []);
   assert.deepEqual(errors, []);
   console.log('PASS: event choices preserve untouched stats and repeated library plans execute');

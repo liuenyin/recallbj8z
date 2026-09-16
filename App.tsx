@@ -28,6 +28,14 @@ import { SUBJECT_NAMES, SubjectKey } from './types';
 const App: React.FC = () => {
   // UI State (View Routing & Modals)
   const [view, setView] = useState<'HOME' | 'TALENTS' | 'GAME'>('HOME');
+  const [autoContinueEnabled, setAutoContinueEnabled] = useState(() => {
+      try { return localStorage.getItem('recall_auto_continue_v1') !== 'false'; } catch { return true; }
+  });
+  const toggleAutoContinue = () => {
+      const next = !autoContinueEnabled;
+      setAutoContinueEnabled(next);
+      try { localStorage.setItem('recall_auto_continue_v1', String(next)); } catch { /* Still applies this session. */ }
+  };
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('NORMAL');
   const [customStats, setCustomStats] = useState<GeneralStats>({ mindset: 50, experience: 10, luck: 50, romance: 10, health: 80, money: 20, efficiency: 10, excitement: 40 });
   const [showClubSelection, setShowClubSelection] = useState(false);
@@ -121,7 +129,7 @@ const App: React.FC = () => {
   };
 
   const { 
-      state, setState, hasSave, saveGame, loadGame, saveNotice,
+      state, setState, hasSave, hasManualSave, saveGame, loadGame, saveNotice,
       startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
       executeTimetable, handleExamFinish, closeExamResult,
       weekendOptions 
@@ -364,6 +372,7 @@ const App: React.FC = () => {
               selectedDifficulty={selectedDifficulty} onDifficultyChange={setSelectedDifficulty}
               customStats={customStats} onCustomStatsChange={setCustomStats}
               onStart={prepareGame} hasSave={hasSave} onLoadGame={handleLoadGame}
+              hasManualSave={hasManualSave} onLoadManual={() => { if (loadGame('manual')) setView('GAME'); }}
               unlockedAchievements={state.unlockedAchievements}
               aiConfig={aiConfig} onAiConfigChange={handleAiConfigChange}
               account={getAccounts().find(account => account.id === activeAccountId) || getAccounts()[0]}
@@ -436,7 +445,11 @@ const App: React.FC = () => {
 
       {/* Main Area */}
       <main className="flex-1 flex flex-col gap-2 md:gap-4 relative h-full overflow-hidden">
-        <div role="status" className={`text-[11px] text-right px-2 ${saveNotice.includes('失败') ? 'text-rose-600' : 'text-slate-500'}`}>{saveNotice}</div>
+        <div className="flex flex-wrap justify-between items-center gap-2 px-2 text-[11px]">
+          <button type="button" aria-pressed={autoContinueEnabled} onClick={toggleAutoContinue} className="text-indigo-600 font-bold" title="只影响日常小事件，重要剧情仍需确认">日常自动继续：{autoContinueEnabled ? '开' : '关（慢慢看）'}</button>
+          {hasManualSave && <button type="button" onClick={() => loadGame('manual')} className="text-indigo-600 underline">读取手动存档</button>}
+          <span role="status" className={saveNotice.includes('失败') ? 'text-rose-600' : 'text-slate-500'}>{saveNotice}</span>
+        </div>
         
         {/* Mobile Toolbar */}
         <div className="flex md:hidden gap-2 overflow-x-auto pb-1 flex-shrink-0">
@@ -501,6 +514,10 @@ const App: React.FC = () => {
              {state.log.map((l, i) => (
                 <div key={i} className={`p-3 rounded-xl border-l-4 animate-fadeIn ${l.type === 'event' ? 'bg-indigo-50 border-indigo-400' : l.type === 'success' ? 'bg-emerald-50 border-emerald-400' : l.type === 'error' ? 'bg-rose-50 border-rose-400' : l.type === 'warning' ? 'bg-amber-50 border-amber-400' : 'bg-slate-50 border-slate-300'}`}>
                    <p className="text-sm font-medium text-slate-800">{l.message}</p>
+                   {l.details?.length > 0 && <details className="mt-2 text-sm text-slate-600">
+                     <summary className="cursor-pointer font-bold text-indigo-600">展开安排与跳过原因（{l.details.length} 条）</summary>
+                     <ul className="mt-2 space-y-2">{l.details.map((line, index) => <li key={index}>{line}</li>)}</ul>
+                   </details>}
                 </div>
              ))}
              <div ref={logEndRef} />
@@ -534,6 +551,9 @@ const App: React.FC = () => {
                 event={state.currentEvent} state={state} eventResult={state.eventResult}
                 onChoice={(c, e) => handleChoice(c, (oldS, newS) => calculateAndVisualizeDiff(oldS, newS, e.clientX, e.clientY))} 
                 onConfirm={handleEventConfirm}
+                autoContinueEnabled={autoContinueEnabled}
+                onToggleAutoContinue={toggleAutoContinue}
+                paused={showHistory || showAchievements || showRealityGuide || showContestHistory || showSchedule || showShop || showClubSelection}
             />
         )}
 

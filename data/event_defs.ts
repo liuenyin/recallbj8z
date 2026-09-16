@@ -22,14 +22,15 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
     'sum_confess_fail': {
         id: 'sum_confess_fail',
         title: '被发好人卡',
-        description: '“你是个好人，但我现在只想好好学习。”',
+        description: '“你是个好人，但我现在只想好好学习。”空气安静了两秒。你脑内的小剧场突然弹出一行字：告白任务失败，当前身份——杂鱼（临时）。行，怎么连自己的脑子都在补刀。',
         type: 'negative',
         choices: [{ 
-            text: '心碎满地', 
+            text: '杂鱼也是要吃晚饭的',
+            resultDescription: '你说了句“没事”，转身走出同手同脚的三步。好人卡已到账，喜欢一个人不丢人；今晚先吃点好的，明天再和世界讲道理。',
             action: (s) => ({ 
                 general: { ...s.general, mindset: s.general.mindset - 20 },
                 rejectionCount: (s.rejectionCount || 0) + 1,
-                log: [...s.log, { message: "被发好人卡了... ", type: 'warning', timestamp: Date.now() }] 
+                log: [...s.log, { message: '好人卡 +1。杂鱼称号仅在脑内生效，吃完饭可自行卸载。', type: 'warning', timestamp: Date.now() }]
             }) 
         }]   
     },

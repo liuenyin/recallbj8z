@@ -32,7 +32,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     const lastSchedule = state.flags.joined_evening_study
         ? clearWeekdaySchedule(state.lastWeekSchedule || {})
         : (state.lastWeekSchedule || {});
-    const retainedActivityIds = new Set(Object.values(lastSchedule));
+    const retainedActivityIds = new Set(getOrderedScheduleEntries(lastSchedule).map(([, id]) => id));
     const availableActivities = WEEKEND_ACTIVITIES.filter(activity =>
         offeredActivities.includes(activity) || retainedActivityIds.has(activity.id)
     );
@@ -42,7 +42,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
             ? clearWeekdaySchedule(state.lastWeekSchedule || {})
             : (state.lastWeekSchedule || {});
         const valid: Record<string, string> = {};
-        for (const [slot, actId] of Object.entries(last)) {
+        for (const [slot, actId] of getOrderedScheduleEntries(last)) {
             const activityId = typeof actId === 'string' ? actId : null;
             if (SCHEDULE_SLOTS.some(candidate => candidate.id === slot) && activityId && activityById.has(activityId)) {
                 valid[slot] = activityId;
@@ -271,7 +271,8 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                                     const isStudyLimit = isLearningActivity(act) && weekendStudyLimit !== undefined && studyCountAfterReplacingSlot >= weekendStudyLimit;
                                     const isActivityStudyBlocked = isLearningActivity(act) && isStudyBlocked(selectedSlotState);
                                     const activityBlockReason = getActivityBlockReason(selectedSlotState, act);
-                                    const isAtLimit = currentCount >= maxSlots || !isAllowedSlot || isStudyLimit || isActivityStudyBlocked || !!activityBlockReason;
+                                    const countOutsideSelectedSlot = currentCount - (schedule[selectedSlot] === act.id ? 1 : 0);
+                                    const isAtLimit = countOutsideSelectedSlot >= maxSlots || !isAllowedSlot || isStudyLimit || isActivityStudyBlocked || !!activityBlockReason;
                                     
                                     return (
                                     <div 

@@ -15,7 +15,7 @@ import { OI_EVENTS_POOL } from '../data/events_oi';
 import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries } from '../data/timetable';
 import { getRandomRelationshipProfile } from '../data/relationships';
 import { generateBatchGameEvents } from '../lib/gemini';
-import { getAccountSaveKey } from '../lib/accounts';
+import { getAccountSaveKey, getAccountManualSaveKey } from '../lib/accounts';
 import { restoreExamResult, restoreWorldContext, restoreFlags } from '../lib/save_validation';
 import { hydrateProject } from '../data/project_effects';
 import { PHASE_ORDER, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
@@ -77,6 +77,7 @@ const restoreLogEntries = (value: unknown): GameLogEntry[] => {
             && Number.isFinite(entry.timestamp))
         .map(entry => ({
             message: entry.message.trim().slice(0, 500),
+            details: Array.isArray(entry.details) ? entry.details.filter(line => typeof line === 'string').slice(0, 50) : undefined,
             type: entry.type,
             timestamp: Math.max(0, Math.floor(entry.timestamp))
         }))
@@ -253,6 +254,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
     
     const [hasSave, setHasSave] = useState(false);
+    const [hasManualSave, setHasManualSave] = useState(false);
     const [saveNotice, setSaveNotice] = useState('结算后自动保存');
     const savedCheckpoint = useRef({ key: STORAGE_KEY, value: '' });
     const latestStateRef = useRef(state);
@@ -285,6 +287,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             console.error('Failed to read save metadata', error);
         }
         setHasSave(!!saved);
+        try { setHasManualSave(!!localStorage.getItem(getAccountManualSaveKey(accountId))); }
+        catch { setHasManualSave(false); }
         const initial = getInitialGameState();
         setState(prev => ({ ...initial, unlockedAchievements: prev.unlockedAchievements }));
     }, [STORAGE_KEY, accountId, cancelAiGeneration]);
@@ -989,7 +993,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             } : null
         };
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: SAVE_VERSION, state: serializableState }));
+            const payload = JSON.stringify({ version: SAVE_VERSION, state: serializableState });
+            if (!automatic) {
+                localStorage.setItem(getAccountManualSaveKey(accountId), payload);
+                setHasManualSave(true);
+            }
+            localStorage.setItem(STORAGE_KEY, payload);
             setHasSave(true);
             setSaveNotice(`${automatic ? '自动' : '手动'}保存于 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
             if (!automatic) setState(s => ({ ...s, log: [...s.log, { message: '游戏进度已保存。', type: 'success', timestamp: Date.now() }] }));
@@ -998,7 +1007,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             setSaveNotice('保存失败，请检查浏览器存储');
             setState(s => ({ ...s, log: [...s.log, { message: '存档失败：浏览器存储空间不可用或已满。', type: 'error', timestamp: Date.now() }] }));
         }
-    }, [STORAGE_KEY]);
+    }, [STORAGE_KEY, accountId]);
 
     useEffect(() => {
         // Account switches render once with the previous game's state before resetting it.
@@ -1036,21 +1045,22 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         persistGame(snapshot, false);
     };
 
-    const loadGame = (): boolean => {
+    const loadGame = (source: 'auto' | 'manual' = 'auto'): boolean => {
         cancelAiGeneration();
         let saved: string | null = null;
         let saveKeyUsed: string | null = null;
         try {
-            saved = localStorage.getItem(STORAGE_KEY);
+            const selectedKey = source === 'manual' ? getAccountManualSaveKey(accountId) : STORAGE_KEY;
+            saved = localStorage.getItem(selectedKey);
             if (saved) {
-                saveKeyUsed = STORAGE_KEY;
-            } else if (accountId === 'guest') {
+                saveKeyUsed = selectedKey;
+            } else if (source === 'auto' && accountId === 'guest') {
                 saved = localStorage.getItem(LEGACY_STORAGE_KEY);
                 if (saved) saveKeyUsed = LEGACY_STORAGE_KEY;
             }
         } catch (error) {
             console.error('Failed to read save', error);
-            setHasSave(false);
+            if (source === 'manual') setHasManualSave(false); else setHasSave(false);
             return false;
         }
         if (saved) {
@@ -1107,7 +1117,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 const rawSchedule = loaded.lastWeekSchedule && typeof loaded.lastWeekSchedule === 'object' && !Array.isArray(loaded.lastWeekSchedule)
                     ? loaded.lastWeekSchedule
                     : {};
-                const restoredSchedule = Object.fromEntries(Object.entries(rawSchedule)
+                const restoredSchedule = Object.fromEntries(getOrderedScheduleEntries(rawSchedule)
                     .filter(([slotId, activityId]) => validScheduleSlots.has(slotId) && typeof activityId === 'string' && validActivityIds.has(activityId)));
                 const restoredState = clampGameStateMetrics({
                     ...initialState,
@@ -1207,6 +1217,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 if (restoredState.worldContext) {
                     void loadCityEvents(restoredState.worldContext.code, restoredState.worldContext.region);
                 }
+                savedCheckpoint.current.value = '';
                 setState(restoredState);
                 return true;
             } catch (e) {
@@ -1222,7 +1233,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                         console.error('Failed to remove malformed save', removeError);
                     }
                 }
-                setHasSave(false);
+                if (source === 'manual') setHasManualSave(false); else setHasSave(false);
                 return false;
             }
         }
@@ -1561,6 +1572,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         timetableActionStateRef.current = snapshot;
         let currentState = { ...snapshot };
         const results: string[] = [];
+        const skipped: string[] = [];
+        const skip = (slotId: string, name: string, reason: string) => {
+            const line = `[${SCHEDULE_SLOTS.find(slot => slot.id === slotId)?.label || slotId}] ${name}：${reason}`;
+            skipped.push(line);
+            batchLogs.push({ message: `【计划跳过】${line}`, type: 'warning', timestamp: Date.now() });
+        };
         let hasSlept = Boolean(currentState.hasSleptThisWeek);
         let weekendStudyCount = 0;
         const activityRepeatCounts = new Map<string, number>();
@@ -1577,27 +1594,31 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         // Apply activities sequentially
         const orderedSchedule = getOrderedScheduleEntries(schedule);
         for (const [slotId, actId] of orderedSchedule) {
-            if (blockedSlots.has(slotId)) continue;
             const activity = activityMap.get(actId);
             if (!activity) continue;
+            if (currentState.phase === Phase.ENDING) { skip(slotId, activity.name, '身体撑不住了，后续安排取消'); continue; }
+            if (blockedSlots.has(slotId)) {
+                skip(slotId, activity.name, snapshot.flags.joined_evening_study && slotId.endsWith('_Eve') && !slotId.startsWith('Sat') && !slotId.startsWith('Sun') ? '晚自习占用了这个时间段' : '前一晚的比赛占用了休息时间');
+                continue;
+            }
             const allowedSlots = ALLOWED_SLOTS_MAP[activity.id];
             if (allowedSlots && !allowedSlots.includes(slotId as any)) {
-                batchLogs.push({ message: `【计划跳过】${activity.name}：只能安排在指定时间段。`, type: 'warning', timestamp: Date.now() });
+                skip(slotId, activity.name, '只能安排在指定时间段');
                 continue;
             }
             const activityBlockReason = getActivityBlockReason(currentState, activity);
             if ((activity.condition && !activity.condition(currentState)) || activityBlockReason) {
-                batchLogs.push({ message: `【计划跳过】${activity.name}：${activityBlockReason || '当前条件已不满足'}。`, type: 'warning', timestamp: Date.now() });
+                skip(slotId, activity.name, activityBlockReason || '当前条件已不满足');
                 continue;
             }
 
             const learningActivity = isLearningActivity(activity);
             if (learningActivity && isStudyBlocked(currentState)) {
-                batchLogs.push({ message: '【极限难度】当前心态或疲劳状态不允许学习型周末活动。', type: 'warning', timestamp: Date.now() });
+                skip(slotId, activity.name, '当前心态或疲劳状态不允许学习');
                 continue;
             }
             if (learningActivity && difficultyPreset.weekendStudyLimit !== undefined && weekendStudyCount >= difficultyPreset.weekendStudyLimit) {
-                batchLogs.push({ message: `【地狱难度】本周最多安排 ${difficultyPreset.weekendStudyLimit} 次学习型周末活动。`, type: 'warning', timestamp: Date.now() });
+                skip(slotId, activity.name, `本周最多安排 ${difficultyPreset.weekendStudyLimit} 次学习活动`);
                 continue;
             }
 
@@ -1638,11 +1659,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 currentState.isPlaying = false;
                 currentState.isWeekend = false;
                 currentState.log = [...(currentState.log || []), { message: getHealthDeathMessage(currentState.difficulty), type: 'error', timestamp: Date.now() }];
-                break;
             }
-            if (resultText) {
+            {
                 const repeatNote = repeatCount > 1 ? '（重复安排，收益递减）' : '';
-                results.push(`[${SCHEDULE_SLOTS.find(slot => slot.id === slotId)?.label || slotId}] ${resultText}${repeatNote}`);
+                results.push(`[${SCHEDULE_SLOTS.find(slot => slot.id === slotId)?.label || slotId}] ${activity.name}：${resultText || '已完成'}${repeatNote}`);
             }
         }
         // Apply batch logs once
@@ -1651,10 +1671,17 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         // Keep a compact, readable record of the plan instead of dropping the
         // collected result text on the floor. Individual activity logs remain
         // available for events that need their own detailed message.
-        const summaryItems = results.slice(0, 4);
-        if (results.length > 4) summaryItems.push(`还有 ${results.length - 4} 项活动未展开`);
+        const changes = (['health', 'mindset', 'efficiency', 'money'] as const).flatMap(key => {
+            const delta = Math.round((currentState.general[key] - snapshot.general[key]) * 10) / 10;
+            if (!delta) return [];
+            const label = { health: '健康', mindset: '心态', efficiency: '效率', money: '金钱' }[key];
+            return [`${label}${snapshot.difficulty === 'REALITY' || snapshot.difficulty === 'HELL' ? (delta > 0 ? '上升' : '下降') : ` ${delta > 0 ? '+' : ''}${delta}`}`];
+        });
+        const fatigueDelta = Math.round(currentState.fatigue - snapshot.fatigue);
+        if (fatigueDelta) changes.push(snapshot.difficulty === 'REALITY' || snapshot.difficulty === 'HELL' ? `疲劳${fatigueDelta > 0 ? '上升' : '下降'}` : `疲劳 ${fatigueDelta > 0 ? '+' : ''}${fatigueDelta}`);
         currentState.log = [...(currentState.log || []), {
-            message: summaryItems.length > 0 ? `【本周计划】${summaryItems.join('；')}` : '【本周计划】本周没有安排可执行的活动。',
+            message: `【本周计划】完成 ${results.length} 项，跳过 ${skipped.length} 项。${changes.join('，') || '这周没折腾，先给自己留口气。'}`,
+            details: [...results.map(line => `✓ ${line}`), ...skipped.map(line => `跳过 · ${line}`)],
             type: 'info',
             timestamp: Date.now()
         }];
@@ -1828,7 +1855,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
     });
 
     return {
-        state, setState, hasSave, saveGame, loadGame, saveNotice,
+        state, setState, hasSave, hasManualSave, saveGame, loadGame, saveNotice,
         startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
         executeTimetable, handleExamFinish, closeExamResult,
         weekendOptions

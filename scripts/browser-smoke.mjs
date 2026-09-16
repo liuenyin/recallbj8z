@@ -16,8 +16,10 @@ try {
   await page.setRequestInterception(true);
   page.on('request', request => request.url().startsWith(new URL(base).origin) || request.url().startsWith('data:') ? request.continue() : request.abort());
   const clickText = async (text) => {
-    await page.waitForFunction(text => [...document.querySelectorAll('button')].some(b => !b.disabled && b.textContent.includes(text)), {}, text);
-    await page.evaluate(text => [...document.querySelectorAll('button')].find(b => !b.disabled && b.textContent.includes(text)).click(), text);
+    await page.waitForFunction(text => [...document.querySelectorAll('button')].some(b => !b.disabled && b.getClientRects().length && b.textContent.includes(text)), {}, text);
+    const handle = await page.evaluateHandle(text => [...document.querySelectorAll('button')].find(b => !b.disabled && b.getClientRects().length && b.textContent.includes(text)), text);
+    await handle.asElement().click();
+    await handle.dispose();
   };
   await page.goto(base, {waitUntil:'networkidle0'});
   assert.ok(await page.evaluate(() => document.body.innerText.includes('八中')));
@@ -91,8 +93,12 @@ try {
   console.log('PASS: shared activity preview, repeat gains, unchanged costs and deterministic projection');
   await clickText('执行本周计划');
   await page.waitForFunction(() => document.body.innerText.includes('【本周计划】'));
+  await page.evaluate(() => [...document.querySelectorAll('summary')].find(el => el.textContent.includes('展开安排')).click());
   assert.ok(await page.evaluate(() => document.body.innerText.includes('[周六下午]')));
   console.log('PASS: executing the restored plan advances the week and records its activities');
+  await clickText('保存');
+  const manualBefore = await page.evaluate(() => JSON.parse(localStorage.getItem(
+    `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}_manual`)).state);
   await clickText('历程');
   await page.evaluate(() => {
     const original = URL.createObjectURL;
@@ -140,6 +146,11 @@ try {
   await page.reload({waitUntil:'networkidle0'});
   await clickText('继续');
   await clickText('借用备用笔');
+  await clickText('改为手动继续');
+  await new Promise(resolve => setTimeout(resolve, 3500));
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('确认结果')));
+  assert.equal(await page.evaluate(() => localStorage.getItem('recall_auto_continue_v1')), 'false');
+  await clickText('恢复自动继续');
   await page.waitForFunction(() => document.body.innerText.includes('片刻后自动继续'));
   await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
   const automaticSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
@@ -154,6 +165,15 @@ try {
   assert.deepEqual(resumedSave.history, automaticSave.history);
   assert.deepEqual(resumedSave.general, automaticSave.general);
   console.log('PASS: daily scene auto-continues, autosaves, and reloads without repeating its reward');
+  await page.reload({waitUntil:'networkidle0'});
+  await clickText('读取手动存档');
+  await page.waitForFunction(() => document.body.innerText.includes('高一上学期'));
+  const manualAfter = await page.evaluate(() => JSON.parse(localStorage.getItem(
+    `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
+  assert.equal(manualAfter.week, manualBefore.week);
+  assert.deepEqual(manualAfter.subjects, manualBefore.subjects);
+  assert.ok(manualAfter.log.some(entry => entry.details?.some(line => line.includes('上图书馆'))));
+  console.log('PASS: home restores the independent manual save and retains expanded plan details');
   await page.evaluate(() => {
     const key = `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`;
     localStorage.setItem(key, '{broken-json');

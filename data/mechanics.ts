@@ -206,12 +206,6 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
         resultText: '大汗淋漓之后，感觉身体更加充满活力了。',
         action: (s) => ({ general: { ...s.general, health: s.general.health + 10, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 10) } })
     },
-    {
-        id: 'act_library', name: '泡图书馆', icon: 'fa-book-reader', type: 'STUDY',
-        description: '在安静的图书馆里看书自习。',
-        resultText: '在知识的海洋中遨游，感觉自己变聪明了。',
-        action: (s) => ({ general: { ...s.general, experience: s.general.experience + 10, efficiency: s.general.efficiency + 3, mindset: s.general.mindset - 2 } })
-    },
 
     {
         id: 'w_project_work', name: '推进主攻课题', icon: 'fa-tasks', type: 'PROJECT',
@@ -263,8 +257,8 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
     },
     {
         id: 'w_library', name: '上图书馆', icon: 'fa-book', type: 'STUDY',
-        description: '提升学习效率，巩固语数外基础。',
-        resultText: '图书馆的氛围很好，你感觉学习效率提升了(效率+1)。',
+        description: '看书、自习一站解决。提升效率，巩固语数外基础。',
+        resultText: '坐下前：今天必拿下。坐下后：真学进去了一点。效率和语数外基础有所提升。',
         action: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 1 }, subjects: modifySub(s, ['chinese', 'english', 'math'], 0.5) })
     },
     {

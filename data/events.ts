@@ -744,16 +744,58 @@ const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any, 
         });
     } else if (e.choices || e.effect) {
         const event = mapAiEventToGameEvent({ ...e, id: e.id || `offline_${eventIndex}` });
+        if (event.id === 'campus_borrow_pen' || event.id === 'campus_lost_card') {
+            const followupKey = event.id === 'campus_borrow_pen' ? 'pen' : 'card';
+            const helpIndex = followupKey === 'pen' ? 0 : 1;
+            event.choices = event.choices?.map((choice, index) => {
+                if (index !== helpIndex) return choice;
+                const action = choice.action;
+                return { ...choice, action: (s: GameState) => ({ ...action(s),
+                    ...(followupKey === 'card' ? { fatigue: s.fatigue + 3 } : {}),
+                    flags: { ...s.flags,
+                        [`campus_${followupKey}_help`]: true,
+                        [`campus_${followupKey}_phase`]: s.phase,
+                        [`campus_${followupKey}_week`]: s.week }
+                }) };
+            });
+            // Keep authored actions addressable when an event is restored.
+            delete event.serialized;
+        }
         acc.push({ ...event, autoContinue: e.id?.startsWith('campus_') === true });
     }
     return acc;
 }, []);
 
+const CAMPUS_FOLLOWUPS: GameEvent[] = [
+    {
+        id:'campus_pen_return',title:'笔债笔偿',type:'positive',triggerType:'CONDITIONAL',once:true,
+        condition:s => s.flags.campus_pen_help === true && s.flags.campus_pen_phase === s.phase && s.week > Number(s.flags.campus_pen_week),
+        description:'上次借你笔的同桌把错题本推过来：“你上回帮我带本子，这次请你看独家错解。正确答案在下一页，别学反了。”',
+        choices:[
+            {text:'来，互相展示一下知识盲区',tags:['study'],resultDescription:'你们一人讲一道题。两个不会的人凑在一起，居然凑出了一个会的。',
+             action:s=>({subjects:modifySub(s,['math'],2),flags:{...s.flags,campus_pen_help:false}})},
+            {text:'今天先歇歇，陪我去接水',tags:['social'],resultDescription:'错题明天再说。你们在走廊聊了五分钟，脑子里那台风扇终于不转了。',
+             action:s=>({general:{...s.general,mindset:s.general.mindset+5},flags:{...s.flags,campus_pen_help:false}})}
+        ]
+    },
+    {
+        id:'campus_card_return',title:'失主带着饮料来了',type:'positive',triggerType:'CONDITIONAL',once:true,
+        condition:s => s.flags.campus_card_help === true && s.flags.campus_card_phase === s.phase && s.week > Number(s.flags.campus_card_week),
+        description:'饭卡的失主在门口探头：“终于找到你了。上次多亏你跑一趟，不然我午饭只能吃空气。”说着递来一盒饮料。',
+        choices:[
+            {text:'那我就不客气了',tags:['social'],resultDescription:'饮料是常温的，谢意倒挺热乎。你们交换了名字，以后在食堂又多一个能打招呼的人。',
+             action:s=>({general:{...s.general,mindset:s.general.mindset+4,romance:s.general.romance+2},flags:{...s.flags,campus_card_help:false}})},
+            {text:'饮料留着，下次帮我讲道物理题',tags:['study'],resultDescription:'对方答应得很爽快。饭卡没有白送，物理终于有人救。',
+             action:s=>({subjects:modifySub(s,['physics'],2),flags:{...s.flags,campus_card_help:false}})}
+        ]
+    }
+];
+
 export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.INIT]: [],
     [Phase.SUMMER]: injectSleep(SUMMER_EVENTS_RAW),
     [Phase.MILITARY]: injectSleep(MILITARY_EVENTS_RAW),
-    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.SELECTION]: [],
     [Phase.PLACEMENT_EXAM]: [],
     [Phase.MIDTERM_EXAM]: [],
@@ -766,7 +808,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.ENDING]: [],
     [Phase.WITHDRAWAL]: [],
     [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...ROMANCE_EVENTS]),
-    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...RIVAL_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...PARSED_AI_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...RIVAL_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...ROMANCE_EVENTS]),
     [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.WC_EXAM]: [],
     [Phase.PROVINCIAL_EXAM]: [],

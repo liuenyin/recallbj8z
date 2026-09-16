@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameEvent, EventChoice, GameState } from '../types';
 import { isStudyBlocked, isStudyChoice } from '../data/utils';
@@ -10,14 +10,19 @@ interface EventModalProps {
     eventResult: { choice: EventChoice, diff: string[] } | null;
     onChoice: (choice: EventChoice, e: React.MouseEvent) => void;
     onConfirm: () => void;
+    paused?: boolean;
+    autoContinueEnabled?: boolean;
+    onToggleAutoContinue?: () => void;
 }
 
-const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm }) => {
+const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm, paused = false, autoContinueEnabled = true, onToggleAutoContinue }) => {
+    const confirmRef = useRef(onConfirm);
+    confirmRef.current = onConfirm;
     useEffect(() => {
-        if (!event.autoContinue || !eventResult || state.chainedEvent || eventResult.choice.nextEventId) return;
-        const timer = setTimeout(onConfirm, 3000);
+        if (paused || !autoContinueEnabled || !event.autoContinue || !eventResult || state.chainedEvent || eventResult.choice.nextEventId) return;
+        const timer = setTimeout(() => confirmRef.current(), 3000);
         return () => clearTimeout(timer);
-    }, [event.id, event.autoContinue, eventResult, state.chainedEvent, onConfirm]);
+    }, [event.id, event.autoContinue, eventResult, state.chainedEvent, paused, autoContinueEnabled]);
     const formatStoryText = (text: string) => text.replace(/\bTA\b/g, state.flags.relationship_name || 'TA');
     const getDiffClass = (diff: string) => {
         const isPositive = /\+|上升|提升|增加/.test(diff);
@@ -128,7 +133,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                            ))}
                         </div>
                       )}
-                      {event.autoContinue && <p className="text-xs text-slate-500 mb-3">片刻后自动继续，结果会留在校园手记中。</p>}
+                      {event.autoContinue && autoContinueEnabled && <p className="text-xs text-slate-500 mb-3">片刻后自动继续，结果会留在校园手记中。</p>}
+                      {event.autoContinue && onToggleAutoContinue && <button type="button" onClick={onToggleAutoContinue} className="mb-4 text-xs text-indigo-600 underline">{autoContinueEnabled ? '改为手动继续，等我看完' : '恢复自动继续'}</button>}
                       <motion.button 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.95 }}

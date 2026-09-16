@@ -43,7 +43,7 @@ const SLOT_ORDER = new Map(SCHEDULE_SLOTS.map((slot, index) => [slot.id, index])
 
 /** Object insertion order depends on the order in which the player clicked slots. */
 export const getOrderedScheduleEntries = (schedule: Record<string, string> = {}): Array<[string, string]> =>
-    Object.entries(schedule).sort(([left], [right]) =>
+    Object.entries(schedule).map(([slot, activity]): [string, string] => [slot, activity === 'act_library' ? 'w_library' : activity]).sort(([left], [right]) =>
         (SLOT_ORDER.get(left as TimeSlotId) ?? Number.MAX_SAFE_INTEGER)
         - (SLOT_ORDER.get(right as TimeSlotId) ?? Number.MAX_SAFE_INTEGER)
     );

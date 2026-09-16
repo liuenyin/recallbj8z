@@ -278,6 +278,7 @@ export interface GameState {
 
 export interface GameLogEntry {
   message: string;
+  details?: string[];
   type: 'info' | 'success' | 'warning' | 'error' | 'event';
   timestamp: number;
 }

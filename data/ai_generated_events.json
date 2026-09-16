@@ -2,20 +2,20 @@
   {
     "id": "campus_borrow_pen",
     "title": "借一支笔",
-    "description": "随堂练习刚开始，你的笔就没墨了。同桌把笔袋往你这边推了推。",
+    "description": "随堂练习刚开始，你的笔就断墨了。同桌把笔袋推过来：“挑吧，本店暂不收利息。”",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "借用备用笔，下课归还",
-        "resultDescription": "你把笔还回去，顺手帮同桌带回了练习册。",
+        "resultDescription": "你把笔还回去，又帮同桌带了练习册。两个人的互助小队，启动资金是一支中性笔。",
         "effect": {
           "mindset": 2
         }
       },
       {
         "text": "用铅笔写完，再找老师说明",
-        "resultDescription": "老师点点头，提醒你明天记得带支备用笔。",
+        "resultDescription": "老师点点头：“下次带备用笔。”你把这条知识点记进了脑子，含金量比刚才那道题还高。",
         "effect": {
           "experience": 1
         }
@@ -25,20 +25,20 @@
   {
     "id": "campus_window_cat",
     "title": "窗台上的猫",
-    "description": "一只橘猫跳上窗台，挡住黑板的一角。老师停下粉笔，等它慢悠悠地走过去。",
+    "description": "一只橘猫跳上窗台，挡住黑板。老师停下粉笔。全班终于迎来一位敢打断数学课的勇士。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "趁这会儿伸个懒腰",
-        "resultDescription": "猫走了，你也清醒了一点。",
+        "resultDescription": "猫走了，你也清醒了一点。谢谢猫老师，猫老师辛苦了。",
         "effect": {
           "mindset": 3
         }
       },
       {
         "text": "把刚才没抄完的笔记补齐",
-        "resultDescription": "黑板擦掉之前，你补上了最后一行。",
+        "resultDescription": "趁大家围观，你补齐了笔记。猫负责吸引火力，你负责偷偷发育。",
         "effect": {
           "experience": 2
         }
@@ -73,20 +73,20 @@
   {
     "id": "campus_rain",
     "title": "雨突然下大了",
-    "description": "放学铃刚响，窗外就下起了大雨。你的伞还在家里。",
+    "description": "放学铃刚响，窗外开始泼水。你的伞在家，你在学校。你们各自安好，互不打扰。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "在门厅等一会儿",
-        "resultDescription": "雨小下来时，校园里只剩雨滴落在树叶上的声音。",
+        "resultDescription": "雨停了，你也把今天的烦心事放空了一点。就是校门口那只猫，比你先回家。",
         "effect": {
           "mindset": 3
         }
       },
       {
         "text": "和同路同学合打一把伞",
-        "resultDescription": "两个人轮流把伞往对方那边偏，最后都湿了一边肩膀。",
+        "resultDescription": "伞不大，你们各湿半边。友情这东西，有时就是均摊降水量。",
         "effect": {
           "romance": 2,
           "mindset": 2
@@ -120,20 +120,20 @@
   {
     "id": "campus_lost_card",
     "title": "捡到一张饭卡",
-    "description": "楼梯拐角躺着一张饭卡，背面写着一个不认识的名字。",
+    "description": "楼梯拐角躺着一张饭卡。交到招领处最省事；按班级送过去要多跑一趟，但能直接找到失主。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "交到失物招领处",
-        "resultDescription": "值班老师说失主刚好来问过。",
+        "resultDescription": "老师收好饭卡：“交给我吧。”你按时回了教室，做好事不一定非得跑个全图。",
         "effect": {
           "mindset": 2
         }
       },
       {
         "text": "顺路送到卡上写的班级",
-        "resultDescription": "失主松了口气，连声道谢。",
+        "resultDescription": "你多爬了一层楼，失主差点给你鞠躬：“救命恩人！我中午真没别的饭卡了。”",
         "effect": {
           "romance": 2
         }
@@ -334,20 +334,20 @@
   {
     "id": "campus_experiment",
     "title": "实验最后一步",
-    "description": "实验快结束了，记录表上还缺一次测量。大家都想早点收器材。",
+    "description": "实验还差最后一次测量，组员已经摸向了书包。你们的小组精神状态：数据尚未闭环，人已准备下班。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "再测一次，补齐记录",
-        "resultDescription": "最后一次结果略有不同，你们在报告里写下了可能的原因。",
+        "resultDescription": "重测结果有点偏差，你们把原因写进了报告。科学可以有误差，报告不能靠祈祷。",
         "effect": {
           "experience": 3
         }
       },
       {
         "text": "负责记录，请同伴再操作一次",
-        "resultDescription": "分工以后反而快了，你们按时交上了完整的记录。",
+        "resultDescription": "你记数，同伴操作。原来“团队合作”不是封面上凑齐四个人的名字。",
         "effect": {
           "experience": 2,
           "romance": 1
@@ -358,20 +358,20 @@
   {
     "id": "campus_eraser",
     "title": "橡皮上的字",
-    "description": "你的橡皮被同桌写上了“考试加油”，字歪歪扭扭的。",
+    "description": "同桌在你的橡皮上写了“考试加油”。字歪歪扭扭，像刚跑完八百米，但确实有被鼓励到。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "在对方的草稿纸上回一句",
-        "resultDescription": "你们忍着笑把纸传了回去。",
+        "resultDescription": "你回了句“都活着回来”。两个人憋笑憋得像正在进行肺活量测试。",
         "effect": {
           "mindset": 3
         }
       },
       {
         "text": "把橡皮收好，认真留着",
-        "resultDescription": "下一次考试前，你又看见了那行字。",
+        "resultDescription": "你把橡皮收好。它不能保佑你全对，但至少不会嫌弃你算错。",
         "effect": {
           "mindset": 2
         }

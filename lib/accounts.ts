@@ -89,9 +89,11 @@ export const deleteLocalAccount = (id: string) => {
   saveAccounts(remaining);
   try {
     localStorage.removeItem(getAccountSaveKey(id));
+    localStorage.removeItem(getAccountManualSaveKey(id));
   } catch (error) {
     throw new Error('账号已移除，但浏览器未能清理其存档。');
   }
 };
 
 export const getAccountSaveKey = (accountId: string): string => `recall_save_v1_${accountId}`;
+export const getAccountManualSaveKey = (accountId: string): string => `${getAccountSaveKey(accountId)}_manual`;
