@@ -22,7 +22,7 @@ export const TALENTS: Talent[] = [
       effect: (s) => ({ general: { ...s.general, romance: s.general.romance + 20 } })
     },
     { id: 'oi_nerd', name: '机房幽灵', description: 'OI各项能力初始+10，但魅力-10。', rarity: 'rare', cost: 3,
-      effect: (s) => ({ 
+      effect: (s) => ({
           oiStats: modifyOI(s, { dp: 10, ds: 10, math: 10, string: 10, graph: 10, misc: 10 }),
           general: { ...s.general, romance: Math.max(0, s.general.romance - 10) }
       })
@@ -66,8 +66,8 @@ export const SHOP_ITEMS: Item[] = [
     { id: 'coffee', name: '瑞幸生椰拿铁', description: '我咖啡怎么变了？心态+3，效率+1。', price: 20, icon: 'fa-coffee',
       effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 1 } }) },
     { id: 'five_three', name: '五年高考三年模拟', description: '全科水平+0.5，心态-8。', price: 45, icon: 'fa-book',
-      effect: (s) => ({ 
-          subjects: modifySub(s, ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'], 0.5), 
+      effect: (s) => ({
+          subjects: modifySub(s, ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics'], 0.5),
           general: { ...s.general, mindset: s.general.mindset - 8 }
       }) },
     { id: 'game_skin', name: '不要问为啥没有648，问就是放这里你买不了', description: '虽然不能变强，但心情变好了。心态+8。', price: 68, icon: 'fa-gamepad',
@@ -220,9 +220,9 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
              const projects = [...s.activeProjects];
              const proj = { ...projects[0] };
              proj.progress += 25; // Base progress per weekend action
-             
+
              let updates: Partial<GameState> = { activeProjects: [proj, ...projects.slice(1)] };
-             
+
              if (proj.progress >= proj.requiredProgress) {
                  // Complete
                  updates.completedProjects = [...s.completedProjects, proj.id];
@@ -241,7 +241,7 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
     },
     {
         id: 'w_club_activity', name: '社团活动', icon: 'fa-users', type: 'SOCIAL',
-        condition: (s) => !!s.club && s.week % 4 === 0,
+        condition: (s) => CLUBS.some(club => club.id === s.club) && s.week % 4 === 0,
         description: '参加社团组织的月度活动。',
         resultText: '你参加了社团活动，大家玩得很开心。(根据社团不同提升属性)',
         action: (s) => {
@@ -404,16 +404,16 @@ WEEKEND_ACTIVITIES.push({
     action: (s) => {
         const baseRating = s.oiStats?.rating ?? 1200;
         const totalAptitude = s.oiStats ? (s.oiStats.dp + s.oiStats.ds + s.oiStats.math + s.oiStats.string + s.oiStats.graph + s.oiStats.misc) : 0;
-        
+
         // Rating formula: slower growth, higher variance
         // totalAptitude ranges 0-600, maps to perf 1200-2100 (was 1200-2700)
-        const expectedPerf = 1200 + (totalAptitude * 1.5); 
+        const expectedPerf = 1200 + (totalAptitude * 1.5);
         const perf = Math.floor(expectedPerf + (Math.random() * 500 - 250));
-        
+
         // Slower rating change (divisor 6 instead of 4)
         const ratingChange = Math.floor((perf - baseRating) / 6);
         const newRating = Math.max(0, baseRating + ratingChange);
-        
+
         const historyRecord = {
             name: 'Codeforces Round #' + (s.week + 800),
             date: s.week,
@@ -421,15 +421,15 @@ WEEKEND_ACTIVITIES.push({
             ratingChange: ratingChange,
             newRating: newRating
         };
-        
+
         let rankStr = "掉分了...";
         if (ratingChange > 50) rankStr = "大上分！";
         else if (ratingChange > 0) rankStr = "小上分。";
 
         return {
             general: { ...s.general, health: s.general.health - 8, mindset: s.general.mindset - 3 },
-            oiStats: s.oiStats ? { 
-                ...s.oiStats, 
+            oiStats: s.oiStats ? {
+                ...s.oiStats,
                 dp: s.oiStats.dp + 1, graph: s.oiStats.graph + 1,
                 rating: newRating,
                 history: [...(s.oiStats.history || []), historyRecord].slice(-100)

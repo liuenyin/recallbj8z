@@ -27,18 +27,13 @@ const CHALLENGE_SLEEP_CHOICE: EventChoice = {
     })
 };
 
-// Helper to inject the choice
-const injectSleep = (events: GameEvent[]): GameEvent[] => {
-    return events.map(e => {
-        const hasSleep = e.choices?.some(c => c.text.includes('睡') || c.text.includes('梦'));
-        if (hasSleep) return e;
-
-        return {
-            ...e,
-            choices: [...(e.choices || []), CHALLENGE_SLEEP_CHOICE]
-        };
-    });
+// Apply at display time too: generated and historical events are not in PHASE_EVENTS.
+export const withChallengeSleep = (event: GameEvent): GameEvent => {
+    if (event.choices?.some(c => /睡|梦/.test(c.text) && !c.condition) ||
+        event.choices?.some(c => c.text === CHALLENGE_SLEEP_CHOICE.text)) return event;
+    return { ...event, choices: [...(event.choices || []), CHALLENGE_SLEEP_CHOICE] };
 };
+const injectSleep = (events: GameEvent[]): GameEvent[] => events.map(withChallengeSleep);
 
 const SUMMER_EVENTS_RAW: GameEvent[] = [
     {

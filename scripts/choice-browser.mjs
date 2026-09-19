@@ -18,7 +18,7 @@ try {
     const { default: { createRoot } } = await import('/node_modules/.vite/deps/react-dom_client.js');
     const { default: { flushSync } } = await import('/node_modules/.vite/deps/react-dom.js');
     const { useGameLogic } = await import('/hooks/useGameLogic.ts');
-    const { PHASE_EVENTS } = await import('/data/events.ts');
+    const { PHASE_EVENTS, withChallengeSleep } = await import('/data/events.ts');
     const { getOrderedScheduleEntries } = await import('/data/timetable.ts');
     const { default: TimetableModal } = await import('/components/TimetableModal.tsx');
     const { default: EventModal } = await import('/components/EventModal.tsx');
@@ -27,6 +27,23 @@ try {
     function Harness({ account = 'choice-regression' }) { game = useGameLogic(undefined, account); return null; }
     flushSync(() => root.render(React.createElement(Harness)));
     const initial = game.state;
+    const { SHOP_ITEMS, WEEKEND_ACTIVITIES } = await import('/data/mechanics.ts');
+    const { getEndingData } = await import('/data/ending.ts');
+    const book = SHOP_ITEMS.find(item=>item.id==='five_three').effect(initial);
+    const club = WEEKEND_ACTIVITIES.find(activity=>activity.id==='w_club_activity');
+    const generated = withChallengeSleep({id:'historical-test',title:'历史事件',description:'test',type:'neutral',choices:[{text:'继续',action:()=>({})}]});
+    const sleeper = {...initial,activeChallengeId:'c_sleep_king'};
+    const sleepChoice = generated.choices.find(c=>c.text==='不管了，我要睡觉');
+    const routeRegressions = [
+      ['history','geography','politics'].every(key=>book.subjects[key].level>initial.subjects[key].level),
+      !club.condition({...initial,club:'none',week:4}) && club.condition({...initial,club:'literature',week:4}),
+      sleepChoice.condition(sleeper) && !sleepChoice.condition(initial) && sleepChoice.action(sleeper).hasSleptThisWeek,
+      withChallengeSleep(generated).choices.length===generated.choices.length,
+      getEndingData({...sleeper,phase:'ENDING',flags:{sleep_challenge_failed:true}}).title==='睡神挑战失败',
+      getEndingData({...initial,phase:'ENDING',competition:'OI',flags:{oi_setter:true,oi_problem_drafted:true}}).comment.includes('草稿'),
+      getEndingData({...initial,phase:'ENDING',competition:'MO',flags:{mo_setter:true,mo_review:'rough'}}).comment.includes('空缺')
+    ];
+
     const legacyPlan = getOrderedScheduleEntries({Sat_Aft:'act_library'})[0][1] === 'w_library';
     const delayedChoices = [];
     for (const [id, followupId, index] of [['campus_borrow_pen','campus_pen_return',0],['campus_lost_card','campus_card_return',1]]) {
@@ -212,7 +229,7 @@ try {
       && localStorage.getItem('recall_save_v1_other-regression') === 'untouched'
       && localStorage.getItem(saveKey) === beforeSwitch;
     root.unmount();
-    return { checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures,
+    return { routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures,
       autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
       stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
   });
@@ -221,6 +238,7 @@ try {
     assert.equal(check.error, undefined, JSON.stringify(check));
     assert.ok(check.result && check.subjects && check.oi, JSON.stringify(check));
   }
+  assert.ok(results.routeRegressions.every(Boolean), 'route failures, sleep availability, humanities book and empty club');
   assert.ok(results.plannedLibrary);
   assert.ok(results.boardChecks.every(Boolean), 'board timing, fatigue, diary and old saves');
   assert.ok(results.restThenStudy, 'resting first must unlock learning in a later slot');

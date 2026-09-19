@@ -6,7 +6,7 @@ import {
     EventChoice, ExamResult, ClubId, Item, WeekendActivity, Project, GameLogEntry, StoryEntry
 } from '../types';
 import { DIFFICULTY_PRESETS, getDifficultyPreset } from '../data/constants';
-import { PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
+import { withChallengeSleep, PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
 import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS, CLUBS, TALENTS } from '../data/mechanics';
 import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, isHealthFatal, isStudyChoice, isLearningActivity, getShopPriceMultiplier, clampGameStateMetrics, getActivityBlockReason, normalizeActiveStatuses, getWeekendActivityUpdates } from '../data/utils';
 import { getRandomWorldContext, CHARACTER_TEMPLATES, WORLD_REGIONS } from '../data/world_context';
@@ -18,7 +18,7 @@ import { generateBatchGameEvents } from '../lib/gemini';
 import { getAccountSaveKey, getAccountManualSaveKey } from '../lib/accounts';
 import { restoreExamResult, restoreWorldContext, restoreFlags } from '../lib/save_validation';
 import { hydrateProject } from '../data/project_effects';
-import { PHASE_ORDER, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
+import { PHASE_ORDER, getPhaseLabel, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
 
 const LEGACY_STORAGE_KEY = 'recall_save_v1';
 const SAVE_VERSION = 3;
@@ -347,7 +347,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 totalWeeksInPhase: weeks,
                 availableWeekendActivityIds: undefined,
                 isPlaying: nextPhase !== Phase.ENDING && nextPhase !== Phase.SELECTION && nextPhase !== Phase.SUBJECT_RESELECTION && nextPhase !== Phase.FINAL_EXAM && nextPhase !== Phase.FINAL_EXAM_2 && nextPhase !== Phase.PLACEMENT_EXAM,
-                log: [...prev.log, { message: `进入新阶段: ${nextPhase}`, type: 'info', timestamp: Date.now() }]
+                log: [...prev.log, { message: `进入新阶段: ${getPhaseLabel(nextPhase)}`, type: 'info', timestamp: Date.now() }]
             };
         });
     }, []);
@@ -468,7 +468,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     const [next, ...rest] = eligibleQueue;
                     return {
                         ...prev,
-                        currentEvent: next || null,
+                        currentEvent: next ? withChallengeSleep(next) : null,
                         eventQueue: rest,
                         triggeredEvents: next ? markEventTriggered(prev.triggeredEvents, next) : prev.triggeredEvents,
                         recentEventIds: next ? trackRecentRandomEvent(prev.recentEventIds, next) : prev.recentEventIds,
@@ -721,6 +721,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                             currentEvent: null,
                             eventResult: null,
                             isWeekend: false,
+                            flags: { ...prev.flags, sleep_challenge_failed: true },
                             log: [...prev.log, { message: '你这周没有睡觉，挑战失败。', type: 'error' as const, timestamp: Date.now() }]
                         };
                     }
@@ -930,7 +931,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 general: updatedGeneral,
                 fatigue: updatedFatigue,
                 subjects: updatedSubjects,
-                currentEvent: currentEvent,
+                currentEvent: withChallengeSleep(currentEvent),
                 eventQueue: addQueueContext(nextQueue, prev),
                 triggeredEvents: markEventTriggered(prev.triggeredEvents, currentEvent),
                 recentEventIds: newRecentIds,
@@ -1169,7 +1170,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                         ? loaded.subjectReselectionReturnPhase
                         : null,
                     relationshipProfileId: typeof loaded.relationshipProfileId === 'string' ? loaded.relationshipProfileId : null,
-                    currentEvent: restoredEvent,
+                    currentEvent: restoredEvent ? withChallengeSleep(restoredEvent) : null,
                     chainedEvent: restoredChain,
                     eventQueue: restoredQueue,
                     eventResult: restoredResult,
@@ -1472,7 +1473,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             }
 
             if (prev.chainedEvent) {
-                return { ...prev, currentEvent: prev.chainedEvent, chainedEvent: null, eventResult: null };
+                return { ...prev, currentEvent: withChallengeSleep(prev.chainedEvent), chainedEvent: null, eventResult: null };
             }
 
             if (prev.eventQueue.length > 0) {
@@ -1481,7 +1482,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     const [next, ...rest] = eligibleQueue;
                     return {
                         ...prev,
-                        currentEvent: next,
+                        currentEvent: withChallengeSleep(next),
                         eventQueue: rest,
                         eventResult: null,
                         triggeredEvents: markEventTriggered(prev.triggeredEvents, next),
@@ -1499,6 +1500,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                         ? {
                             phase: Phase.ENDING,
                             isPlaying: false,
+                            flags: { ...prev.flags, sleep_challenge_failed: true },
                             log: [...prev.log, { message: '你这周没有睡觉，挑战失败。', type: 'error' as const, timestamp: Date.now() }]
                         }
                         : {
@@ -1689,6 +1691,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         // Challenge Check
         if (currentState.activeChallengeId === 'c_sleep_king' && currentState.phase !== Phase.ENDING && !hasSlept) {
             currentState.phase = Phase.ENDING;
+            currentState.flags = { ...currentState.flags, sleep_challenge_failed: true };
             currentState.isPlaying = false;
             currentState.log = [...(currentState.log || []), { message: "你这周没有睡觉，困死了！！！(挑战失败)", type: 'error', timestamp: Date.now() }];
             results.push("挑战失败：你这周没有睡觉！");
