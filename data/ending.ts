@@ -1,4 +1,5 @@
 import { GameState, Phase, SubjectKey } from '../types';
+import { CLUBS } from './mechanics';
 import { isHealthFatal } from './utils';
 
 export const getEndingData = (state: GameState) => {
@@ -147,3 +148,27 @@ export const getEndingData = (state: GameState) => {
      return { rank, title, comment, score: Math.round(score) };
   };
 
+
+/** Memories describe recorded choices, independently of the main ending title. */
+export const getEndingMemories = (state: GameState): string[] => {
+    const memories: string[] = [];
+    const club = CLUBS.find(club => club.id === state.club);
+    if (club) memories.push(`你加入了${club.name}。成绩单上没有这一栏，但你的这一年有。`);
+    if (state.flags.oi_problem_published) memories.push(state.flags.oi_problem_feedback === 'defended'
+        ? '你出的题上线了，争议也留下了。评论区还在等你，装没看见不算修复。'
+        : '你的题目真的被别人做过了。从盯着题面发呆，到让别人盯着你的题面发呆。');
+    else if (state.flags.oi_problem_drafted) memories.push('你留下了一份算法题草稿。还没正式上线，但这个想法已经有了自己的样子。');
+    else if (state.flags.mo_setter) memories.push(state.flags.mo_review === 'polished'
+        ? '你把数学证明补完整了。这次的“显然”，终于经得起别人追问。'
+        : '你试过数学命题。漂亮结论后面，还有几个没填上的问号。');
+    if (state.romancePartner) memories.push(`你和${state.romancePartner}走到了一起。那些课间的几分钟，没有白白溜走。`);
+    else if (state.rejectionCount > 0) memories.push('你认真表白过，也被拒绝过。杂鱼（临时）照样要吃晚饭，故事没有停在那张好人卡上。');
+    if (state.completedProjects.length) memories.push(`你完成了${state.completedProjects.length}个课题。“下次一定”终于有一次变成了“这次做完了”。`);
+    if (state.flags.class_board_finished) memories.push('你参与的黑板报做完了。那阵粉笔灰，也算青春的限量周边。');
+    if (state.flags.rival_resolved) memories.push(`你和${state.flags.rival_name || '那位竞争对手'}的故事有了下文。排名以外，也留下了一段相处的经历。`);
+    if (!memories.length && state.history.length) {
+        const first = state.history[0];
+        memories.push(`还记得“${first.eventTitle}”吗？当时你选了“${first.choiceText}”。这一局从那个决定开始。`);
+    }
+    return memories.slice(0, 3);
+};

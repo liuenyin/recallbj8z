@@ -880,7 +880,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             if (sub && sub.level > 5) {
                 updatedSubjects[key as keyof typeof updatedSubjects] = {
                     ...sub,
-                    level: sub.level - 0.3 // Weekly decay of 0.3
+                    // Core and selected subjects are regularly revisited in class.
+                    level: Math.max(5, sub.level - (['chinese', 'math', 'english', ...prevState.selectedSubjects].includes(key) ? 0.15 : 0.3))
                 };
             }
         }

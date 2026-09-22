@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { GameState, Phase } from '../types';
 import { getPhaseLabel } from '../data/game_flow';
+import { getEndingMemories } from '../data/ending';
 import { DIFFICULTY_PRESETS } from '../data/constants';
 
 interface EndingScreenProps {
@@ -12,6 +13,7 @@ interface EndingScreenProps {
 }
 
 const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestart, onViewHistory }) => {
+    const memories = getEndingMemories(state);
     const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
     const vagueProgress = (value: number) => {
         const ratio = Math.max(0, Math.min(1, value / 100));
@@ -20,8 +22,8 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
     const vagueLabel = (value: number) => value >= 80 ? '高' : value >= 60 ? '较高' : value >= 40 ? '一般' : value >= 20 ? '较低' : '低';
     
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md text-slate-800 flex flex-col items-center justify-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
-                <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden border-4 border-slate-800 relative shrink-0">
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md text-slate-800 flex flex-col items-center p-4 md:p-6 animate-fadeIn overflow-y-auto">
+                <div className="bg-white rounded-[40px] shadow-2xl my-auto w-full max-w-4xl flex flex-col md:flex-row overflow-hidden border-4 border-slate-800 relative shrink-0">
                     
                     {/* Rank Stamp */}
                     <div className="absolute top-0 right-0 z-20 pointer-events-none transform translate-x-1/4 -translate-y-1/4 md:translate-x-0 md:-translate-y-0 md:top-6 md:right-6">
@@ -104,6 +106,14 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                     <div className="flex-1 p-8 flex flex-col bg-white">
                         
 
+                        {memories.length > 0 && (
+                            <section className="mb-6 rounded-2xl bg-indigo-50 p-4">
+                                <h3 className="font-black text-indigo-700 text-sm mb-3">这一局，值得记住的事</h3>
+                                <ul className="space-y-3 text-sm leading-relaxed text-slate-700">
+                                    {memories.map(memory => <li key={memory}>{memory}</li>)}
+                                </ul>
+                            </section>
+                        )}
                         {state.talents.length > 0 && (
                             <div className="mb-6">
                                 <h3 className="font-black text-slate-400 uppercase text-xs mb-3">天赋</h3>
@@ -117,7 +127,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                             </div>
                         )}
                         <div className="flex-1">
-                            <h3 className="font-black text-slate-400 uppercase text-xs mb-4">学期高光时刻</h3>
+                            <h3 className="font-black text-slate-400 uppercase text-xs mb-4">最后几页日记</h3>
                             <div className="space-y-4 relative">
                                 <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-slate-100"></div>
                                 {[...state.history].reverse().slice(0, 4).map((h, i) => (

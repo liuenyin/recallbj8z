@@ -28,13 +28,17 @@ try {
     flushSync(() => root.render(React.createElement(Harness)));
     const initial = game.state;
     const { SHOP_ITEMS, WEEKEND_ACTIVITIES } = await import('/data/mechanics.ts');
-    const { getEndingData } = await import('/data/ending.ts');
+    const { getEndingData, getEndingMemories } = await import('/data/ending.ts');
     const book = SHOP_ITEMS.find(item=>item.id==='five_three').effect(initial);
     const club = WEEKEND_ACTIVITIES.find(activity=>activity.id==='w_club_activity');
     const generated = withChallengeSleep({id:'historical-test',title:'历史事件',description:'test',type:'neutral',choices:[{text:'继续',action:()=>({})}]});
     const sleeper = {...initial,activeChallengeId:'c_sleep_king'};
     const sleepChoice = generated.choices.find(c=>c.text==='不管了，我要睡觉');
+    const memories = getEndingMemories({...initial,club:'literature',romancePartner:'林夏',flags:{oi_problem_drafted:true}});
     const routeRegressions = [
+      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('林夏')) && memories.some(m=>m.includes('草稿')),
+      !getEndingMemories(initial).some(m=>m.includes('表白')),
+
       ['history','geography','politics'].every(key=>book.subjects[key].level>initial.subjects[key].level),
       !club.condition({...initial,club:'none',week:4}) && club.condition({...initial,club:'literature',week:4}),
       sleepChoice.condition(sleeper) && !sleepChoice.condition(initial) && sleepChoice.action(sleeper).hasSleptThisWeek,
@@ -193,6 +197,13 @@ try {
     const gameOption = [...document.querySelectorAll('span')].find(el => el.textContent === '打游戏' && el.parentElement.parentElement.textContent.includes('适度游戏益脑'));
     flushSync(() => gameOption.parentElement.parentElement.click());
     const keepExistingAtLimit = !document.body.innerText.includes('选择活动');
+    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'skip-reasons',
+      state:{...plannerState,week:3,difficulty:'NORMAL',fatigue:20,club:'literature',
+        lastWeekSchedule:{Sat_Morn:'w_club_activity',Sat_Aft:'w_sleep'}},onConfirm:()=>{}})));
+    const skipReasonVisible = document.body.innerText.includes('本周不满足活动条件');
+    const clearSkipped = [...document.querySelectorAll('button')].find(b=>b.textContent==='清除这些安排');
+    flushSync(()=>clearSkipped.click());
+    const skipCleanup = skipReasonVisible && !document.body.innerText.includes('本周不满足活动条件') && document.body.innerText.includes('1 项可执行');
     plannerRoot.unmount();
     const saveKey = 'recall_save_v1_choice-regression';
     flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:7,isPlaying:false,isWeekend:true}));
@@ -229,7 +240,7 @@ try {
       && localStorage.getItem('recall_save_v1_other-regression') === 'untouched'
       && localStorage.getItem(saveKey) === beforeSwitch;
     root.unmount();
-    return { routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures,
+    return { skipCleanup, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures,
       autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
       stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
   });
@@ -239,6 +250,7 @@ try {
     assert.ok(check.result && check.subjects && check.oi, JSON.stringify(check));
   }
   assert.ok(results.routeRegressions.every(Boolean), 'route failures, sleep availability, humanities book and empty club');
+  assert.ok(results.skipCleanup, 'clear only skipped slots, retaining valid rest');
   assert.ok(results.plannedLibrary);
   assert.ok(results.boardChecks.every(Boolean), 'board timing, fatigue, diary and old saves');
   assert.ok(results.restThenStudy, 'resting first must unlock learning in a later slot');

@@ -74,19 +74,23 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
     let selectedSlotState = activityState;
     const previewRepeatCounts = new Map<string, number>();
     const executableSlotIds = new Set<string>();
+    const skippedReasons = new Map<string, string>();
     for (const { id: slotId } of SCHEDULE_SLOTS) {
         if (slotId === selectedSlot) selectedSlotState = previewState;
         const actId = schedule[slotId];
-        if (previewBlockedSlots.has(slotId)) continue;
+        if (!actId) continue;
         const activity = availableActivities.find(a => a.id === actId);
+        const allowedSlots = activity && ALLOWED_SLOTS_MAP[activity.id];
+        const learningActivity = !!activity && isLearningActivity(activity);
+        const reason = previewBlockedSlots.has(slotId) ? `被${previewBlockers.get(slotId)}占用`
+            : !activity ? '活动已不再提供'
+            : allowedSlots && !allowedSlots.includes(slotId as TimeSlotId) ? '这个时间不适合该活动'
+            : activity.condition && !activity.condition(previewState) ? '本周不满足活动条件'
+            : getActivityBlockReason(previewState, activity)
+            || (learningActivity && isStudyBlocked(previewState) ? '状态不适合学习，试试先休息' : '')
+            || (learningActivity && weekendStudyLimit !== undefined && previewStudyCount >= weekendStudyLimit ? '本周学习安排已达上限' : '');
+        if (reason) { skippedReasons.set(slotId, reason); continue; }
         if (!activity) continue;
-        const allowedSlots = ALLOWED_SLOTS_MAP[activity.id];
-        if (allowedSlots && !allowedSlots.includes(slotId as TimeSlotId)) continue;
-        if (activity.condition && !activity.condition(previewState)) continue;
-        if (getActivityBlockReason(previewState, activity)) continue;
-        const learningActivity = isLearningActivity(activity);
-        if (learningActivity && isStudyBlocked(previewState)) continue;
-        if (learningActivity && weekendStudyLimit !== undefined && previewStudyCount >= weekendStudyLimit) continue;
         executableSlotIds.add(slotId);
         if (learningActivity) previewStudyCount += 1;
         (BLOCKED_SLOTS_MAP[activity.id] || []).forEach(blockedSlot => {
@@ -100,7 +104,12 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
             ...previewState,
             ...getWeekendActivityUpdates(previewState, activity, repeatCount, true)
         });
-        if (isHealthFatal(previewState.difficulty, previewState.general.health)) break;
+        if (isHealthFatal(previewState.difficulty, previewState.general.health)) {
+            for (const slot of SCHEDULE_SLOTS.slice(SCHEDULE_SLOTS.findIndex(slot => slot.id === slotId) + 1)) {
+                if (schedule[slot.id]) skippedReasons.set(slot.id, '预计健康耗尽，后续安排无法执行');
+            }
+            break;
+        }
     }
 
     const handleSlotClick = (slotId: string) => {
@@ -164,6 +173,20 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm }) => {
                         <button type="button" onClick={() => { setSchedule({}); setSelectedSlot(null); }} disabled={!Object.keys(schedule).length} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40">清空安排</button>
                         <button type="button" onClick={() => { setSchedule({ ...initialSchedule }); setSelectedSlot(null); }} disabled={!Object.keys(initialSchedule).length} className="px-3 py-1.5 rounded-lg border border-indigo-100 text-xs font-bold text-indigo-600 hover:bg-indigo-50 disabled:opacity-40">恢复上次</button>
                     </div>
+                    {skippedReasons.size > 0 && (
+                        <div className="mb-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900" role="status">
+                            <p className="font-bold mb-2">有 {skippedReasons.size} 项安排需要调整，先别急着按开始。</p>
+                            <ul className="space-y-1">
+                                {[...skippedReasons].map(([slotId, reason]) => <li key={slotId}>
+                                    {SCHEDULE_SLOTS.find(slot => slot.id === slotId)?.label} · {activityById.get(schedule[slotId])?.name}：{reason}
+                                </li>)}
+                            </ul>
+                            <button type="button" className="mt-2 underline font-bold" onClick={() => {
+                                setSchedule(Object.fromEntries(Object.entries(schedule).filter(([slot]) => !skippedReasons.has(slot))));
+                                setSelectedSlot(null);
+                            }}>清除这些安排</button>
+                        </div>
+                    )}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 md:gap-3">
                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                             <div key={day} className={`flex flex-col gap-2 p-2 md:p-3 rounded-xl border ${day === 'Sat' || day === 'Sun' ? 'col-span-full bg-indigo-50/40 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>

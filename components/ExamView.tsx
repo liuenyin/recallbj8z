@@ -55,7 +55,9 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
              : state.phase === Phase.PROVINCIAL_EXAM ? 8
              : state.phase === Phase.APIO_EXAM ? 9
              : 10;
-           const authored = OI_PROBLEMS.filter(problem => problem.level <= maxLevel);
+           // Advanced contests should not roll the same introductory questions as CSP.
+           const minLevel = Math.max(1, maxLevel - problemCount + 1);
+           const authored = OI_PROBLEMS.filter(problem => problem.level >= minLevel && problem.level <= maxLevel);
            const pool = authored.length >= problemCount ? authored : OI_PROBLEMS;
            const shuffled = [...pool].sort(() => 0.5 - Math.random());
            return shuffled.slice(0, problemCount);
