@@ -161,7 +161,12 @@ export const getEndingMemories = (state: GameState): string[] => {
     else if (state.flags.mo_setter) memories.push(state.flags.mo_review === 'polished'
         ? '你把数学证明补完整了。这次的“显然”，终于经得起别人追问。'
         : '你试过数学命题。漂亮结论后面，还有几个没填上的问号。');
-    if (state.romancePartner) memories.push(`你和${state.romancePartner}走到了一起。那些课间的几分钟，没有白白溜走。`);
+    if (state.romancePartner) memories.push(state.flags.romance_communication
+        ? `你和${state.romancePartner}学会了把没说完的话说完。相处不用靠读心，也不用拿熬夜证明喜欢。`
+        : `你和${state.romancePartner}走到了一起。${state.flags.romance_date_memory === 'walk' ? '那次免费的散步，还有拒绝营业的猫，你们都记得。' : '那些课间的几分钟，没有白白溜走。'}`);
+    else if (state.flags.romance_resolution === 'friends') memories.push('你们把话说开，继续做了朋友。后来的讲题和吐槽，没有藏着下一轮表白。');
+    else if (state.flags.romance_resolution === 'separated') memories.push('你们认真喜欢过，也认真说了再见。没有人需要成为这个故事里的反派。');
+    else if (state.flags.romance_moved_on) memories.push('你从那次拒绝里慢慢走了出来。杂鱼称号已过期，今天的饭照样很好吃。');
     else if (state.rejectionCount > 0) memories.push('你认真表白过，也被拒绝过。杂鱼（临时）照样要吃晚饭，故事没有停在那张好人卡上。');
     if (state.completedProjects.length) memories.push(`你完成了${state.completedProjects.length}个课题。“下次一定”终于有一次变成了“这次做完了”。`);
     if (state.flags.class_board_finished) memories.push('你参与的黑板报做完了。那阵粉笔灰，也算青春的限量周边。');

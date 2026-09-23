@@ -2,7 +2,7 @@
 import React from 'react';
 import { GameState, SUBJECT_NAMES, SubjectKey } from '../types';
 import { getEffectiveEfficiency } from '../data/utils';
-import { getRelationshipStage, RELATIONSHIP_PROFILES } from '../data/relationships';
+import { getRelationshipStage, getRelationshipHint, RELATIONSHIP_PROFILES } from '../data/relationships';
 
 interface StatsPanelProps {
   state: GameState;
@@ -93,7 +93,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
             </div>
             <div className="text-sm font-black text-slate-800">{profile.name} · {profile.role}</div>
             <div className="text-[11px] leading-relaxed text-slate-600 mt-1">{profile.personality}</div>
-            <div className="text-[10px] leading-relaxed text-rose-600 mt-1">路线提示：{profile.routeHint}</div>
+            <div className="text-[10px] leading-relaxed text-rose-600 mt-1">路线提示：{getRelationshipHint(state)}</div>
           </div>
         );
       })()}

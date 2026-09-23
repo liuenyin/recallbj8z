@@ -17,7 +17,12 @@ const scenarios = [
   {name:'oi-independent',route:'OI',difficulty:'NORMAL',seed:77,alternate:true},
   {name:'mo-cooperate',route:'MO',difficulty:'NORMAL',seed:88},
   {name:'mo-risky',route:'MO',difficulty:'NORMAL',seed:99,alternate:true},
-  {name:'romance',route:'None',difficulty:'NORMAL',seed:111,romance:true},
+  {name:'romance',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1}}
+  ,{name:'romance-friends',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1,romance_confession_prep:1}}
+  ,{name:'romance-separate',expectedRomance:'separated',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1,romance_missed_message:1,romance_repair:1}},
+  {name:'romance-repair',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1,romance_missed_message:1,romance_repair:0}},
+  {name:'romance-rejected',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:0,evt_confession_generic:0}},
+  {name:'romance-space',expectedRomance:'distance',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:0,evt_confession_generic:0,romance_after_rejection:1}},
   {name:'sleep-challenge',route:'None',difficulty:'REALITY',seed:122,challenge:'c_sleep_king'},
   {name:'sleep-challenge-fail',route:'None',difficulty:'REALITY',seed:133,challenge:'c_sleep_king',fail:true},
   {name:'debt-challenge',route:'None',difficulty:'REALITY',seed:144,challenge:'c_debt_king'}
@@ -153,6 +158,7 @@ try {
       } catch(error) {failures.push(error.message);}
       function aProject(a){return a.id==='w_project_work';}
       const final=game.state;
+      if (config.expectedRomance && final.flags.romance_resolution!==config.expectedRomance) failures.push('Romance outcome: '+final.flags.romance_resolution);
       if (!config.fail&&!fullYear) failures.push('Expected a full year');
       if (config.club && (!activityCounts.w_club_activity || final.club!==config.club)) failures.push('Club route was not exercised');
       if (config.fail && !final.flags.sleep_challenge_failed) failures.push('Expected sleep challenge failure');

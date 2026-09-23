@@ -3,6 +3,7 @@ import { STUDY_TOUR_EVENTS } from "./events_study_tour";
 import { OI_ROUTE_EVENTS } from './events_oi_route';
 import { MO_EVENTS } from './events_mo';
 import { OI_EVENTS } from "./events_oi";
+import { canPursueRomance } from './relationships';
 import { ROMANCE_EVENTS } from "./events_romance";
 import { RIVAL_EVENTS } from "./events_character";
 
@@ -213,9 +214,10 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         triggerType: 'RANDOM',
         choices: [
             { 
-                text: '趁机表白！', 
+                text: '趁机表白！',
+                condition: canPursueRomance,
                 action: (s) => {
-                    const success = Math.random() < 0.4;
+                    const success = Math.random() < Math.min(0.8, 0.2 + Number(s.flags.ta_favorability || 0) / 125);
                     return { chainedEvent: success ? CHAINED_EVENTS['sum_confess_success'] : CHAINED_EVENTS['sum_confess_fail'] };
                 }
             },
@@ -425,7 +427,7 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         id: 'evt_crush_encounter',
         title: '偶遇',
         description: '在去食堂的路上，你撞见了一个特别的身影。只是一瞬间的对视，你的心跳好像漏了一拍。',
-        condition: (s) => !s.romancePartner && !s.activeStatuses.find(st => st.id === 'crush') && s.general.romance >= 10,
+        condition: (s) => canPursueRomance(s) && !s.activeStatuses.find(st => st.id === 'crush') && s.general.romance >= 10,
         triggerType: 'RANDOM',
         once: true,
         type: 'positive',
@@ -445,14 +447,14 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         id: 'evt_confession_generic',
         title: '心动的信号',
         description: '在校园的走廊里，你又遇到了那个让你心动的人。今天的阳光正好，氛围也不错。',
-        condition: (s) => !s.romancePartner && s.general.romance >= 20,
+        condition: (s) => canPursueRomance(s) && !s.flags.ready_for_confession && s.general.romance >= 20,
         triggerType: 'RANDOM',
         type: 'positive',
         choices: [
             { 
                 text: '勇敢表白！', 
                 action: (s) => {
-                    const success = Math.random() < (0.3 + (s.general.romance - 20) * 0.02 + (s.general.luck - 50) * 0.01);
+                    const success = Math.random() < Math.min(0.9, 0.15 + Number(s.flags.ta_favorability || 0) / 100);
                     return { chainedEvent: success ? CHAINED_EVENTS['sum_confess_success'] : CHAINED_EVENTS['sum_confess_fail'] };
                 }
             },
@@ -468,39 +470,10 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         ]
     },
     {
-        id: 'evt_first_date',
-        title: '初次约会',
-        description: '你们决定这周末去西单逛逛。这是你们确立关系后的第一次正式约会。',
-        condition: (s) => !!s.romancePartner && s.general.romance > 30,
-        triggerType: 'CONDITIONAL',
-        once: true,
-        type: 'positive',
-        choices: [
-            { 
-                text: '精心准备', 
-                action: (s) => {
-                    const success = Math.random() < 0.7;
-                    if (success) {
-                        return {
-                            general: { ...s.general, mindset: s.general.mindset + 25, romance: s.general.romance + 15, money: s.general.money - 40 },
-                            activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 8 }],
-                            log: [...s.log, { message: "约会非常完美！你们的关系更进一步。", type: 'success', timestamp: Date.now() }]
-                        };
-                    } else {
-                        return {
-                            general: { ...s.general, mindset: s.general.mindset - 10, money: s.general.money - 40 },
-                                log: [...s.log, { message: "约会中出了一些小尴尬，不过没关系。", type: 'info', timestamp: Date.now() }]
-                        };
-                    }
-                }
-            }
-        ]
-    },
-    {
         id: 'evt_fight',
         title: '争吵',
         description: (s: GameState) => `你和${s.romancePartner || '父母'}发生了一些不愉快，气氛降到了冰点。`,
-        condition: (s) => !!s.romancePartner || Math.random() < 0.5,
+        condition: (s) => !s.romancePartner && Math.random() < 0.5,
         triggerType: 'RANDOM',
         type: 'negative',
         choices: [
@@ -524,26 +497,6 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
                     general: { ...s.general, mindset: s.general.mindset + 5, romance: s.general.romance - 5 },
                     sleepCount: (s.sleepCount || 0) + 1,
                     log: [...s.log, { message: "你选择用睡眠逃避现实。醒来时，问题依然存在，但你不在乎了。", type: 'info', timestamp: Date.now() }]
-                }) 
-            }
-        ]
-    },
-    {
-        id: 'evt_betrayal',
-        title: '背叛',
-        description: '你发现TA最近总是躲着你回消息，直到你看到了不该看到的一幕。',
-        condition: (s) => !!s.romancePartner,
-        triggerType: 'RANDOM',
-        once: true,
-        type: 'negative',
-        choices: [
-            { 
-                text: '分手！', 
-                action: (s) => ({ 
-                    romancePartner: null,
-                    general: { ...s.general, mindset: s.general.mindset - 40, health: s.general.health - 10 },
-                    activeStatuses: s.activeStatuses.filter(st => st.id !== 'in_love'),
-                    log: [...s.log, { message: "这段感情画上了句号。", type: 'error', timestamp: Date.now() }]
                 }) 
             }
         ]

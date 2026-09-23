@@ -69,6 +69,8 @@ export const getPostEventFlow = (phase: Phase): PostEventFlow => {
 
 /** Random-event probability gates must not be rolled a second time after queueing. */
 export const isQueuedEventStillEligible = (event: GameEvent, state: GameState): boolean =>
+  (!(event.triggerType === 'RANDOM' && (event.id.startsWith('romance_') || ['evt_confession_generic', 'evt_crush_encounter'].includes(event.id)))
+    || (!state.romancePartner && !state.flags.romance_resolution)) &&
   (event.triggerType === 'RANDOM'
     ? (!event.queueContext
       || (event.queueContext.phase === state.phase

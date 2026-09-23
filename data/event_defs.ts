@@ -1,4 +1,5 @@
 import { GameEvent } from '../types';
+import { startRelationship, relationshipCheckpoint } from './relationships';
 import { modifySub } from './utils';
 import { STATUSES } from './mechanics';
 import { Phase } from '../types';
@@ -15,7 +16,7 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
         type: 'positive',
         choices: [{ text: '太棒了', action: (s) => ({ 
             general: { ...s.general, mindset: s.general.mindset + 20, romance: s.general.romance + 20 }, 
-            romancePartner: s.flags.relationship_name || 'TA',
+            ...startRelationship(s),
             activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 10 }] 
         }) }]
     },
@@ -30,6 +31,8 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
             action: (s) => ({ 
                 general: { ...s.general, mindset: s.general.mindset - 20 },
                 rejectionCount: (s.rejectionCount || 0) + 1,
+                flags: { ...s.flags, ready_for_confession: false, romance_resolution: 'rejected', ...relationshipCheckpoint(s, 'romance_rejected') },
+                activeStatuses: s.activeStatuses.filter(st => st.id !== 'crush'),
                 log: [...s.log, { message: '好人卡 +1。杂鱼称号仅在脑内生效，吃完饭可自行卸载。', type: 'warning', timestamp: Date.now() }]
             }) 
         }]   
