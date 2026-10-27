@@ -56,6 +56,66 @@
     </style>
 </head>
 <body>
+<!-- lg37-domain-migration -->
+<script>
+(() => {
+  const destinations = {
+    'leudzb.zeabur.app': 'bzduel.lg37.com',
+    'bj8z.zeabur.app': 'bj8z.lg37.com',
+    'chemcards.zeabur.app': 'chem.lg37.com',
+  };
+  const hostname = destinations[window.location.hostname];
+  if (!hostname || document.getElementById('lg37-domain-notice')) return;
+  const target = new URL(window.location.href);
+  target.protocol = 'https:';
+  target.hostname = hostname;
+  target.port = '';
+  let seconds = 5;
+  let timer;
+  const host = document.createElement('div');
+  host.id = 'lg37-domain-notice';
+  host.style.cssText = 'position:fixed;inset:0 0 auto;z-index:2147483647;display:block;';
+  const root = host.attachShadow({ mode: 'open' });
+  root.innerHTML = `<style>
+    :host{color-scheme:light} *{box-sizing:border-box}
+    section{padding:12px 16px;background:#fff7df;color:#382c12;border-bottom:1px solid #e4c878;font:14px/1.6 system-ui,sans-serif;text-align:center;box-shadow:0 2px 8px #0001}
+    a{color:#815000;font-weight:700;overflow-wrap:anywhere}button{margin-left:12px;padding:4px 10px;border:1px solid #b89650;border-radius:6px;background:#fff;color:#382c12;font:inherit;cursor:pointer}
+    small{display:block;font-size:12px;margin-top:3px}a:focus-visible,button:focus-visible{outline:2px solid #815000;outline-offset:3px}
+  </style><section aria-label="网站域名变更提示"><strong>网站地址已更新：</strong><a></a>。<span role="status"></span><button type="button">暂不跳转</button><small>请收藏新地址。旧域名中的本地存档和设置不会自动同步；如需保留，请先暂不跳转。</small></section>`;
+  const link = root.querySelector('a');
+  link.href = target.href;
+  link.textContent = hostname;
+  const status = root.querySelector('[role="status"]');
+  const button = root.querySelector('button');
+  const spacer = document.createElement('div');
+  spacer.setAttribute('aria-hidden', 'true');
+  document.body.prepend(spacer, host);
+  const resize = () => { spacer.style.height = host.getBoundingClientRect().height + 'px'; };
+  resize();
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(host);
+  else window.addEventListener('resize', resize);
+  let paused = false;
+  try { paused = sessionStorage.getItem('lg37-domain-redirect-paused') === '1'; } catch {}
+  const pause = () => {
+    clearInterval(timer);
+    status.textContent = '已暂停自动跳转，可点击新地址进入。';
+    button.hidden = true;
+    try { sessionStorage.setItem('lg37-domain-redirect-paused', '1'); } catch {}
+  };
+  button.addEventListener('click', pause);
+  if (paused) { pause(); return; }
+  status.textContent = `${seconds} 秒后自动前往新地址。`;
+  timer = setInterval(() => {
+    seconds -= 1;
+    if (seconds <= 0) {
+      clearInterval(timer);
+      window.location.replace(target.href);
+    } else status.textContent = `${seconds} 秒后自动前往新地址。`;
+  }, 1000);
+})();
+
+</script>
+
     <div id="root"></div>
     
     <!-- 👇👇👇 必须加上这一行！没有它游戏就无法启动！ 👇👇👇 -->
