@@ -2,7 +2,7 @@
  * Small, pure balance helpers kept outside React so they can be regression
  * tested without rendering the game.
  */
-import type { GameStatus, SubjectKey, WeekendActivity } from '../types';
+import type { GameState, GameStatus, Phase, SubjectKey, WeekendActivity } from '../types';
 import { HOMEWORK_ACTIVITY_ID } from './timetable.ts';
 
 export const WEEKEND_STATUSES = {
@@ -22,7 +22,9 @@ export const getActivityRepeatMultiplier = (repeatCount: number): number => {
 
 export const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
-export const getAcademicSubjectScore = (subject: SubjectKey, rawPercentage: number, maximum: number): number => {
+export const getAcademicSubjectScore = (
+  subject: SubjectKey, rawPercentage: number, maximum: number, reduceHighScoreGrowth = false
+): number => {
   if (subject === 'chinese') {
     const compressed = 102 + 30 * Math.tanh((rawPercentage - 64) / 36);
     return Math.floor(clamp(compressed - 1.8 * Math.max(0, 20 - rawPercentage), 0, maximum));
@@ -30,13 +32,38 @@ export const getAcademicSubjectScore = (subject: SubjectKey, rawPercentage: numb
   const adjustedPercentage = subject === 'math' ? 80 + 1.13 * (rawPercentage - 80)
     : subject === 'english' ? rawPercentage + 2.5
     : rawPercentage;
-  return Math.floor(clamp(adjustedPercentage / 100, 0, 1) * maximum);
+  const percentage = reduceHighScoreGrowth && adjustedPercentage > 80
+    ? 80 + (adjustedPercentage - 80) * 0.66 : adjustedPercentage;
+  return Math.floor(clamp(percentage / 100, 0, 1) * maximum);
+};
+
+const ACADEMIC_PAPER_DIFFICULTIES: Partial<Record<Phase, readonly [standard: number, realistic: number]>> = {
+  PLACEMENT_EXAM: [1.05, 0.69],
+  MIDTERM_EXAM: [1.27, 1.13],
+  FINAL_EXAM: [1.46, 1.44],
+  MIDTERM_EXAM_2: [1.63, 1.815],
+  FINAL_EXAM_2: [1.75, 1.85]
+};
+
+export const getAcademicExamSubjectScore = (
+  state: Pick<GameState, 'phase' | 'difficulty' | 'subjects'>,
+  subject: SubjectKey,
+  maximum: number,
+  effectiveEfficiency: number,
+  luckMultiplier: number
+): number => {
+  const realistic = state.difficulty === 'REALITY';
+  const difficulty = ACADEMIC_PAPER_DIFFICULTIES[state.phase]?.[realistic ? 1 : 0] ?? 1;
+  const stats = state.subjects[subject];
+  const focusBonus = Math.max(0, effectiveEfficiency - 15) * (realistic ? 1 : 0.35);
+  const accuracy = (stats.aptitude * 0.4 + stats.level * 3) / difficulty + focusBonus;
+  return getAcademicSubjectScore(subject, accuracy * luckMultiplier, maximum, !realistic);
 };
 
 // Score cutoffs for 633 students, expressed on a 750-point paper.
 export const REALISTIC_RANK_CUTOFFS = [
   [710, 1], [693, 2], [690, 3], [677, 10], [665, 30], [655, 50], [640, 100],
-  [628, 150], [602, 316], [570, 520], [520, 610], [450, 633],
+  [628, 165], [602, 329], [570, 528], [520, 613], [450, 633],
 ] as const;
 
 export const getRealisticExamRank = (score: number, maximum: number): number => {
@@ -47,6 +74,15 @@ export const getRealisticExamRank = (score: number, maximum: number): number => 
   const [highScore, highRank] = REALISTIC_RANK_CUTOFFS[lowerIndex - 1];
   const fraction = (highScore - equivalent) / (highScore - lowScore);
   return Math.ceil(highRank + fraction * (lowRank - highRank));
+};
+
+export const getAcademicExamRank = (score: number, maximum: number, peerAverage: number): number => {
+  const equivalent = score * 750 / maximum;
+  // The top of the year group uses the same reference scores. Middle and
+  // lower ranks are a little more forgiving on the easier difficulties.
+  const middleRankWeight = clamp((640 - equivalent) / 40, 0, 1);
+  const allowance = Math.max(0, 0.8 - peerAverage) * maximum * middleRankWeight;
+  return getRealisticExamRank(score + allowance, maximum);
 };
 
 /** Fatigue cost/recovery for a single scheduled weekend activity. */

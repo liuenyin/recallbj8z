@@ -2,7 +2,7 @@
 import { GameState, GameStatus, SubjectKey, OIStats, SerializableEffect, GameEvent, GeneralStats, EventChoice, WeekendActivity, Difficulty, SUBJECT_NAMES } from '../types';
 import { getDifficultyPreset } from './constants';
 import { restoreRelationshipName } from './campus_names';
-import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, WEEKEND_STATUSES } from './balance';
+import { clamp, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, WEEKEND_STATUSES } from './balance';
 import { getHomeworkSlotsNeeded, HOMEWORK_ACTIVITY_ID } from './timetable';
 
 export const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
@@ -153,11 +153,11 @@ export const normalizeActiveStatuses = (statuses: unknown): GameStatus[] => {
 export const clampGameStateMetrics = <T extends GameState>(state: T): T => {
     const general = {
         ...state.general,
-        mindset: Math.min(150, Math.max(0, finiteOr(state.general.mindset, 0))),
+        mindset: clamp(finiteOr(state.general.mindset, 0), 0, 100),
         experience: Math.min(999, Math.max(0, finiteOr(state.general.experience, 0))),
         luck: Math.min(150, Math.max(0, finiteOr(state.general.luck, 0))),
         romance: Math.min(150, Math.max(0, finiteOr(state.general.romance, 0))),
-        health: Math.min(150, Math.max(0, finiteOr(state.general.health, 0))),
+        health: clamp(finiteOr(state.general.health, 0), 0, 100),
         money: finiteOr(state.general.money, 0),
         efficiency: Math.min(30, Math.max(0, finiteOr(state.general.efficiency, 0))),
         excitement: Math.min(100, Math.max(0, finiteOr(state.general.excitement, 0)))
@@ -315,8 +315,8 @@ export const applyAiEffect = (s: GameState, effect: SerializableEffect): Partial
         oiStats: { ...s.oiStats }
     };
 
-    if (effect.mindset) updates.general!.mindset = Math.min(150, Math.max(0, s.general.mindset + effect.mindset));
-    if (effect.health) updates.general!.health = Math.min(150, Math.max(0, s.general.health + effect.health));
+    if (effect.mindset) updates.general!.mindset = clamp(s.general.mindset + effect.mindset, 0, 100);
+    if (effect.health) updates.general!.health = clamp(s.general.health + effect.health, 0, 100);
     if (effect.money) updates.general!.money = s.general.money + effect.money; // Money can be negative
     if (effect.efficiency) updates.general!.efficiency = Math.min(30, Math.max(0, s.general.efficiency + effect.efficiency));
     if (effect.romance) updates.general!.romance = Math.min(150, Math.max(0, s.general.romance + effect.romance));

@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import type { GameState } from '../types.ts';
+import { getWeeklyEfficiency } from '../data/constants.ts';
 import { getMoResult, isMoAwardScore, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from '../data/mo_competition.ts';
-import { ACTIVITY_REPEAT_MULTIPLIERS, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, clamp, getAcademicSubjectScore, getRealisticExamRank } from '../data/balance.ts';
+import { ACTIVITY_REPEAT_MULTIPLIERS, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, clamp, getAcademicSubjectScore, getAcademicExamSubjectScore, getAcademicExamRank, getRealisticExamRank } from '../data/balance.ts';
 import { clearWeekdaySchedule, ALLOWED_SLOTS_MAP, BLOCKED_SLOTS_MAP } from '../data/timetable.ts';
 
 test('Chinese scores cluster more tightly than maths and English', () => {
@@ -16,10 +17,45 @@ test('Chinese scores cluster more tightly than maths and English', () => {
 });
 
 test('realistic exams use the year group score cutoffs', () => {
-  for (const [score, rank] of [[710, 1], [701, 2], [693, 2], [690, 3], [677, 10], [655, 50], [640, 100], [628, 150]]) {
+  for (const [score, rank] of [[710, 1], [701, 2], [693, 2], [690, 3], [677, 10], [655, 50], [640, 100], [632, 144], [628, 165], [602, 329]]) {
     assert.equal(getRealisticExamRank(score, 750), rank);
   }
   assert.equal(getRealisticExamRank(693 * 450 / 750, 450), 2);
+});
+
+test('a strong focus bonus cannot turn routine finals into full marks', () => {
+  const subjects = { math: { aptitude: 95, level: 36 } } as GameState['subjects'];
+  const standard = { phase: 'FINAL_EXAM_2' as GameState['phase'], difficulty: 'NORMAL', subjects } as const;
+  const prepared = getAcademicExamSubjectScore(standard, 'math', 150, 30, 1);
+  const rested = getAcademicExamSubjectScore(standard, 'math', 150, 15, 1);
+  assert.ok(prepared > rested && prepared - rested <= 7);
+  assert.ok(prepared >= 110 && prepared <= 140);
+  const veryStrong = { ...standard, subjects: { ...subjects, math: { aptitude: 105, level: 60 } } };
+  assert.equal(getAcademicExamSubjectScore(veryStrong, 'math', 150, 25, 1.025), 150);
+  assert.ok(getAcademicExamSubjectScore({ ...standard, phase: 'MIDTERM_EXAM_2' as GameState['phase'] }, 'math', 150, 25, 1)
+    < getAcademicExamSubjectScore({ ...standard, phase: 'FINAL_EXAM' as GameState['phase'] }, 'math', 150, 25, 1));
+});
+
+test('academic difficulty spreads middle ranks while keeping the same top scores', () => {
+  const normal = 0.77;
+  const hard = 0.785;
+  const reality = 0.8;
+  assert.equal(getAcademicExamRank(677, 750, normal), 10);
+  assert.equal(getAcademicExamRank(655, 750, hard), 50);
+  assert.ok(getAcademicExamRank(610, 750, normal) < getAcademicExamRank(610, 750, hard));
+  assert.ok(getAcademicExamRank(610, 750, hard) < getAcademicExamRank(610, 750, reality));
+  for (let score = 1; score <= 750; score += 1) {
+    assert.ok(getAcademicExamRank(score, 750, normal) <= getAcademicExamRank(score - 1, 750, normal));
+  }
+});
+
+test('realistic efficiency falls by a fifth weekly and recovers a tenth of the gap in four weeks', () => {
+  assert.equal(getWeeklyEfficiency(20, 'REALITY'), 18);
+  assert.equal(getWeeklyEfficiency(10, 'REALITY'), 10);
+  let efficiency = 5;
+  for (let week = 0; week < 4; week += 1) efficiency = getWeeklyEfficiency(efficiency, 'REALITY');
+  assert.ok(Math.abs(efficiency - 5.5) < 1e-9);
+  assert.equal(getWeeklyEfficiency(20, 'NORMAL'), 18.5);
 });
 
 test('MO counts blanks in eights and gives partial credit for written work', () => {

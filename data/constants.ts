@@ -1,4 +1,4 @@
-import { Difficulty, GeneralStats } from '../types';
+import type { Difficulty, GeneralStats } from '../types';
 
 export interface DifficultyPreset {
     label: string;
@@ -37,8 +37,22 @@ export const CHANGELOG_DATA = [
 // --- Mechanic Constants ---
 export const MECHANICS_CONFIG = {
     GENERAL_REGRESSION_RATE: 0.05, // 5% regression per week for general stats (towards baseline)
-    EFFICIENCY_REGRESSION_RATE: 0.15, // 15% regression per week for efficiency (harder to maintain high focus)
+    EFFICIENCY_REGRESSION_RATE: 0.15,
+    REALISTIC_EFFICIENCY_WEEKLY_DECLINE: 0.2,
+    REALISTIC_EFFICIENCY_MONTHLY_RECOVERY: 0.1,
     SUBJECT_DECAY_RATE: 0.02 // 2% natural forgetting per week for subjects
+};
+
+export const getWeeklyEfficiency = (current: number, difficulty: Difficulty): number => {
+    const baseline = 10;
+    let rate = MECHANICS_CONFIG.EFFICIENCY_REGRESSION_RATE;
+    if (difficulty === 'REALITY') {
+        rate = current > baseline
+            ? MECHANICS_CONFIG.REALISTIC_EFFICIENCY_WEEKLY_DECLINE
+            // Apply the monthly recovery evenly over four weekly settlements.
+            : 1 - Math.pow(1 - MECHANICS_CONFIG.REALISTIC_EFFICIENCY_MONTHLY_RECOVERY, 1 / 4);
+    }
+    return Math.min(30, Math.max(0, current + (baseline - current) * rate));
 };
 
 export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, DifficultyPreset> = {
@@ -62,7 +76,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
         learningRewardMultiplier: 1.1,
         fatigueGainMultiplier: 0.75,
         restRecoveryMultiplier: 1.15,
-        peerAverage: 0.58
+        peerAverage: 0.77
     },
     'HARD': {
         label: '困难',
@@ -84,7 +98,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
         learningRewardMultiplier: 1,
         fatigueGainMultiplier: 1,
         restRecoveryMultiplier: 1,
-        peerAverage: 0.68
+        peerAverage: 0.785
     },
     'REALITY': {
         label: '现实',

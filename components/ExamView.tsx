@@ -1,5 +1,5 @@
 import { useLanguage } from '../lib/i18n';
-import { getAcademicSubjectScore } from '../data/balance';
+import { getAcademicExamSubjectScore } from '../data/balance';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ExamResult, SubjectKey, SUBJECT_NAMES, Phase, OIProblem, OIStats } from '../types';
@@ -69,15 +69,8 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
        return [];
   });
 
-  // --- DIFFICULTY CONFIGURATION ---
-  // Lower is easier (divider), Higher is harder
-  const getDifficultyModifier = (phase: Phase): number => {
+  const getOIPaperDifficulty = (phase: Phase): number => {
       switch (phase) {
-          case Phase.PLACEMENT_EXAM: return state.difficulty === 'REALITY' ? 0.69 : 1.0;
-          case Phase.MIDTERM_EXAM: return state.difficulty === 'REALITY' ? 1.13 : 1.2;
-          case Phase.FINAL_EXAM: return state.difficulty === 'REALITY' ? 1.44 : 1.5;
-          case Phase.MIDTERM_EXAM_2: return state.difficulty === 'REALITY' ? 1.815 : 1.3;
-          case Phase.FINAL_EXAM_2: return state.difficulty === 'REALITY' ? 1.885 : 1.6;
           case Phase.CSP_EXAM: return 1.0;
           case Phase.NOIP_EXAM: return 1.3;
           case Phase.WC_EXAM: return 1.5;
@@ -91,31 +84,31 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   const evaluateExamStep = (stepIndex: number) => {
     const subjectKey = subjectsToTest[stepIndex];
     const isOI = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM].includes(state.phase);
-    const difficultyMod = getDifficultyModifier(state.phase);
     let score = 0;
     let maxScore = 100;
     let logMsg = '';
     let extraLog = '';
 
     const isRealisticAcademic = !isOI && state.difficulty === 'REALITY';
-    const fluctuation = isRealisticAcademic ? 0.055 : 0.1;
+    const fluctuation = isOI ? 0.1 : isRealisticAcademic ? 0.055 : 0.07;
     let luckMultiplier = 1 + (Math.random() * 2 - 1) * fluctuation;
-    luckMultiplier += (state.general.luck - 50) / (isRealisticAcademic ? 900 : 500);
+    luckMultiplier += (state.general.luck - 50) / (isOI ? 500 : isRealisticAcademic ? 900 : 800);
     const critChance = Math.max(0, state.general.luck - 20) / 500;
     if (Math.random() < critChance) {
-      luckMultiplier += isRealisticAcademic ? 0.08 : 0.25;
+      luckMultiplier += isOI ? 0.25 : 0.08;
       extraLog = ' (超常发挥！)';
     }
     const fumbleChance = Math.max(0, (50 - state.general.luck) / 500);
     if (Math.random() < fumbleChance) {
-      luckMultiplier -= isRealisticAcademic ? 0.08 : 0.2;
+      luckMultiplier -= isOI ? 0.2 : 0.08;
       extraLog = ' (失误了...)';
     }
     if (state.general.mindset < 30) {
-      luckMultiplier -= Math.random() * (isRealisticAcademic ? 0.06 : 0.1);
+      luckMultiplier -= Math.random() * (isOI ? 0.1 : isRealisticAcademic ? 0.06 : 0.075);
     }
 
     if (isOI) {
+      const difficultyMod = getOIPaperDifficulty(state.phase);
       const prob = oiProblems[stepIndex];
       const stats = state.oiStats;
       let weightedRatio = 0;
@@ -139,11 +132,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
       const subject = subjectKey as SubjectKey;
       const isMainSubject = ['chinese', 'math', 'english'].includes(subject);
       maxScore = isMainSubject ? 150 : 100;
-      const stats = state.subjects[subject];
-      let basePercentage = (stats.aptitude * 0.4 + stats.level * 3.0) / difficultyMod;
-      const effectiveEfficiency = getEffectiveEfficiency(state);
-      if (effectiveEfficiency > 15) basePercentage += (effectiveEfficiency - 15) * 1.0;
-      score = getAcademicSubjectScore(subject, basePercentage * luckMultiplier, maxScore);
+      score = getAcademicExamSubjectScore(state, subject, maxScore, getEffectiveEfficiency(state), luckMultiplier);
       logMsg = `${SUBJECT_NAMES[subject]} 考试结束，${hideDetails ? '表现已记录' : `得分 ${score}/${maxScore}`}${extraLog}。`;
     }
     return { subjectKey, score, logMsg };

@@ -5,8 +5,8 @@ import {
     Phase, GameStatus, SubjectKey, OIStats, GameEvent, 
     EventChoice, ExamResult, ClubId, Item, WeekendActivity, Project, GameLogEntry, StoryEntry
 } from '../types';
-import { DIFFICULTY_PRESETS, getDifficultyPreset } from '../data/constants';
-import { getRealisticExamRank } from '../data/balance';
+import { DIFFICULTY_PRESETS, getDifficultyPreset, getWeeklyEfficiency, MECHANICS_CONFIG } from '../data/constants';
+import { getAcademicExamRank } from '../data/balance';
 import { withChallengeSleep, PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
 import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS, CLUBS, TALENTS } from '../data/mechanics';
 import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, isHealthFatal, isStudyChoice, isLearningActivity, getShopPriceMultiplier, clampGameStateMetrics, getActivityBlockReason, normalizeActiveStatuses, getWeekendActivityUpdates } from '../data/utils';
@@ -822,7 +822,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
         });
 
         // Gradual regression toward baseline values each week
-        const regress = (val: number, baseline: number, rate: number = 0.05) => {
+        const regress = (val: number, baseline: number, rate = MECHANICS_CONFIG.GENERAL_REGRESSION_RATE) => {
             const diff = val - baseline;
             return Math.min(150, Math.max(0, val - diff * rate));
         };
@@ -835,9 +835,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
             : regressedHealth;
         updatedGeneral.romance = Math.min(150, Math.max(0, updatedGeneral.romance));
         updatedGeneral.luck = regress(updatedGeneral.luck, 50, 0.02);
-        updatedGeneral.efficiency = Math.min(30, Math.max(0, regress(updatedGeneral.efficiency, 10, 0.03)));
-        updatedGeneral.mindset = Math.min(150, Math.max(0, updatedGeneral.mindset));
-        updatedGeneral.health = Math.min(150, Math.max(0, updatedGeneral.health));
+        updatedGeneral.efficiency = getWeeklyEfficiency(updatedGeneral.efficiency, prevState.difficulty);
         updatedGeneral.experience = Math.max(0, updatedGeneral.experience);
         updatedGeneral.excitement = Math.min(100, Math.max(0, regress(updatedGeneral.excitement ?? 0, 25, 0.12)));
 
@@ -1755,35 +1753,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
         // Return results to display maybe? We can set it to a new state `timetableResult` if we want a summary popup
     };
 
-    const calculateRank = (score: number, phase: Phase, maxScore = 750) => {
-        const ALL_OI_PHASES = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM];
-        // OI exams don't have school rankings
-        if (ALL_OI_PHASES.includes(phase)) return -1;
-        if (state.difficulty === 'REALITY') return getRealisticExamRank(score, maxScore);
-
-        const percentage = score / maxScore;
-        const totalStudents = 633;
-        
-        if (score >= maxScore * 0.98) return 1;
-
-        const mean = getDifficultyPreset(state.difficulty).peerAverage;
-        const std = 0.13;
-        const z = (percentage - mean) / std;
-        
-        let percentile = 0.5 * (1 + Math.sign(z) * Math.sqrt(1 - Math.exp(-2 * z * z / Math.PI)));
-        
-        if (percentage < 0.1) percentile = 0; 
-        else if (percentage > 0.999) percentile = 0.999;
-        
-        const rank = Math.max(1, Math.floor(totalStudents * (1 - percentile)));
-        return rank;
-    };
-
     const handleExamFinish = (result: ExamResult) => {
         const ALL_OI_PHASES = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM];
         const isOI = ALL_OI_PHASES.includes(state.phase);
         const academicMaxScore = getAcademicMaxScore(Object.keys(result.scores));
-        const rank = calculateRank(result.totalScore, state.phase, academicMaxScore || 750);
+        const rank = isOI
+            ? -1 : getAcademicExamRank(result.totalScore, academicMaxScore || 750, getDifficultyPreset(state.difficulty).peerAverage);
         const resultWithRank: ExamResult = { ...result, rank: isOI ? undefined : rank, type: isOI ? 'COMPETITION' : 'ACADEMIC' };
 
         const oiContestNames: Partial<Record<Phase, string>> = {
