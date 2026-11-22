@@ -51,6 +51,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
             { 
                 text: '信息竞赛(OI)', 
                 hint: '暑假 8 周，提前练算法。学年中会有额外竞赛，周末自由时间更少。',
+                hintKind: 'rule',
                 resultDescription: '你把暑假留给算法入门。开学后还要给线上赛和机房训练留时间。',
                 action: (s) => ({
                 competition: 'OI', 
@@ -62,6 +63,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
             {
                 text: '数学竞赛(MO)',
                 hint: '暑假 8 周，提前练数学。入学后有组队、竞赛和审稿。',
+                hintKind: 'rule',
                 resultDescription: '你给自己留了一个完整暑假做数学准备。开学后可以试着找人一起训练。',
                 action: (s) => ({
                     competition: 'MO',
@@ -73,6 +75,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
             {
                 text: '专注课内综合', 
                 hint: '较快入校。正常参加分班、社团招新和校园活动。',
+                hintKind: 'rule',
                 resultDescription: '你简单理了理课本和行李，把更多精力留给开学后的班级生活。',
                 action: (s) => ({ 
                 competition: 'None', 
@@ -82,6 +85,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
             {
                 text: '先补觉',
                 hint: '较快入校。先恢复体力，适合嗜睡挑战。',
+                hintKind: 'rule',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 5, health: s.general.health + 5  }, sleepCount: (s.sleepCount || 0) + 1,
                     log: [...s.log, { message: '你关掉闹钟，补了个觉。', type: 'success', timestamp: Date.now()}]
@@ -264,7 +268,13 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { text: '忍痛付款', action: (s) => ({ general: { ...s.general, money: s.general.money - 20, mindset: s.general.mindset -1 } }) },
-            { text: '默默放回', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 4 } }) }
+            { text: '默默放回', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 4 } }) },
+            {
+                text: '【家里有矿】多拿两根顺手分给身边同学',
+                condition: (s) => s.talents.some(t => t.id === 'rich_kid') && s.general.money >= 50,
+                resultDescription: '你刷卡结账，把多出来的两根分给一起走出来的同学，一路边聊边回家。',
+                action: (s) => ({ general: { ...s.general, money: s.general.money - 35, romance: s.general.romance + 4, mindset: s.general.mindset + 6 } })
+            }
         ]
     },
     {
@@ -289,7 +299,15 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
         once: true,
         triggerType: 'FIXED',
         fixedWeek: 1,
-        choices: [{ text: '坚持就是胜利', action: (s) => ({ general: { ...s.general, health: s.general.health + 5, mindset: s.general.mindset - 5 } }) }]
+        choices: [
+            { text: '坚持就是胜利', action: (s) => ({ general: { ...s.general, health: s.general.health + 5, mindset: s.general.mindset - 5 } }) },
+            {
+                text: '【体育特长】帮教官领口令，把方阵节奏带稳',
+                condition: (s) => s.talents.some(t => t.id === 'healthy'),
+                resultDescription: '跟着口令把步频带稳后，前排不再老踩脚，你站一天也没觉得那么累。',
+                action: (s) => ({ general: { ...s.general, health: s.general.health + 8, experience: s.general.experience + 4, mindset: s.general.mindset + 3 } })
+            }
+        ]
     },
     {
         id: 'mil_blanket',
@@ -578,7 +596,15 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
         description: '八中图书馆是寻找灵感的好地方。',
         type: 'positive',
         triggerType: 'RANDOM',
-        choices: [{ text: '高效自修', action: (s) => ({ subjects: modifySub(s, ['chinese', 'english'], 3), general: { ...s.general, efficiency: s.general.efficiency + 1 } }) }]
+        choices: [
+            { text: '高效自修', action: (s) => ({ subjects: modifySub(s, ['chinese', 'english'], 3), general: { ...s.general, efficiency: s.general.efficiency + 1 } }) },
+            {
+                text: '【机房幽灵】顺手在角落看几页算法讲义',
+                condition: (s) => s.talents.some(t => t.id === 'oi_nerd'),
+                resultDescription: '你在靠窗桌旁把卡了两天的边界条件手推了一遍，晚自习前终于理顺了。',
+                action: (s) => ({ oiStats: modifyOI(s, { misc: 2 }), subjects: modifySub(s, ['math'], 2), general: { ...s.general, efficiency: s.general.efficiency + 1 } })
+            }
+        ]
     },
     {
         id: 's1_teacher_talk',

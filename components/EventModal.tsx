@@ -1,7 +1,7 @@
 import { useLanguage } from '../lib/i18n';
 import React, { useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { GameEvent, EventChoice, GameState } from '../types';
+import { GameEvent, EventChoice, GameState, Phase } from '../types';
 import { formatCampusText } from '../data/campus_names';
 import { isStudyBlocked, isStudyChoice } from '../data/utils';
 import { playSound } from '../lib/sound';
@@ -20,6 +20,36 @@ interface EventModalProps {
 const isNegativeDiff = (diff: string): boolean => {
     if (diff.startsWith('疲劳')) return /\+|增加/.test(diff);
     return /-|下降|降低|减少/.test(diff);
+};
+
+const getInnerWhisper = (state: GameState): string | null => {
+    if (state.general.health <= 30) return '头有点沉，教室里的日光灯显得格外刺眼。';
+    if (state.fatigue >= 80) return '眼皮发沉，卷子上的字像在轻轻晃动。';
+    if (state.general.mindset <= 25) return '最近总觉得自己比旁边的人慢了半拍。';
+    if (state.general.money < 0) return '手头紧巴巴的，每次路过小卖部都要先算一下账。';
+    if (
+        state.phase === Phase.MIDTERM_EXAM
+        || state.phase === Phase.FINAL_EXAM
+        || state.phase === Phase.MIDTERM_EXAM_2
+        || state.phase === Phase.FINAL_EXAM_2
+        || (state.phase !== Phase.SUMMER && state.totalWeeksInPhase > 0 && state.week >= Math.max(1, state.totalWeeksInPhase - 1))
+    ) {
+        return '离这一阶段收尾没几天了，桌角堆着的卷子比上周更高。';
+    }
+    return null;
+};
+
+const getResultTone = (diffs: string[]): { boxClass: string } | null => {
+    if (diffs.length === 0) return null;
+    const negCount = diffs.filter(isNegativeDiff).length;
+    const posCount = diffs.length - negCount;
+    if (posCount > 0 && negCount === 0) {
+        return { boxClass: 'border-l-2 border-emerald-400 pl-3' };
+    }
+    if (negCount > 0 && posCount === 0) {
+        return { boxClass: 'border-l-2 border-rose-400 pl-3' };
+    }
+    return { boxClass: 'border-l-2 border-amber-400 pl-3' };
 };
 
 const getEventStrip = (event: GameEvent): string => {
@@ -77,6 +107,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
 
     const visibleChoices = event.choices?.filter(c => !c.condition || c.condition(state)) || [];
     const studyBlocked = isStudyBlocked(state);
+    const hideHints = state.difficulty === 'HARD' || state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+    const innerWhisper = !eventResult ? getInnerWhisper(state) : null;
+    const resultTone = eventResult ? getResultTone(eventResult.diff) : null;
 
     useEffect(() => {
         if (paused) return;
@@ -131,11 +164,17 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                       <p className="text-slate-700 mb-5 text-base md:text-lg leading-relaxed font-medium">
                           {tr(descriptionText)}
                       </p>
+                      {innerWhisper && (
+                        <p className="mb-5 -mt-2 border-l-2 border-slate-200 pl-3 text-xs italic text-slate-500">
+                          {tr(innerWhisper)}
+                        </p>
+                      )}
 
                       <div className="space-y-3">
                          {visibleChoices.map((c, i) => {
                            const disabled = studyBlocked && isStudyChoice(c);
                            const isRisky = c.tags?.includes('risky');
+                           const isTalentChoice = /^【(天赋|天生我才|家里有矿|万人迷|机房幽灵|锦鲤附体|体育特长|乐天派|寒门学子|睡神)】/.test(c.text);
                            return (
                            <button
                              type="button"
@@ -144,11 +183,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                                  onChoice(c);
                              }}
                              title={tr(disabled ? '极限难度：当前心态或疲劳状态不允许学习' : undefined)}
-                             className={`w-full text-left p-4 rounded-2xl border transition-all font-bold group flex justify-between items-center gap-3 shadow-sm ${disabled ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : c.text.includes('【睡神】') ? 'bg-indigo-50/80 border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-200/50 hover:shadow-lg' : isRisky ? 'bg-rose-50/40 border-rose-200/70 text-slate-800 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-rose-200/50 hover:shadow-lg' : 'bg-white border-slate-200/70 text-slate-800 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-indigo-200/50 hover:shadow-lg'}`}
+                             className={`w-full text-left p-4 rounded-2xl border transition-all font-bold group flex justify-between items-center gap-3 shadow-sm ${disabled ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : isTalentChoice ? 'bg-indigo-50/80 border-indigo-200 text-indigo-800 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-200/50 hover:shadow-lg' : isRisky ? 'bg-rose-50/40 border-rose-200/70 text-slate-800 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-rose-200/50 hover:shadow-lg' : 'bg-white border-slate-200/70 text-slate-800 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-indigo-200/50 hover:shadow-lg'}`}
                            >
                               <span className="flex-1 min-w-0">
                                   <span className="block">{tr(formatStoryText(c.text))}</span>
-                                  {c.hint && <span className={`block mt-1 text-xs font-medium leading-relaxed ${disabled ? 'text-slate-500' : 'text-slate-600 group-hover:text-white'}`}>{tr(formatStoryText(c.hint))}</span>}
+                                  {c.hint && (!hideHints || c.hintKind === 'rule') && <span className={`block mt-1 text-xs font-medium leading-relaxed ${disabled ? 'text-slate-500' : 'text-slate-600 group-hover:text-white'}`}>{tr(formatStoryText(c.hint))}</span>}
                               </span>
                               <span className="flex items-center gap-2 shrink-0">
                                   {isRisky && !disabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 group-hover:bg-white/20 group-hover:text-white">{tr("有风险")}</span>}
@@ -174,7 +213,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                     <motion.div initial={reduceMotion ? false : { y: 4 }} animate={{ y: 0 }} transition={{ duration: 0.12 }}>
                       <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-3">{tr(formatStoryText(eventResult.choice.text))}</h2>
                       {resultDescText && (
-                        <p className="text-slate-700 leading-relaxed text-base mb-4">
+                        <p className={`text-slate-700 leading-relaxed text-base mb-4 whitespace-pre-line ${resultTone ? resultTone.boxClass : ''}`}>
                           {tr(resultDescText)}
                         </p>
                       )}

@@ -33,7 +33,7 @@ export const RIVAL_EVENTS: GameEvent[] = [
       },
       {
         text: '先对一下最后一道题',
-        resultDescription: '你们算错的步骤不一样。抢答机把错题本拉到桌子中间，翻到刚抄的那一页。',
+        resultDescription: `你们算错的步骤不一样。${RIVAL_NICKNAME}把错题本拉到桌子中间，翻到刚抄的那一页。`,
         action: (s) => ({
           flags: withRivalFlags(s, { rival_introduced: true, rival_route: 'cooperation', rival_score: 2 }),
           general: { ...s.general, mindset: s.general.mindset + 6, experience: s.general.experience + 8 }
@@ -41,7 +41,7 @@ export const RIVAL_EVENTS: GameEvent[] = [
       },
       {
         text: '收起卷子，先看看自己错在哪',
-        resultDescription: '你把卷子折好。抢答机也拿回了自己的那张。',
+        resultDescription: `你把卷子折好。${RIVAL_NICKNAME}也拿回了自己的那张。`,
         action: (s) => ({
           flags: withRivalFlags(s, { rival_introduced: true, rival_route: 'undecided', rival_score: 0 }),
           general: { ...s.general, mindset: s.general.mindset + 2 }
@@ -85,7 +85,7 @@ export const RIVAL_EVENTS: GameEvent[] = [
       },
       {
         text: '婉拒，保持自己的复习计划',
-        resultDescription: '你说今晚排满了。抢答机收起卷子，回自习室找座位了。',
+        resultDescription: `你说今晚排满了。${RIVAL_NICKNAME}收起卷子，回自习室找座位了。`,
         action: (s) => ({
           flags: withRivalFlags(s, { rival_score: Number(s.flags.rival_score || 0) - 1 }),
           general: { ...s.general, mindset: s.general.mindset + 1 }
@@ -105,7 +105,7 @@ export const RIVAL_EVENTS: GameEvent[] = [
     choices: [
       {
         text: '分工合作，把项目做完整',
-        resultDescription: '你排版，抢答机补数据。周五交稿前，你们一起贴上了最后一张图。',
+        resultDescription: `你排版，${RIVAL_NICKNAME}补数据。周五交稿前，你们一起贴上了最后一张图。`,
         action: (s) => ({
           flags: withRivalFlags(s, {
             rival_route: 'cooperation',
@@ -129,7 +129,7 @@ export const RIVAL_EVENTS: GameEvent[] = [
       },
       {
         text: '把决定权交给对方，自己完成收尾',
-        resultDescription: '你校对并打印了附件。后来抢答机交回展示板，又指着附件说了声谢谢。',
+        resultDescription: `你校对并打印了附件。后来${RIVAL_NICKNAME}交回展示板，又指着附件说了声谢谢。`,
         action: (s) => ({
           flags: withRivalFlags(s, {
             rival_route: 'cooperation',

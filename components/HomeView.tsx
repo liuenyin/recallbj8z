@@ -13,7 +13,7 @@ interface HomeViewProps {
     onDifficultyChange: (diff: Difficulty) => void;
     customStats: GeneralStats;
     onCustomStatsChange: (stats: GeneralStats) => void;
-    onStart: (challenge?: Challenge, chooseTalents?: boolean) => void;
+    onStart: (challenge?: Challenge, skipTalents?: boolean) => void;
     hasSave: boolean;
     onLoadGame: () => void;
     hasManualSave: boolean;
@@ -116,7 +116,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                 {showMore && (
                     <div id="home-more" className="mt-5 space-y-4 border-t border-slate-200 pt-4">
                         <div className="grid grid-cols-2 gap-1.5 text-left text-sm">
-                            <button type="button" onClick={() => onStart(undefined, true)} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("选天赋开局")}</button>
+                            <button type="button" onClick={() => onStart(undefined, true)} disabled={selectedDifficulty === 'HELL'} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100 disabled:opacity-40">{tr("跳过天赋速开")}</button>
                             <button type="button" onClick={() => { setShowMore(false); onManageAccounts(); }} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("账号与存档 ")}<span className="block truncate text-xs text-slate-500">{tr(account.name)}</span></button>
                             {hasManualSave && <button type="button" onClick={onLoadManual} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("读取手动存档")}</button>}
                             <button type="button" onClick={() => { setUnlockedEndings(getUnlockedEndings()); setShowAchievements(true); }} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("成就与图鉴")}</button>
@@ -127,7 +127,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                             <summary className="cursor-pointer font-medium">{tr("特殊挑战")}</summary>
                             <div className="mt-2 space-y-1">
                                 {IRREGULAR_CHALLENGES.map(challenge => (
-                                    <button key={challenge.id} type="button" onClick={() => onStart(challenge, true)} className="block w-full rounded-lg px-2 py-2 text-left hover:bg-white">
+                                    <button key={challenge.id} type="button" onClick={() => onStart(challenge)} className="block w-full rounded-lg px-2 py-2 text-left hover:bg-white">
                                         <strong>{tr(challenge.title)}</strong>
                                         <span className="mt-0.5 block text-xs text-slate-600">{tr(challenge.description)}</span>
                                     </button>

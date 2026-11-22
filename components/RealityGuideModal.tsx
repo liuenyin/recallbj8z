@@ -39,25 +39,21 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
                     {tab === 'STATS' && (
                         <div className="space-y-6">
                             <div>
-                                <h3 className="font-bold text-slate-900 mb-2 border-l-4 border-indigo-500 pl-2">{tr("现实 / 地狱模式状态档位")}</h3>
-                                <p className="text-xs text-slate-500 mb-2">{tr("【现实】与【地狱】模式下数值会隐去具体数字，改按实际区间显示文字档位（无随机认知偏差）：")}</p>
+                                <h3 className="font-bold text-slate-900 mb-2 border-l-4 border-indigo-500 pl-2">{tr("现实 / 地狱模式 · 自我认知")}</h3>
+                                <p className="text-xs text-slate-500 mb-2">{tr("【现实】与【地狱】模式下隐去具体数字，改以带有认知偏差的体感档位呈现（金钱始终显示真实余额）：")}</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <div className="p-2 bg-rose-50 text-rose-700 rounded border border-rose-100 flex justify-between"><span>{tr("极低（金钱<0 显示负债）")}</span> <span>&lt; 20</span></div>
-                                    <div className="p-2 bg-orange-50 text-orange-600 rounded border border-orange-100 flex justify-between"><span>{tr("较低")}</span> <span>20 - 39</span></div>
-                                    <div className="p-2 bg-slate-50 text-slate-600 rounded border border-slate-200 flex justify-between"><span>{tr("一般")}</span> <span>40 - 59</span></div>
-                                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 flex justify-between"><span>{tr("较高")}</span> <span>60 - 79</span></div>
-                                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 flex justify-between col-span-2"><span>{tr("极高")}</span> <span>&ge; 80</span></div>
+                                    <div className="p-2 bg-rose-50 text-rose-700 rounded border border-rose-100 flex justify-between"><span>{tr("糟糕透顶")}</span> <span>&lt; 20</span></div>
+                                    <div className="p-2 bg-orange-50 text-orange-600 rounded border border-orange-100 flex justify-between"><span>{tr("不太妙")}</span> <span>20 - 39</span></div>
+                                    <div className="p-2 bg-slate-50 text-slate-600 rounded border border-slate-200 flex justify-between"><span>{tr("平平无奇")}</span> <span>40 - 59</span></div>
+                                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 flex justify-between"><span>{tr("感觉良好")}</span> <span>60 - 79</span></div>
+                                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 flex justify-between"><span>{tr("充满自信")}</span> <span>80 - 99</span></div>
+                                    <div className="p-2 bg-amber-50 text-amber-700 rounded border border-amber-200 flex justify-between font-bold"><span>{tr("超凡脱俗")}</span> <span>&ge; 100</span></div>
                                 </div>
                             </div>
 
                             <div>
-                                <h3 className="font-bold text-slate-900 mb-2 border-l-4 border-indigo-500 pl-2">{tr("有效效率 (0 ~ 30)")}</h3>
-                                <p className="text-xs text-slate-500 mb-2">{tr("基础效率上限为 30，再结合状态 Buff/Debuff 与疲劳惩罚折算为有效效率：")}</p>
-                                <div className="grid grid-cols-3 gap-2 text-xs">
-                                    <div className="p-2 bg-rose-50 text-rose-700 rounded border border-rose-100 flex justify-between"><span>{tr("低")}</span> <span>&lt; 8</span></div>
-                                    <div className="p-2 bg-slate-50 text-slate-600 rounded border border-slate-200 flex justify-between"><span>{tr("中")}</span> <span>8 - 14.9</span></div>
-                                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 flex justify-between font-bold"><span>{tr("高")}</span> <span>&ge; 15</span></div>
-                                </div>
+                                <h3 className="font-bold text-slate-900 mb-2 border-l-4 border-indigo-500 pl-2">{tr("学习状态与学科体感")}</h3>
+                                <p className="text-xs text-slate-500 mb-2">{tr("效率体感由「极度涣散 / 心不在焉 / 普普通通 / 专注 / 高效 / 心流」表示；学科能力由「一窍不通 / 略懂皮毛 / 马马虎虎 / 渐入佳境 / 得心应手 / 登峰造极」表示；疲劳以「精力充沛 / 尚可支撑 / 有些疲惫 / 明显透支 / 精疲力竭」提示。")}</p>
                             </div>
                         </div>
                     )}
@@ -69,12 +65,14 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
                                 <p>{tr("• 疲劳 &ge; 50/75/90 时，有效效率依次扣除 1 / 3 / 6 点；疲劳 &ge; 75 还会持续扣减健康与心态。")}</p>
                                 <p>{tr("• 兴奋值越高，学习与运动正向收益越高，但休息恢复效率会相应下降。")}</p>
                                 <p>{tr("• 周末同一项活动重复安排会触发收益递减（第 1~4 次：100% / 68% / 45% / 30%）。")}</p>
+                                <p>{tr("• 认知偏差与波动：现实/地狱模式下，心态低于 50 容易低估自己，高于 50 容易高估自己；经验越高自我判断越稳；健康危急或极度疲劳时保留真实警示。")}</p>
                             </div>
 
                             <div className="space-y-2 text-xs">
                                 <h4 className="font-bold text-slate-900 text-sm">{tr("高难度专属限制")}</h4>
                                 <ul className="list-disc list-inside space-y-1.5 pl-1">
-                                    <li><span className="font-bold text-rose-600">{tr("现实难度")}</span>{tr("：每周周末仅随机提供 6 项可选活动，且隐藏具体数值。")}</li>
+                                    <li><span className="font-bold text-orange-600">{tr("困难 / 现实 / 地狱难度")}</span>{tr("：隐藏事件选项的收益与胜率提示，保留截止时间与规则说明。")}</li>
+                                    <li><span className="font-bold text-rose-600">{tr("现实难度")}</span>{tr("：每周周末仅随机提供 6 项可选活动，且隐藏具体数值（金钱除外）。")}</li>
                                     <li><span className="font-bold text-slate-900">{tr("地狱难度")}</span>{tr("：健康低于 10 立即结束；心态 < 20 或疲劳 > 90 无法学习；每周最多安排 1 次学习；商店价格翻倍；同样可解锁成就。")}</li>
                                 </ul>
                             </div>

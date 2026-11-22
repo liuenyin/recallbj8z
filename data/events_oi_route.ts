@@ -47,6 +47,7 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
                 text: '买票去听课',
                 tags: ['study'],
                 hint: '花 20 元，听一个新专题，也能认识外校同学。',
+                hintKind: 'rule',
                 resultDescription: '坐地铁去听了一天课，讲义比你手上的旧资料新一些。课后还有人留下来讨论，你顺手加了几个联系方式。',
                 action: (s) => ({
                     flags: { ...s.flags, oi_external_training: true },

@@ -2,7 +2,7 @@ import { GameState, Phase, SubjectKey } from '../types';
 import { CLUBS } from './mechanics';
 import { isHealthFatal } from './utils';
 import { getAcademicExamPhase } from './game_flow';
-import { restoreRelationshipName, RIVAL_NICKNAME } from './campus_names';
+import { restoreRelationshipName, RIVAL_NICKNAME, FESTIVAL_PARTNER_NICKNAME } from './campus_names';
 
 export interface EndingCatalogEntry {
     title: string;
@@ -250,10 +250,10 @@ export const getEndingData = (state: GameState) => {
 export const getEndingMemories = (state: GameState): string[] => {
     const memories: string[] = [];
     const festivalMemories: Record<string, string> = {
-        built: '科技节上，你翻出和彩排搭档陈禾写下的备用方案，把卡住的演示接着做完了。',
-        guided: '科技节上，你和陈禾用彩排时安排的备用班次接住了观众，换班前把展台顺利顶了下来。',
+        built: `科技节上，你翻出和彩排搭档${FESTIVAL_PARTNER_NICKNAME}写下的备用方案，把卡住的演示接着做完了。`,
+        guided: `科技节上，你和${FESTIVAL_PARTNER_NICKNAME}用彩排时安排的备用班次接住了观众，换班前把展台顺利顶了下来。`,
         astronomy_notes: '科技节的演示卡住时，你把南斗天文社那张观测记录摊开，带展台前的同学认了一回星。',
-        improvised: '科技节上出了点岔子。你和陈禾把演示分成两轮，还是把能做的部分带给了观众。',
+        improvised: `科技节上出了点岔子。你和${FESTIVAL_PARTNER_NICKNAME}把演示分成两轮，还是把能做的部分带给了观众。`,
         visited: '你去地下场馆逛了科技节，展台同学把第一次失败的版本也拿给你看。'
     };
     const festivalMemory = festivalMemories[state.flags.science_festival_outcome];

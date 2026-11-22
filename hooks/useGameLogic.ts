@@ -1406,9 +1406,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
             };
         }
         const diff = visualizer ? visualizer(oldState, newState) : [];
-        const narrative = choice.resultDescription
-            || updates.log?.filter(entry => !prev.log.includes(entry)).map(entry => entry.message).join('；')
-            || undefined;
+        const logSummary = updates.log
+            ?.filter(entry => !prev.log.includes(entry))
+            .map(entry => entry.message)
+            .filter(msg => msg && msg !== choice.resultDescription)
+            .join('；') || '';
+        const narrative = [choice.resultDescription, logSummary].filter(Boolean).join('\n') || undefined;
         const rawResultSummary = narrative || diff.join('；') || '这次选择没有直接改变属性。';
         const entry: StoryEntry = {
             week: prev.week,

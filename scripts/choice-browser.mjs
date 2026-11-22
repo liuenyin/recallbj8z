@@ -29,10 +29,37 @@ try {
     const initial = game.state;
     const { SHOP_ITEMS, WEEKEND_ACTIVITIES } = await import('/data/mechanics.ts');
     const { getEndingData, getEndingMemories } = await import('/data/ending.ts');
-    const { modifyOI, getEffectiveEfficiency } = await import('/data/utils.ts');
+    const { modifyOI, getEffectiveEfficiency, isStudyChoice } = await import('/data/utils.ts');
     const book = SHOP_ITEMS.find(item=>item.id==='five_three').effect(initial);
     const club = WEEKEND_ACTIVITIES.find(activity=>activity.id==='w_club_activity');
     const schoolWeek = {...initial,phase:'SEMESTER_1',week:4,club:'literature'};
+    const springEvents = PHASE_EVENTS.SEMESTER_2;
+    const trip = springEvents.find(event => event.id === 's2_spring_trip');
+    const companion = trip.choices.find(choice => choice.text.includes('叫上TA'));
+    const friendGroup = trip.choices.find(choice => choice.text.includes('三两个熟人'));
+    const newPeer = {...initial,flags:{relationship_name:'L同学',ta_favorability:0}};
+    const knownPeer = {...newPeer,flags:{...newPeer.flags,ta_favorability:20}};
+    const declinedPeer = {...knownPeer,flags:{...knownPeer.flags,romance_resolution:'rejected'}};
+    const homework = springEvents.find(event => event.id === 's2_late_night_homework');
+    const championship = springEvents.find(event => event.id === 's2_debate_match');
+    flushSync(() => game.setState({...initial,phase:'SEMESTER_2',week:12,currentEvent:championship,isPlaying:false}));
+    const originalRandom = Math.random;
+    try {
+      Math.random = () => 0;
+      flushSync(() => game.handleChoice(championship.choices[0]));
+    } finally {
+      Math.random = originalRandom;
+    }
+    const newEventRules = [
+      !companion.condition(newPeer) && friendGroup.condition(newPeer),
+      companion.condition(knownPeer) && !companion.condition(declinedPeer),
+      homework.choices.slice(0,3).every(isStudyChoice) && homework.choices[3].tags.includes('sleep'),
+      !isStudyChoice(homework.choices[3]),
+      game.state.eventResult.narrative.startsWith(championship.choices[0].resultDescription)
+        && game.state.eventResult.narrative.includes('晋级8强')
+        && game.state.history.at(-1).resultSummary.includes('晋级8强')
+    ];
+    flushSync(() => game.setState(initial));
     const proficiency = PHASE_EVENTS.SEMESTER_2.find(event => event.id === 's2_academic_exam');
     const unevenSubjects = {...initial.subjects, chemistry:{...initial.subjects.chemistry,level:80},
       biology:{...initial.subjects.biology,level:13}, history:{...initial.subjects.history,level:2},
@@ -79,7 +106,7 @@ try {
     const effFocused = getEffectiveEfficiency({...initial,general:{...initial.general,efficiency:16},fatigue:20,activeStatuses:[{id:'focused',name:'心流',description:'',type:'BUFF',icon:'fa-bolt',duration:2}]});
     const effFatigued = getEffectiveEfficiency({...initial,general:{...initial.general,efficiency:16},fatigue:20,activeStatuses:[{id:'fatigued',name:'疲惫',description:'',type:'DEBUFF',icon:'fa-battery-quarter',duration:999}]});
     const routeRegressions = [
-      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('哈基米')) && memories.some(m=>m.includes('草稿')),
+      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('L同学')) && memories.some(m=>m.includes('草稿')),
       !getEndingMemories(initial).some(m=>m.includes('表白')),
       topStudentEnding.rank==='S' && topStudentEnding.title==='年级学神',
       lowerEnding.score >= 90 && lowerEnding.title === '中流砥柱',
@@ -339,7 +366,7 @@ try {
       && localStorage.getItem('recall_save_v1_other-regression') === 'untouched'
       && localStorage.getItem(saveKey) === beforeSwitch;
     root.unmount();
-    return { skipCleanup, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview,
+    return { skipCleanup, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview, newEventRules,
       exclusiveInvite, acceptedClub, enforcedInviteSlot,
       autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
       stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
@@ -350,6 +377,7 @@ try {
     assert.ok(check.result && check.subjects && check.oi, JSON.stringify(check));
   }
   assert.ok(results.routeRegressions.every(Boolean), 'route failures, sleep availability, humanities book and empty club');
+  assert.ok(results.newEventRules.every(Boolean), 'spring companion, homework limits and match outcome feedback');
   assert.ok(results.skipCleanup, 'clear only skipped slots, retaining valid rest');
   assert.ok(results.plannedLibrary);
   assert.ok(results.boardChecks.every(Boolean), 'board timing, fatigue, diary and old saves');

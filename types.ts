@@ -311,6 +311,7 @@ export interface SerializableGameEvent {
 export interface EventChoice {
   text: string;
   hint?: string;
+  hintKind?: 'rule' | 'outcome';
   resultDescription?: string;
   nextEventId?: string; 
   tags?: Array<'sleep' | 'study' | 'sport' | 'rest' | 'social' | 'risky'>;

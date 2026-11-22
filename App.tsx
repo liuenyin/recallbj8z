@@ -29,6 +29,14 @@ import { LanguageProvider, useLanguage, type Language } from './lib/i18n';
 
 import { SUBJECT_NAMES, SubjectKey } from './types';
 
+const PHASE_TRANSITION_NOTES: Partial<Record<Phase, string>> = {
+  [Phase.MILITARY]: '迷彩服发下来了，操场上的哨声比闹钟更早响起。',
+  [Phase.SEMESTER_1]: '新课表贴在黑板旁，高一上学期正式开始。',
+  [Phase.WINTER_BREAK]: '期末卷子收进抽屉，窗外迎来了短促的冬日清晨。',
+  [Phase.SEMESTER_2]: '新学期第一天的早自习，走廊里还留着寒假前的粉笔灰。',
+  [Phase.SUMMER_BREAK]: '高一的最后一张考卷交上去了，楼道忽然安静下来。'
+};
+
 const getMilestoneCountdown = (state: GameState): { label: string; urgent: boolean } | null => {
   if (state.phase === Phase.SUMMER) {
     const left = Math.max(0, state.totalWeeksInPhase - state.week);
@@ -118,6 +126,7 @@ const GameApp: React.FC = () => {
       setSoundMuted(next);
   };
   const prevPhaseRef = useRef<Phase | null>(null);
+  const [phaseBanner, setPhaseBanner] = useState<{ title: string; note: string } | null>(null);
   const [activeAccountId, setAccountId] = useState(() => getActiveAccountId());
   const [showAccounts, setShowAccounts] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -236,11 +245,20 @@ const GameApp: React.FC = () => {
   React.useEffect(() => {
     if (view !== 'GAME') {
       prevPhaseRef.current = null;
+      setPhaseBanner(null);
       return;
     }
     if (prevPhaseRef.current === state.phase) return;
+    const previous = prevPhaseRef.current;
     prevPhaseRef.current = state.phase;
     if (state.phase !== Phase.INIT && state.phase !== Phase.ENDING) playSound('transition');
+    const note = PHASE_TRANSITION_NOTES[state.phase];
+    if (previous !== null && note && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPhaseBanner({ title: getPhaseLabel(state.phase), note });
+      const timer = setTimeout(() => setPhaseBanner(null), 1100);
+      return () => clearTimeout(timer);
+    }
+    setPhaseBanner(null);
   }, [view, state.phase]);
 
   React.useEffect(() => {
@@ -269,13 +287,13 @@ const GameApp: React.FC = () => {
       setAvailableTalents([...buffs, ...debuffs].sort(() => 0.5 - Math.random()));
   };
 
-  const prepareGame = (challenge?: Challenge, chooseTalents = false) => {
+  const prepareGame = (challenge?: Challenge, skipTalents = false) => {
       if (hasSave && !window.confirm(tr('开启新学期会覆盖当前的自动存档。要继续吗？'))) return;
       setShowClubSelection(false); setShowRealityGuide(false);
       setPendingChallenge(challenge || null);
       talentActionStateRef.current = null;
       startGameSubmittedRef.current = false;
-      if (!chooseTalents && !challenge && selectedDifficulty !== 'HELL') {
+      if (skipTalents && !challenge && selectedDifficulty !== 'HELL') {
           startGameSubmittedRef.current = true;
           startGameState(selectedDifficulty, customStats, []);
           setView('GAME');
@@ -347,7 +365,7 @@ const GameApp: React.FC = () => {
           else if (showAchievements) closeGameOverlay(setShowAchievements);
           else if (showShop) closeGameOverlay(setShowShop);
           else if (showSchedule && !state.isWeekend) closeGameOverlay(setShowSchedule);
-          else if (showGameActions) setShowGameActions(false);
+          else if (showGameActions) closeGameOverlay(setShowGameActions);
       };
       window.addEventListener('keydown', onKeyDown);
       return () => window.removeEventListener('keydown', onKeyDown);
@@ -413,7 +431,15 @@ const GameApp: React.FC = () => {
   const currentProject = state.activeProjects[0];
 
   return (
-    <div className={`h-[100dvh] transition-all duration-1000 motion-reduce:transition-none ${getAtmosphereTheme()} ${state.general.mindset <= 20 ? 'grayscale-[0.9] contrast-125 transition-all duration-[3000ms]' : ''} flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative`}>
+    <div className={`h-[100dvh] transition-all duration-1000 motion-reduce:transition-none ${getAtmosphereTheme()} ${state.general.mindset <= 20 ? 'grayscale-[0.9] contrast-125 transition-all duration-[3000ms]' : ''} ${isDangerState ? 'ring-1 ring-inset ring-rose-300/60' : ''} flex flex-col md:flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-hidden font-sans text-slate-900 relative`}>
+      {phaseBanner && (
+        <div className="pointer-events-none fixed inset-x-0 top-6 z-[60] flex justify-center px-4" aria-live="polite">
+          <div className="max-w-md rounded-2xl border border-slate-700/80 bg-slate-900/90 px-5 py-3 text-center text-white shadow-xl backdrop-blur-md">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-indigo-300">{tr(phaseBanner.title)}</div>
+            <p className="mt-1 text-xs leading-relaxed text-slate-200">{tr(phaseBanner.note)}</p>
+          </div>
+        </div>
+      )}
             {showContestHistory && <ContestHistoryModal state={state} onClose={() => closeGameOverlay(setShowContestHistory)} />}
       {isDangerState && <div className={`fixed inset-0 pointer-events-none z-[15] transition-opacity duration-1000 motion-reduce:animate-none ${isCriticalState ? 'screen-danger-flicker' : 'screen-danger-vignette'}`} aria-hidden="true"></div>}
       {isWarmMood && <div className="fixed inset-0 pointer-events-none z-[15] motion-reduce:animate-none screen-warm-glow" aria-hidden="true"></div>}
@@ -446,21 +472,21 @@ const GameApp: React.FC = () => {
           <button type="button" onClick={() => openGameOverlay(setShowMobileStats)} className="rounded-lg px-3 py-2 hover:bg-slate-100 md:hidden">{tr("状态")}</button>
           <button type="button" onClick={() => openGameOverlay(setShowHistory)} className="rounded-lg px-3 py-2 hover:bg-slate-100">{tr("历程")}</button>
           <span role="status" className={`ml-auto min-w-0 truncate text-xs ${saveNotice.includes('失败') ? 'text-rose-700' : 'text-slate-500'}`}>{tr(saveNotice)}</span>
-          <div className="relative" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setShowGameActions(false); }}>
-            <button type="button" aria-expanded={showGameActions} aria-controls="game-actions" onClick={() => setShowGameActions(open => !open)} className="rounded-lg px-3 py-2 hover:bg-slate-100">{tr("更多 ")}<i className="fas fa-chevron-down ml-1 text-[10px]" aria-hidden="true" /></button>
+          <div className="relative" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) closeGameOverlay(setShowGameActions); }}>
+            <button type="button" aria-expanded={showGameActions} aria-controls="game-actions" onClick={() => showGameActions ? closeGameOverlay(setShowGameActions) : openGameOverlay(setShowGameActions)} className="rounded-lg px-3 py-2 hover:bg-slate-100">{tr("更多 ")}<i className="fas fa-chevron-down ml-1 text-[10px]" aria-hidden="true" /></button>
             {showGameActions && (
-              <div id="game-actions" onClick={() => setShowGameActions(false)} className="absolute right-0 top-full z-10 mt-1 grid w-48 max-h-[72dvh] overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg [&_button]:rounded-lg [&_button]:px-3 [&_button]:py-2 [&_button]:text-left [&_button:not(:disabled):hover]:bg-slate-100 [&_button:disabled]:opacity-40">
+              <div id="game-actions" onClick={() => closeGameOverlay(setShowGameActions)} className="absolute right-0 top-full z-10 mt-1 grid w-48 max-h-[72dvh] overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg [&_button]:rounded-lg [&_button]:px-3 [&_button]:py-2 [&_button]:text-left [&_button:not(:disabled):hover]:bg-slate-100 [&_button:disabled]:opacity-40">
                 <button type="button" onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')} lang={language === 'zh' ? 'en' : 'zh-CN'}>{language === 'zh' ? 'English' : '简体中文'}</button>
-                <button type="button" onClick={() => openGameOverlay(setShowSchedule)} disabled={toolbarLocked}>时间表</button>
-                <button type="button" onClick={() => openGameOverlay(setShowShop)} disabled={toolbarLocked}>小卖部</button>
-                <button type="button" onClick={() => openGameOverlay(setShowAchievements)}>成就</button>
-                {state.competition === 'OI' && <button type="button" onClick={() => openGameOverlay(setShowContestHistory)} disabled={toolbarLocked}>OI 履历</button>}
-                <button type="button" onClick={() => openGameOverlay(setShowRealityGuide)}>难度说明</button>
-                <button type="button" onClick={toggleAutoContinue} aria-pressed={autoContinueEnabled}>日常自动继续 {autoContinueEnabled ? '开' : '关'}</button>
-                <button type="button" onClick={toggleSoundMute}>{soundMuted ? '开启音效' : '关闭音效'}</button>
-                <button type="button" onClick={saveGame} disabled={interactionLocked}>保存</button>
-                {hasManualSave && <button type="button" onClick={() => setConfirmAction('load_manual')}>读取手动存档</button>}
-                <button type="button" onClick={() => setConfirmAction('withdraw')} disabled={interactionLocked} className="text-rose-700">提前离校</button>
+                <button type="button" onClick={() => openGameOverlay(setShowSchedule)} disabled={toolbarLocked}>{tr("时间表")}</button>
+                <button type="button" onClick={() => openGameOverlay(setShowShop)} disabled={toolbarLocked}>{tr("小卖部")}</button>
+                <button type="button" onClick={() => openGameOverlay(setShowAchievements)}>{tr("成就")}</button>
+                {state.competition === 'OI' && <button type="button" onClick={() => openGameOverlay(setShowContestHistory)} disabled={toolbarLocked}>{tr("OI 履历")}</button>}
+                <button type="button" onClick={() => openGameOverlay(setShowRealityGuide)}>{tr("难度说明")}</button>
+                <button type="button" onClick={toggleAutoContinue} aria-pressed={autoContinueEnabled}>{tr("日常自动继续")} {tr(autoContinueEnabled ? '开' : '关')}</button>
+                <button type="button" onClick={toggleSoundMute}>{tr(soundMuted ? '开启音效' : '关闭音效')}</button>
+                <button type="button" onClick={saveGame} disabled={interactionLocked}>{tr("保存")}</button>
+                {hasManualSave && <button type="button" onClick={() => setConfirmAction('load_manual')}>{tr("读取手动存档")}</button>}
+                <button type="button" onClick={() => setConfirmAction('withdraw')} disabled={interactionLocked} className="text-rose-700">{tr("提前离校")}</button>
               </div>
             )}
           </div>

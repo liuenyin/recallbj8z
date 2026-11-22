@@ -16,13 +16,71 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
     const { t: tr } = useLanguage();
   const effectiveEfficiency = getEffectiveEfficiency(state);
   const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
-  const vagueProgress = (value: number, max: number) => {
-    const ratio = Math.max(0, Math.min(1, value / max));
-    return ratio < 0.2 ? 12 : ratio < 0.4 ? 30 : ratio < 0.6 ? 50 : ratio < 0.8 ? 70 : 88;
+
+  // Restore May-era cognitive bias & experience-based self-perception with critical safety floors for survival stats
+  const getFuzzyDesc = (
+    val: number,
+    type: 'general' | 'efficiency',
+    seedKey: number,
+    options?: { criticalFloor?: number }
+  ) => {
+    const bias = (state.general.mindset - 50) * 0.2;
+    const noiseRange = Math.max(5, (35 - state.general.experience) * 0.5);
+    const pseudoRandom = Math.sin((state.week + 1) * seedKey * 123.45);
+    let perceivedVal = val + bias + pseudoRandom * noiseRange;
+    if (options?.criticalFloor !== undefined && val <= options.criticalFloor) {
+      perceivedVal = Math.min(perceivedVal, 19);
+    }
+
+    if (type === 'efficiency') {
+      if (perceivedVal < 0) return { t: '极度涣散', c: 'text-rose-500' };
+      if (perceivedVal < 5) return { t: '心不在焉', c: 'text-orange-500' };
+      if (perceivedVal < 10) return { t: '普普通通', c: 'text-slate-500' };
+      if (perceivedVal < 15) return { t: '专注', c: 'text-indigo-500' };
+      if (perceivedVal < 25) return { t: '高效', c: 'text-emerald-500' };
+      return { t: '心流', c: 'text-amber-500 font-black' };
+    }
+
+    if (perceivedVal < 20) return { t: '糟糕透顶', c: 'text-rose-600' };
+    if (perceivedVal < 40) return { t: '不太妙', c: 'text-orange-500' };
+    if (perceivedVal < 60) return { t: '平平无奇', c: 'text-slate-500' };
+    if (perceivedVal < 80) return { t: '感觉良好', c: 'text-emerald-600' };
+    if (perceivedVal < 100) return { t: '充满自信', c: 'text-indigo-600' };
+    return { t: '超凡脱俗', c: 'text-amber-500 font-black' };
   };
-  const vagueLabel = (value: number, max = 100) => {
-    const ratio = value / max;
-    return ratio >= 0.8 ? '高' : ratio >= 0.6 ? '较高' : ratio >= 0.4 ? '一般' : ratio >= 0.2 ? '较低' : '低';
+
+  const getFatigueDesc = (fatigue: number) => {
+    if (fatigue >= 85) return { t: '精疲力竭', c: 'text-rose-600 font-black' };
+    const bias = (50 - state.general.mindset) * 0.18;
+    const noiseRange = Math.max(4, (35 - state.general.experience) * 0.35);
+    const pseudoRandom = Math.sin((state.week + 1) * 19.37);
+    const perceived = Math.min(84, fatigue + bias + pseudoRandom * noiseRange);
+    if (perceived < 20) return { t: '精力充沛', c: 'text-emerald-600' };
+    if (perceived < 45) return { t: '尚可支撑', c: 'text-slate-500' };
+    if (perceived < 70) return { t: '有些疲惫', c: 'text-amber-600' };
+    return { t: '明显透支', c: 'text-orange-600' };
+  };
+
+  const getSubjectDesc = (stats: { aptitude: number; level: number }, idx: number) => {
+    const aptitudeBias = (stats.aptitude - 50) * 0.2;
+    const bias = (state.general.mindset - 50) * 0.3 + aptitudeBias;
+    const noiseRange = Math.max(5, (80 - state.general.experience) * 0.4);
+    const pseudoRandom = Math.cos((state.week + 1) * (idx + 1) * 67.89);
+    const perceivedVal = stats.level + bias + pseudoRandom * noiseRange;
+
+    if (perceivedVal < 10) return { t: '一窍不通', c: 'text-rose-500' };
+    if (perceivedVal < 25) return { t: '略懂皮毛', c: 'text-orange-500' };
+    if (perceivedVal < 45) return { t: '马马虎虎', c: 'text-slate-500' };
+    if (perceivedVal < 65) return { t: '渐入佳境', c: 'text-indigo-500' };
+    if (perceivedVal < 85) return { t: '得心应手', c: 'text-emerald-600' };
+    return { t: '登峰造极', c: 'text-amber-500 font-black' };
+  };
+
+  const getOIFuzzyLabel = (val: number) => {
+    if (val >= 25) return '顶尖';
+    if (val >= 14) return '扎实';
+    if (val >= 6) return '熟练';
+    return '入门';
   };
   const oiRouteLabel = state.flags.oi_setter_followup === 'accepted'
     ? '继续参与公开赛出题'
@@ -74,7 +132,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
         <div className="flex justify-between items-center mb-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <i className="fas fa-user-circle"></i> {tr("个人档案")}</h3>
+                <i className="fas fa-user-circle"></i> {tr(hideDetails ? "自我认知" : "个人档案")}</h3>
               {onShowGuide && (
                 <button type="button" onClick={onShowGuide} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1" title={tr("查看难度与状态说明")}>
                   <i className="fas fa-book-reader" /> {tr("说明")}</button>
@@ -99,7 +157,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
             </div>
             <div className="text-sm font-black text-slate-800">{tr(profile.name)} · {tr(profile.role)}</div>
             <div className="text-[11px] leading-relaxed text-slate-600 mt-1">{tr(profile.personality)}</div>
-            <div className="text-[10px] leading-relaxed text-rose-600 mt-1">{tr("路线提示：")}{tr(getRelationshipHint(state))}</div>
+            {!hideDetails && <div className="text-[10px] leading-relaxed text-rose-600 mt-1">{tr("路线提示：")}{tr(getRelationshipHint(state))}</div>}
           </div>
         );
       })()}
@@ -108,14 +166,22 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
       <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-indigo-800">{tr("班级: ")}{tr(state.className || '待分班')}</span>
-          <span className="text-xs font-bold text-indigo-800">
-              {tr("效率: ")}{tr(hideDetails ? (effectiveEfficiency >= 15 ? '高' : effectiveEfficiency >= 8 ? '中' : '低') : effectiveEfficiency.toFixed(1))}
-              {!hideDetails && effectiveEfficiency > state.general.efficiency && <span className="text-emerald-500 text-[10px] ml-1">(+{ tr((effectiveEfficiency - state.general.efficiency).toFixed(0)) })</span>}
-          </span>
+          {hideDetails ? (
+            <span className={`text-xs font-bold ${getFuzzyDesc(effectiveEfficiency, 'efficiency', 7).c}`}>
+              {tr("状态: ")}{tr(getFuzzyDesc(effectiveEfficiency, 'efficiency', 7).t)}
+            </span>
+          ) : (
+            <span className="text-xs font-bold text-indigo-800">
+                {tr("效率: ")}{effectiveEfficiency.toFixed(1)}
+                {effectiveEfficiency > state.general.efficiency && <span className="text-emerald-500 text-[10px] ml-1">(+{ tr((effectiveEfficiency - state.general.efficiency).toFixed(0)) })</span>}
+            </span>
+          )}
         </div>
-        <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
-          <div className="h-full bg-indigo-600" style={{ width: `${hideDetails ? vagueProgress(effectiveEfficiency, 30) : Math.min(100, effectiveEfficiency / 30 * 100)}%` }}></div>
-        </div>
+        {!hideDetails && (
+          <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, effectiveEfficiency / 30 * 100)}%` }}></div>
+          </div>
+        )}
         {state.competition === 'OI' && (
           <div className="mt-2 text-[10px] font-bold text-indigo-600 truncate" title={tr(oiRouteLabel)}>
             {tr("OI 路线 · ")}{tr(oiRouteLabel)}
@@ -128,14 +194,29 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
             <i className="fas fa-chart-bar"></i> {tr("身心状态")}</h3>
         <div className="grid grid-cols-2 gap-2">
-            <StatMini icon="fa-brain" label="心态" value={state.general.mindset} color={state.general.mindset <= 25 ? 'text-rose-500' : 'text-indigo-500'} hideValue={hideDetails} />
-            <StatMini icon="fa-heartbeat" label="健康" value={state.general.health} color={state.general.health <= 30 ? 'text-rose-500' : 'text-emerald-500'} hideValue={hideDetails} />
-            <StatMini icon="fa-coins" label="金钱" value={state.general.money} color={state.general.money < 0 ? 'text-rose-500' : 'text-yellow-600'} hideValue={hideDetails} allowDebt />
-            <StatMini icon="fa-book" label="经验" value={state.general.experience} color="text-blue-500" hideValue={hideDetails} />
-            <StatMini icon="fa-star" label="幸运" value={state.general.luck} color="text-amber-500" hideValue={hideDetails} />
-            <StatMini icon="fa-heart" label="桃花" value={state.general.romance} color="text-pink-500" hideValue={hideDetails} />
-            <StatMini icon="fa-battery-quarter" label="疲劳" value={state.fatigue} color={state.fatigue >= 75 ? 'text-rose-500' : state.fatigue >= 50 ? 'text-amber-500' : 'text-emerald-500'} hideValue={hideDetails} />
-            <StatMini icon="fa-fire" label="兴奋" value={state.general.excitement ?? 0} color="text-orange-500" hideValue={hideDetails} />
+            {hideDetails ? (
+              <>
+                <StatText icon="fa-brain" label="心态" fuzzy={getFuzzyDesc(state.general.mindset, 'general', 1, { criticalFloor: 20 })} />
+                <StatText icon="fa-heartbeat" label="健康" fuzzy={getFuzzyDesc(state.general.health, 'general', 2, { criticalFloor: 18 })} />
+                <StatMini icon="fa-coins" label="金钱" value={state.general.money} color={state.general.money < 0 ? 'text-rose-500' : 'text-yellow-600'} />
+                <StatText icon="fa-book" label="经验" fuzzy={getFuzzyDesc(state.general.experience, 'general', 3)} />
+                <StatText icon="fa-star" label="幸运" fuzzy={getFuzzyDesc(state.general.luck, 'general', 4)} />
+                <StatText icon="fa-heart" label="桃花" fuzzy={getFuzzyDesc(state.general.romance, 'general', 5)} />
+                <StatText icon="fa-battery-quarter" label="疲劳" fuzzy={getFatigueDesc(state.fatigue)} />
+                <StatText icon="fa-fire" label="兴奋" fuzzy={getFuzzyDesc(state.general.excitement ?? 0, 'general', 6)} />
+              </>
+            ) : (
+              <>
+                <StatMini icon="fa-brain" label="心态" value={state.general.mindset} color={state.general.mindset <= 25 ? 'text-rose-500' : 'text-indigo-500'} />
+                <StatMini icon="fa-heartbeat" label="健康" value={state.general.health} color={state.general.health <= 30 ? 'text-rose-500' : 'text-emerald-500'} />
+                <StatMini icon="fa-coins" label="金钱" value={state.general.money} color={state.general.money < 0 ? 'text-rose-500' : 'text-yellow-600'} />
+                <StatMini icon="fa-book" label="经验" value={state.general.experience} color="text-blue-500" />
+                <StatMini icon="fa-star" label="幸运" value={state.general.luck} color="text-amber-500" />
+                <StatMini icon="fa-heart" label="桃花" value={state.general.romance} color="text-pink-500" />
+                <StatMini icon="fa-battery-quarter" label="疲劳" value={state.fatigue} color={state.fatigue >= 75 ? 'text-rose-500' : state.fatigue >= 50 ? 'text-amber-500' : 'text-emerald-500'} />
+                <StatMini icon="fa-fire" label="兴奋" value={state.general.excitement ?? 0} color="text-orange-500" />
+              </>
+            )}
         </div>
       </div>
 
@@ -174,13 +255,13 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
             ] as const).map(([key, label]) => (
               <div key={key} className="rounded-lg bg-white border border-slate-100 px-1.5 py-1.5 text-center">
                 <div className="text-[9px] text-slate-400 truncate" title={tr(label)}>{tr(label)}</div>
-                <div className="text-xs font-black text-indigo-600">{tr(hideDetails ? '·' : Math.round(state.oiStats[key]))}</div>
+                <div className="text-xs font-black text-indigo-600">{tr(hideDetails ? getOIFuzzyLabel(state.oiStats[key]) : Math.round(state.oiStats[key]))}</div>
               </div>
             ))}
           </div>
           <div className="mt-2 flex justify-between items-center text-[10px] font-bold text-slate-500">
             <span>{tr("当前 Rating")}</span>
-            <span className="text-indigo-600">{tr(hideDetails ? '·' : (state.oiStats.rating ?? 1200))}</span>
+            <span className="text-indigo-600">{tr(hideDetails ? '不公开' : (state.oiStats.rating ?? 1200))}</span>
           </div>
         </div>
       )}
@@ -188,10 +269,11 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
       {/* 学科属性 */}
       <div className="flex-1 pb-4">
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-          <i className="fas fa-graduation-cap"></i> {tr("学科能力")}</h3>
+          <i className="fas fa-graduation-cap"></i> {tr(hideDetails ? "学术评估" : "学科能力")}</h3>
         <div className="grid grid-cols-1 gap-3">
-          {(Object.keys(state.subjects) as SubjectKey[]).map(key => {
+          {(Object.keys(state.subjects) as SubjectKey[]).map((key, idx) => {
              const isSelected = state.selectedSubjects.includes(key);
+             const fuzzy = getSubjectDesc(state.subjects[key], idx);
              return (
                 <div key={key} className="group">
                   <div className="flex justify-between text-[11px] mb-1">
@@ -199,14 +281,20 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
                         <span className="font-bold text-slate-700">{tr(SUBJECT_NAMES[key])}</span>
                         {isSelected && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded text-[9px] font-bold">{tr("选考")}</span>}
                     </div>
-                    <span className="text-slate-400">{tr(hideDetails ? `能力 ${vagueLabel(state.subjects[key].level)}` : `天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`)}</span>
+                    {hideDetails ? (
+                      <span className={`font-medium ${fuzzy.c}`}>{tr(fuzzy.t)}</span>
+                    ) : (
+                      <span className="text-slate-400">{tr(`天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`)}</span>
+                    )}
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                    <div 
-                       className="h-full bg-indigo-500 group-hover:bg-indigo-400 transition-all duration-700" 
-                       style={{ width: `${hideDetails ? vagueProgress(state.subjects[key].level, 100) : Math.min(100, state.subjects[key].level)}%` }}
-                    />
-                  </div>
+                  {!hideDetails && (
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                      <div
+                         className="h-full bg-indigo-500 group-hover:bg-indigo-400 transition-all duration-700"
+                         style={{ width: `${Math.min(100, state.subjects[key].level)}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
              );
           })}
@@ -216,21 +304,24 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
   );
 };
 
-const StatMini = ({ icon, label, value, color, hideValue, allowDebt }: { icon: string, label: string, value: number, color: string, hideValue?: boolean, allowDebt?: boolean }) => {
+const StatMini = ({ icon, label, value, color }: { icon: string, label: string, value: number, color: string }) => {
   const { t: tr } = useLanguage();
-  const getVagueLabel = (v: number) => {
-    if (allowDebt && v < 0) return '负债';
-    if (v >= 80) return '极高';
-    if (v >= 60) return '较高';
-    if (v >= 40) return '一般';
-    if (v >= 20) return '较低';
-    return '极低';
-  };
   return (
     <div className="bg-slate-50 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 hover:border-indigo-200 transition-colors">
       <i className={`fas ${icon} ${color} text-sm mb-1`}></i>
       <span className="text-[10px] text-slate-500">{tr(label)}</span>
-      <span className={`text-xs font-bold ${color}`}>{tr(hideValue ? getVagueLabel(value) : value.toFixed(0))}</span>
+      <span className={`text-xs font-bold ${color}`}>{value.toFixed(0)}</span>
+    </div>
+  );
+};
+
+const StatText = ({ icon, label, fuzzy }: { icon: string, label: string, fuzzy: { t: string, c: string } }) => {
+  const { t: tr } = useLanguage();
+  return (
+    <div className="bg-slate-50 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 hover:border-indigo-200 transition-colors min-h-[60px]">
+      <i className={`fas ${icon} text-slate-400 text-xs mb-1`}></i>
+      <span className="text-[10px] text-slate-500">{tr(label)}</span>
+      <span className={`text-[10px] font-bold text-center leading-tight ${fuzzy.c}`}>{tr(fuzzy.t)}</span>
     </div>
   );
 };

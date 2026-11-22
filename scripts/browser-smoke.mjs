@@ -44,11 +44,12 @@ try {
   assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('recall_accounts_v1')).some(a => a.name === '浏览器测试')));
   await page.reload({waitUntil:'networkidle0'});
   await clickText('开启新学期');
+  await clickText('入学吧。');
   await clickText('专注课内综合');
   await clickText('确认结果');
   await page.waitForFunction(() => !document.body.innerText.includes('暑假的抉择'));
   assert.deepEqual(errors, []);
-  console.log('PASS: fresh game opens at the first event without talent setup');
+  console.log('PASS: fresh game opens via talent selection at the first event');
   // Corrupt optional fields must not take down an otherwise recoverable save.
   await page.evaluate(() => {
     const id = localStorage.getItem('recall_active_account_v1');
@@ -103,11 +104,13 @@ try {
   console.log('PASS: shared activity preview, repeat gains, unchanged costs and deterministic projection');
   await clickText('执行本周计划');
   await page.waitForFunction(() => document.body.innerText.includes('【本周计划】'));
-  await page.evaluate(() => [...document.querySelectorAll('summary')].find(el => el.textContent.includes('展开安排')).click());
-  assert.ok(await page.evaluate(() => document.body.innerText.includes('[周六下午]')));
   console.log('PASS: executing the restored plan advances the week and records its activities');
   await clickText('更多');
+  await new Promise(resolve => setTimeout(resolve, 1250));
+  assert.ok(await page.evaluate(() => document.querySelector('#game-actions') && !document.querySelector('[role="dialog"]')));
   await clickText('保存');
+  await page.evaluate(() => [...document.querySelectorAll('summary')].find(el => el.textContent.includes('展开安排')).click());
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('[周六下午]')));
   const manualBefore = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}_manual`)).state);
   await clickText('历程');
@@ -203,6 +206,7 @@ try {
   await page.goto(new URL('?lang=en', base).href);
   await page.waitForFunction(() => document.documentElement.lang === 'en');
   await clickText('Start a new game');
+  await clickText('Go to school.');
   await clickText('Focus on school and campus life');
   await page.waitForFunction(() => document.body.innerText.includes('You sort through your books'));
   await page.waitForFunction(() => document.body.innerText.includes('Efficiency +2'));

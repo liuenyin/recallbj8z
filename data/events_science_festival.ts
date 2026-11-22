@@ -1,4 +1,5 @@
 import { Phase, type GameEvent, type GameState } from '../types';
+import { FESTIVAL_PARTNER_NICKNAME } from './campus_names';
 import { CLUBS } from './mechanics';
 import { modifySub } from './utils';
 
@@ -18,7 +19,7 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
     {
         id: 'sci_fest_first_day',
         title: '开学第一张课表',
-        description: state => `你带着分班单找到了${state.className || '教室'}。同桌把多领的一张课表递给你。“我叫陈禾。你看后门那张照片，去年那座纸桥都歪成那样了，居然还能撑住。”`,
+        description: state => `你带着分班单找到了${state.className || '教室'}。同桌把多领的一张课表递给你。“叫我${FESTIVAL_PARTNER_NICKNAME}就行。你看后门那张照片，去年那座纸桥都歪成那样了，居然还能撑住。”`,
         type: 'neutral',
         triggerType: 'FIXED',
         fixedPhase: Phase.SEMESTER_1,
@@ -28,7 +29,7 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
             {
                 text: '放学后跟同桌去看看展板',
                 hint: '先和同桌熟悉校园，科技节招募时可能会再见。',
-                resultDescription: '你们在展板前站到保洁阿姨来关灯。陈禾把照片拍下来，说今年如果有机会也想试试。',
+                resultDescription: `你们在展板前站到保洁阿姨来关灯。${FESTIVAL_PARTNER_NICKNAME}把照片拍下来，说今年如果有机会也想试试。`,
                 action: state => ({ flags: { ...state.flags, science_festival_teammate: true }, general: { ...state.general, mindset: state.general.mindset + 3 } })
             },
             {
@@ -70,8 +71,8 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
         title: '科技节展台招募',
         description: state => {
             const invitation = state.flags.science_festival_teammate
-                ? '陈禾把那张展板照片又翻了出来，推来一张报名表：“上次说的那个展台，真有人招搭档了。”'
-                : '陈禾把招募表传到你桌上，技术准备和讲解排班还有空位。';
+                ? `${FESTIVAL_PARTNER_NICKNAME}把那张展板照片又翻了出来，推来一张报名表：“上次说的那个展台，真有人招搭档了。”`
+                : `${FESTIVAL_PARTNER_NICKNAME}把招募表传到你桌上，技术准备和讲解排班还有空位。`;
             const notes = state.flags.science_festival_observation_notes ? '上次观测时那张记错过星的纸，也可以带到展台上。' : '';
             return [invitation, `${exhibitionTeam(state)}这次想${festivalProject(state)}。`, notes].filter(Boolean).join('\n');
         },
@@ -83,14 +84,16 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
         choices: [
             {
                 text: '加入展台，负责把演示做出来',
-                hint: '第 9 周和陈禾试做，活动当天负责处理演示故障。',
-                resultDescription: '陈禾在报名表里给你留出了材料栏。下次课间先带一个能试起来的方案过来。',
+                hint: `第 9 周和${FESTIVAL_PARTNER_NICKNAME}试做，活动当天负责处理演示故障。`,
+                hintKind: 'rule',
+                resultDescription: `${FESTIVAL_PARTNER_NICKNAME}在报名表里给你留出了材料栏。下次课间先带一个能试起来的方案过来。`,
                 action: state => ({ flags: { ...state.flags, science_festival_role: 'build' } })
             },
             {
                 text: '加入展台，负责讲解和排班',
                 hint: '第 9 周分配讲解班次，活动当天负责接待观众。',
-                resultDescription: '你接过讲解人员名单。陈禾问能不能把午饭那一档错开，你在名字旁画了个小圈。',
+                hintKind: 'rule',
+                resultDescription: `你接过讲解人员名单。${FESTIVAL_PARTNER_NICKNAME}问能不能把午饭那一档错开，你在名字旁画了个小圈。`,
                 action: state => ({ flags: { ...state.flags, science_festival_role: 'guide' } })
             },
             {
@@ -104,8 +107,8 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
         id: 'sci_fest_rehearsal',
         title: '放学后的展台彩排',
         description: state => state.flags.science_festival_role === 'build'
-            ? `放学后你和陈禾第一次完整试做：${festivalProject(state)}。演示成功了一次，但换个人操作就卡住了，要不要再花些时间排查？`
-            : '讲解人都到齐了，偏偏午饭和展台最忙的时段撞在一起。陈禾问，你们要不要留到最后，把换班和接待也排一遍？',
+            ? `放学后你和${FESTIVAL_PARTNER_NICKNAME}第一次完整试做：${festivalProject(state)}。演示成功了一次，但换个人操作就卡住了，要不要再花些时间排查？`
+            : `讲解人都到齐了，偏偏午饭和展台最忙的时段撞在一起。${FESTIVAL_PARTNER_NICKNAME}问，你们要不要留到最后，把换班和接待也排一遍？`,
         type: 'neutral',
         triggerType: 'FIXED',
         fixedPhase: Phase.SEMESTER_1,
@@ -124,7 +127,7 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
             },
             {
                 text: '按今天的方案收工',
-                resultDescription: '你把桌面收干净，和陈禾约好当天早到。如果出了岔子，就现场想办法。',
+                resultDescription: `你把桌面收干净，和${FESTIVAL_PARTNER_NICKNAME}约好当天早到。如果出了岔子，就现场想办法。`,
                 action: () => ({})
             }
         ]
@@ -134,10 +137,10 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
         title: '科技节',
         description: state => {
             if (state.flags.science_festival_role === 'build') {
-                return `地下场馆刚放人进来，${exhibitionTeam(state)}的展台就围了一圈。轮到${festivalProject(state)}时，演示突然卡住了。陈禾看过来，等你拿主意。`;
+                return `地下场馆刚放人进来，${exhibitionTeam(state)}的展台就围了一圈。轮到${festivalProject(state)}时，演示突然卡住了。${FESTIVAL_PARTNER_NICKNAME}看过来，等你拿主意。`;
             }
             if (state.flags.science_festival_role === 'guide') {
-                return `地下场馆里排满了人，${exhibitionTeam(state)}的下一位讲解员还没回来。陈禾举着名单问：“前面这拨同学要先带进去吗？”`;
+                return `地下场馆里排满了人，${exhibitionTeam(state)}的下一位讲解员还没回来。${FESTIVAL_PARTNER_NICKNAME}举着名单问：“前面这拨同学要先带进去吗？”`;
             }
             return '地下场馆里的展台已经排开了。有组同学请观众亲手试自己的展品，也有人还在桌底找接线板。';
         },
@@ -149,7 +152,7 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
             {
                 text: '用彩排时备好的方案接着展示',
                 condition: state => state.flags.science_festival_role === 'build' && state.flags.science_festival_prepared === true,
-                resultDescription: '你从文件夹里翻出那张纸条，换了操作顺序。第二遍终于跑通，前排同学伸手要试，陈禾这才松了一口气。',
+                resultDescription: `你从文件夹里翻出那张纸条，换了操作顺序。第二遍终于跑通，前排同学伸手要试，${FESTIVAL_PARTNER_NICKNAME}这才松了一口气。`,
                 action: state => ({
                     flags: { ...state.flags, science_festival_outcome: 'built' },
                     general: { ...state.general, experience: state.general.experience + 10, mindset: state.general.mindset + 5 }
@@ -158,7 +161,7 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
             {
                 text: '按备用班次带观众，先顶上讲解',
                 condition: state => state.flags.science_festival_role === 'guide' && state.flags.science_festival_prepared === true,
-                resultDescription: '你让陈禾带一拨同学先试展品，自己把讲解讲完。换班的人回来时，队伍已经顺起来了。',
+                resultDescription: `你让${FESTIVAL_PARTNER_NICKNAME}带一拨同学先试展品，自己把讲解讲完。换班的人回来时，队伍已经顺起来了。`,
                 action: state => ({
                     flags: {
                         ...state.flags,
@@ -179,7 +182,7 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
                 })
             },
             {
-                text: '和陈禾把演示拆成两段，先把能做的做完',
+                text: `和${FESTIVAL_PARTNER_NICKNAME}把演示拆成两段，先把能做的做完`,
                 condition: state => !!state.flags.science_festival_role,
                 resultDescription: '你们先带大家做了一个简短的互动，把完整演示留到下一轮。有人走了，也有同学听完又回来看。',
                 action: state => ({

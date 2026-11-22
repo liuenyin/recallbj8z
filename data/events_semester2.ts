@@ -1,7 +1,11 @@
 
-import { GameEvent, GameState, Phase, SUBJECT_NAMES } from '../types';
+import { GameEvent, GameState, Phase, SUBJECT_NAMES, SubjectKey } from '../types';
+import { RIVAL_NICKNAME, restoreRelationshipName } from './campus_names';
+import { modifySub } from './utils';
 
 const PROFICIENCY_SUBJECTS = ['chemistry', 'biology', 'history', 'geography'] as const;
+const hasTripCompanion = (state: GameState) =>
+    !!state.romancePartner || (!state.flags.romance_resolution && Number(state.flags.ta_favorability || 0) >= 8);
 
 const finishProficiencyExam = (state: GameState, intensivePrep: boolean): Partial<GameState> => {
     const prepBonus = intensivePrep ? 3 : 0;
@@ -29,33 +33,43 @@ const finishProficiencyExam = (state: GameState, intensivePrep: boolean): Partia
 export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_april_fools',
-        title: '愚人节的整蛊',
-        description: '今天是 4 月 1 日愚人节，班里弥漫着一股“不怀好意”的气息。你要不要也加入这场狂欢？',
+        title: '愚人节的假消息',
+        description: '4 月 1 日大课间，班群里突然有人发了张截了一半的通知图，说今晚晚自习临时取消，消息一分钟刷了几十条。',
         type: 'neutral',
         triggerType: 'FIXED',
-        fixedWeek: 5, // 假设 4月1日 在第 5 周
+        fixedWeek: 5,
         choices: [
             {
-                text: '给同桌的水杯里加点“料”（柠檬汁）',
-                resultDescription: '趁同桌不注意，你把备好的柠檬汁倒进了水杯。',
-                action: (s) => {
-                    if (Math.random() < Math.min(0.85, 0.35 + s.general.luck / 200)) {
-                        return {
-                            general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset + 10 },
-                            log: [...s.log, { message: '整蛊大成功！同桌被酸得五官扭曲，随后你们笑作一团。', type: 'success', timestamp: Date.now() }]
-                        };
-                    } else {
-                        return {
-                            general: { ...s.general, romance: s.general.romance - 5, mindset: s.general.mindset - 5 },
-                            log: [...s.log, { message: '被同桌提前识破了，你反而被整了一顿...', type: 'warning', timestamp: Date.now() }]
-                        };
-                    }
-                }
+                text: '先去跟班长或课代表核对一下',
+                hint: '帮大家及时刹住节奏，能涨点经验，但手里的题得晚点写。',
+                resultDescription: '班长把原图年份指出来，大家哄笑一阵后很快散开，你也把课桌上散落的卷子理齐了。',
+                action: (s) => ({
+                    general: { ...s.general, experience: s.general.experience + 5, mindset: s.general.mindset + 4, efficiency: s.general.efficiency + 1 }
+                })
             },
             {
-                text: '老老实实刷题，不参与',
+                text: '跟同桌调侃两句，然后把手机收进书包',
+                hint: '心情轻松些，不会耽误接下来的课内节奏。',
+                resultDescription: '你们互相拆穿了截图标红的漏洞，上课铃一响就顺势翻开了下一张练习卷。',
                 action: (s) => ({
-                    general: { ...s.general, efficiency: s.general.efficiency + 2 }
+                    general: { ...s.general, mindset: s.general.mindset + 6, romance: s.general.romance + 2 }
+                })
+            },
+            {
+                text: '直接免打扰，先把眼前的题做完',
+                hint: '效率微涨，专心把这一页收尾。',
+                resultDescription: '等旁边安静下来，你已经把最后一道大题的辅助线画好了。',
+                action: (s) => ({
+                    general: { ...s.general, efficiency: s.general.efficiency + 2 },
+                    subjects: modifySub(s, ['math'], 1)
+                })
+            },
+            {
+                text: '【乐天派】顺手在群里接句玩笑话，把尴尬圆过去',
+                condition: (s) => s.talents.some(t => t.id === 'optimist'),
+                resultDescription: '发消息的同学原本有点慌，被你一句玩笑顺下来，班群里气氛很快恢复了轻松。',
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset + 10, romance: s.general.romance + 4 }
                 })
             }
         ]
@@ -89,13 +103,69 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_spring_trip',
         title: '春游',
-        description: '高一下半学期的春游开始了，这是一次放松的好机会。',
+        description: '高一春游安排在公园里。大巴刚停稳，春风里混着泥土和树叶的味道，各班散开前大家正商量上午怎么走。',
         type: 'positive',
         once: true,
         triggerType: 'FIXED',
         fixedWeek: 12,
         choices: [
-            { text: '开心玩耍', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 30 }, flags: { ...s.flags, went_spring_trip: true } }) }
+            {
+                text: '跟着班里大部队沿主步道逛一圈',
+                hint: '气氛热闹，心情明显回暖，但走一天会多耗一点体力。',
+                resultDescription: '一路拍了不少合照，回程车上有人把零食袋传了一圈，大家靠在椅背上几乎都睡着了。',
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset + 22, romance: s.general.romance + 4, health: s.general.health + 2 },
+                    fatigue: s.fatigue + 5,
+                    flags: { ...s.flags, went_spring_trip: true }
+                })
+            },
+            {
+                text: '和三两个熟人走人少的湖边小路',
+                condition: (s) => !hasTripCompanion(s),
+                hint: '更从容地聊会儿天，缓解积攒下来的疲惫。',
+                resultDescription: '你们避开了人群，沿湖走走停停，连平时没机会细聊的话题也讲了半路。',
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset + 24, romance: s.general.romance + 6 },
+                    fatigue: Math.max(0, s.fatigue - 6),
+                    flags: { ...s.flags, went_spring_trip: true }
+                })
+            },
+            {
+                text: '叫上TA一起走人少的湖边小路',
+                condition: hasTripCompanion,
+                hint: '趁着春游多单独走一段，也能把疲劳歇一歇。',
+                resultDescription: '你们避开大部队，沿湖边走了半个上午，难得没有作业和周测的催促。',
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset + 26, romance: s.general.romance + 8 },
+                    fatigue: Math.max(0, s.fatigue - 6),
+                    flags: {
+                        ...s.flags,
+                        went_spring_trip: true,
+                        ta_favorability: Number(s.flags.ta_favorability || 0) + 5
+                    }
+                })
+            },
+            {
+                text: '找张湖边长椅戴上耳机发会儿呆',
+                tags: ['sleep'],
+                hint: '几乎不费体力，能把持续偏高的疲劳往下压一截。',
+                resultDescription: '湖面被风吹得起皱，你靠在长椅上眯了一小觉，醒来时只觉得肩膀松了不少。',
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset + 18, health: s.general.health + 6 },
+                    fatigue: Math.max(0, s.fatigue - 12),
+                    sleepCount: (s.sleepCount || 0) + 1,
+                    flags: { ...s.flags, went_spring_trip: true }
+                })
+            },
+            {
+                text: '【体育特长】带头走完东侧山坡长线',
+                condition: (s) => s.talents.some(t => t.id === 'healthy'),
+                resultDescription: '别人走到一半就开始找水喝，你稳着配速一路领到山亭，吹风时心态舒畅不少。',
+                action: (s) => ({
+                    general: { ...s.general, health: s.general.health + 8, mindset: s.general.mindset + 25, experience: s.general.experience + 4 },
+                    flags: { ...s.flags, went_spring_trip: true }
+                })
+            }
         ]
     },
     {
@@ -167,33 +237,66 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_debate_prep',
         title: '辩论赛准备',
-        description: '下周就要打辩论赛了，你们队伍正在熬夜查资料写一辩稿。',
+        description: '下周就要打辩论赛了。晚上留校顺立论时，队友拿出一叠还没拆分的案例资料。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.debate_joined && s.week === 10,
         choices: [
-            { text: '肝！', action: (s) => ({ general: { ...s.general, health: s.general.health - 5, experience: s.general.experience + 10 } }) }
+            {
+                text: '熬夜把一辩稿和反驳预案理透',
+                hint: '会明显多累一点，比赛临场更有底气。',
+                resultDescription: '你们把对方可能抛出的三个核心反问拆到天明前才散，笔记本写了满满四页。',
+                action: (s) => ({
+                    flags: { ...s.flags, debate_prepared: true },
+                    general: { ...s.general, health: s.general.health - 5, experience: s.general.experience + 12 },
+                    fatigue: s.fatigue + 6
+                })
+            },
+            {
+                text: '先分好每人负责的两条主线，准点回去休息',
+                hint: '保住精力，靠现场反应补细节。',
+                resultDescription: '大家约好先睡足再去想细节，至少明天早读不会睁不开眼。',
+                action: (s) => ({
+                    general: { ...s.general, experience: s.general.experience + 6, mindset: s.general.mindset + 4 }
+                })
+            }
         ]
     },
     {
         id: 's2_debate_match',
         title: '辩论赛比赛日',
-        description: '比赛正式开始！对方辩友咄咄逼人，你站起来开始反击。',
+        description: '首轮淘汰赛开始！对方攻势很急，一直追问一个边角定义。你握着话筒准备回应。',
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.debate_joined && s.week >= 12 && s.week <= 13,
         choices: [
             { 
-                text: '逻辑碾压', 
+                text: '正面拆解对方的定义漏洞',
+                hint: '胜率吃赛前准备和临场经验，打成了非常提气。',
+                resultDescription: '你顺着对方的例子反推回去，台下几排同学同时点头。',
                 action: (s) => {
-                    const win = Math.random() < 0.6;
+                    const bonus = s.flags.debate_prepared ? 0.16 : 0;
+                    const win = Math.random() < Math.min(0.85, 0.54 + bonus + s.general.experience / 250);
                     return {
                         flags: { ...s.flags, debate_stage: win ? 8 : 0 },
-                        general: { ...s.general, mindset: s.general.mindset + (win ? 15 : -5) },
+                        general: { ...s.general, mindset: s.general.mindset + (win ? 15 : -5), experience: s.general.experience + 6 },
                         log: [...s.log, { message: win ? '你们赢得了比赛，晋级8强！' : '你们遗憾落败，止步16强。', type: win ? 'success' : 'warning', timestamp: Date.now() }]
-                    }
+                    };
+                }
+            },
+            {
+                text: '稳住立论节奏，把话题拉回己方核心论点',
+                hint: '更稳妥的打法，即使惜败也能积累发言经验。',
+                resultDescription: '你没有跟对方在细节里缠斗，而是重新把时间分配和价值衡量说清楚。',
+                action: (s) => {
+                    const win = Math.random() < (s.flags.debate_prepared ? 0.68 : 0.56);
+                    return {
+                        flags: { ...s.flags, debate_stage: win ? 8 : 0 },
+                        general: { ...s.general, mindset: s.general.mindset + (win ? 12 : 2), experience: s.general.experience + 8 },
+                        log: [...s.log, { message: win ? '评委认可你们的框架节奏，成功晋级8强！' : '虽然遗憾止步16强，但整场立论非常稳。', type: win ? 'success' : 'info', timestamp: Date.now() }]
+                    };
                 }
             }
         ]
@@ -201,33 +304,68 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_basketball_training',
         title: '篮球赛训练',
-        description: '为了班级的荣誉，你每天放学后都在操场上练习投篮。',
+        description: '联赛开打前几天，放学后操场上半场灯亮到六点半。体委问今天怎么练。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.basketball_joined && s.week >= 6 && s.week <= 7,
         choices: [
-            { text: '挥洒汗水', action: (s) => ({ general: { ...s.general, health: s.general.health + 5, experience: s.general.experience + 5 } }) }
+            {
+                text: '咬牙加练全场折返与对抗',
+                hint: '体力上升，疲劳也会跟着涨。',
+                resultDescription: '半小时对抗下来背心全湿透了，但最后几回合传球比上周果断了不少。',
+                action: (s) => ({
+                    flags: { ...s.flags, basketball_trained: true },
+                    general: { ...s.general, health: s.general.health + 7, experience: s.general.experience + 6 },
+                    fatigue: s.fatigue + 5
+                })
+            },
+            {
+                text: '重点练罚球和半场战术配合',
+                hint: '没那么透支，团队默契更稳。',
+                resultDescription: '大家轮流罚完两组十中七才下场，回去写作业手也不算抖。',
+                action: (s) => ({
+                    general: { ...s.general, health: s.general.health + 3, experience: s.general.experience + 5, mindset: s.general.mindset + 4 }
+                })
+            }
         ]
     },
     {
         id: 's2_basketball_match',
         title: '篮球联赛进行中',
-        description: '今天是你们班的淘汰赛。比分非常焦灼，到了最后一节。',
+        description: '淘汰赛最后一节还剩两分钟，双方只差两分。场上喘气声和场边的加油声混成一片。',
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.basketball_joined && s.week >= 7 && s.week <= 8,
         choices: [
             { 
-                text: '全力拼搏！', 
+                text: '自己强杀内线造犯规！',
+                hint: '看当前健康与体能储备，赌最后一波突破。',
+                tags: ['risky'],
+                resultDescription: '你接球一步过掉第一个协防，迎着补防把球抛了出去。',
                 action: (s) => {
-                    const win = Math.random() < 0.5 + (s.general.health - 50) / 200;
+                    const bonus = s.flags.basketball_trained ? 0.1 : 0;
+                    const win = Math.random() < Math.min(0.85, 0.5 + bonus + (s.general.health - 50) / 200);
                     return {
                         flags: { ...s.flags, basketball_stage: win ? 8 : 0 },
-                        general: { ...s.general, health: s.general.health - 5, mindset: s.general.mindset + (win ? 20 : -10) },
-                        log: [...s.log, { message: win ? '你投进了关键球，球队晋级8强！' : '体能不支，球队遗憾被淘汰。', type: win ? 'success' : 'error', timestamp: Date.now() }]
-                    }
+                        general: { ...s.general, health: s.general.health - 6, mindset: s.general.mindset + (win ? 20 : -10), experience: s.general.experience + 4 },
+                        log: [...s.log, { message: win ? '你顶住对抗上篮打进，球队晋级8强！' : '最后一步起跳慢了半拍，球队遗憾止步。', type: win ? 'success' : 'error', timestamp: Date.now() }]
+                    };
+                }
+            },
+            {
+                text: '吸引包夹后分球给底角空位队友',
+                hint: '不硬拼体能，靠配合和运气搏一搏。',
+                resultDescription: '两个防守队员扑向你时，你手腕一抖把球甩向了底线空位。',
+                action: (s) => {
+                    const bonus = s.flags.basketball_trained ? 0.08 : 0;
+                    const win = Math.random() < Math.min(0.82, 0.48 + bonus + s.general.luck / 300);
+                    return {
+                        flags: { ...s.flags, basketball_stage: win ? 8 : 0 },
+                        general: { ...s.general, health: s.general.health - 3, mindset: s.general.mindset + (win ? 18 : -4), romance: s.general.romance + (win ? 4 : 1) },
+                        log: [...s.log, { message: win ? '队友手起刀落命中三分，球队晋级8强！' : '球砸在前沿弹了出来，差一点就改写结局。', type: win ? 'success' : 'warning', timestamp: Date.now() }]
+                    };
                 }
             }
         ]
@@ -268,44 +406,77 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_spring_trip_photo',
         title: '春游合照',
-        description: '春游进行到一半，大家提议在风景最好的地方拍一张大合照。',
+        description: '逛到中午，大家在公园草坪前喊着要拍一张全班大合照。前面已经蹲了一排。',
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.went_spring_trip && s.week === 14,
         choices: [
-            { text: '找个好位置', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset + 5 } }) }
+            {
+                text: '挤到熟人旁边比个手势',
+                resultDescription: '快门按下那一刻后面忽然有人起了个哄，成片里一半人都在笑。',
+                action: (s) => ({ general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset + 6 } })
+            },
+            {
+                text: '帮忙架好手机倒计时，退到后排角落',
+                resultDescription: '你跑回去时差点压上三秒倒计时，顺手扶了一下歪掉的班旗。',
+                action: (s) => ({ general: { ...s.general, experience: s.general.experience + 4, mindset: s.general.mindset + 5 } })
+            }
         ]
     },
     {
         id: 's2_spring_trip_lost',
         title: '春游小插曲',
-        description: '在自由活动时间，你为了买特色纪念品，和同学们走散了。',
+        description: '自由活动结束前，你绕去另一头买水，回头时发现班里的集合点已经换了方向。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.went_spring_trip && s.week === 14,
         choices: [
-            { text: '赶紧联系班长', action: (s) => ({ general: { ...s.general, experience: s.general.experience + 5 } }) }
+            {
+                text: '立刻给班长发消息问位置',
+                resultDescription: '班长把共享位置发过来，你在大部队上车前三分钟赶回来了。',
+                action: (s) => ({ general: { ...s.general, experience: s.general.experience + 5, mindset: s.general.mindset + 2 } })
+            },
+            {
+                text: '自己对照园区地图抄近道走回门口',
+                resultDescription: '顺着湖岸多走了一段路，反而赶在不少同学前面到了集合点。',
+                action: (s) => ({ general: { ...s.general, experience: s.general.experience + 6, efficiency: s.general.efficiency + 1 } })
+            }
         ]
     },
     // --- DEBATE PROGRESSION ---
     {
         id: 's2_debate_quarter',
         title: '辩论赛 8进4',
-        description: '你们队成功杀入八强！这场的辩题非常刁钻，比赛十分焦灼。',
+        description: '你们队杀入八强！半场暂停时，对方刚抛出一个你们没预料到的数据角度。',
         type: 'positive', triggerType: 'CONDITIONAL', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.debate_stage === 8 && s.week >= 13 && s.week <= 14,
         choices: [
             { 
-                text: '背水一战', 
+                text: '临场抓住对方数据的统计口径漏洞反击',
+                hint: '看心态和现场魄力，成功就能挺进四强。',
+                resultDescription: '你低头在草稿纸上圈出样本范围那一行，接过下一轮质询。',
                 action: (s) => {
-                    const win = Math.random() < 0.5 + (s.general.mindset - 50)/200;
+                    const win = Math.random() < Math.min(0.85, 0.5 + (s.general.mindset - 50) / 200);
                     return {
                         flags: { ...s.flags, debate_stage: win ? 4 : 0 },
-                        general: { ...s.general, mindset: s.general.mindset + (win ? 20 : -10) },
+                        general: { ...s.general, mindset: s.general.mindset + (win ? 20 : -10), experience: s.general.experience + 6 },
                         log: [...s.log, { message: win ? '惊险取胜，挺进半决赛！' : '发挥失常，遗憾淘汰。', type: win ? 'success' : 'warning', timestamp: Date.now() }]
-                    }
+                    };
+                }
+            },
+            {
+                text: '果断让出那个细枝末节，把时间压到价值总结上',
+                hint: '靠积累过的辩论经验稳步推进。',
+                resultDescription: '你示意二辩不要恋战，直接把讨论收回到立论最核心的标准对比。',
+                action: (s) => {
+                    const win = Math.random() < Math.min(0.85, 0.45 + s.general.experience / 180);
+                    return {
+                        flags: { ...s.flags, debate_stage: win ? 4 : 0 },
+                        general: { ...s.general, mindset: s.general.mindset + (win ? 16 : -6), experience: s.general.experience + 8 },
+                        log: [...s.log, { message: win ? '总结陈词稳住了评委，你们挺进四强！' : '虽然节奏稳重，但仍以微弱票差惜败。', type: win ? 'success' : 'info', timestamp: Date.now() }]
+                    };
                 }
             }
         ]
@@ -473,13 +644,123 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'neutral', triggerType: 'RANDOM', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.general.romance > 10,
         choices: [
-            { text: '期待', action: (s) => {
+            { text: '期待座位挨得近一点', action: (s) => {
                 const luck = Math.random() > 0.5;
                 return {
                     general: { ...s.general, mindset: s.general.mindset + (luck ? 10 : -5), romance: s.general.romance + (luck ? 5 : -2) },
                     log: [...s.log, { message: luck ? '竟然真的坐在了附近！' : '离得很远，有点失落。', type: luck ? 'success' : 'info', timestamp: Date.now() }]
+                };
+            } },
+            {
+                text: '只求靠窗透点气，方便自己专心看书',
+                resultDescription: '你被调到了靠近过道的位置，至少抬头能看到一点树梢。',
+                action: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 1, mindset: s.general.mindset + 3 } })
+            }
+        ]
+    },
+    {
+        id: 's2_late_night_homework',
+        title: '十一点半的两张卷子',
+        description: '书桌上还摊着两张明天早读前要交的练习卷。台灯旁的表已经走过十一点半。',
+        type: 'negative',
+        triggerType: 'RANDOM',
+        once: true,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.week >= 3 && s.week <= 13,
+        choices: [
+            {
+                text: '硬扛到一点全部写完',
+                hint: '选考科目明显涨一截，但疲劳会陡增、健康也会掉。',
+                tags: ['study', 'risky'],
+                resultDescription: '最后一题算完的时候手心都有点凉，你把书包拉链合上倒头就睡。',
+                action: (s) => {
+                    const targets: SubjectKey[] = s.selectedSubjects.length ? s.selectedSubjects : ['chinese', 'math', 'english'];
+                    return {
+                        subjects: modifySub(s, targets, 3),
+                        fatigue: s.fatigue + 14,
+                        general: { ...s.general, health: s.general.health - 6, mindset: s.general.mindset - 3 }
+                    };
                 }
-            } }
+            },
+            {
+                text: '先写完几道主要题，其余明早补',
+                hint: '稳住作息与心态，功课只浅浅过一遍。',
+                tags: ['study'],
+                resultDescription: '把会考的核心题写完、生疏的标上问号，明早提前十分钟再来补。',
+                action: (s) => {
+                    const targets: SubjectKey[] = s.selectedSubjects.length ? s.selectedSubjects : ['chinese', 'math', 'english'];
+                    return {
+                        subjects: modifySub(s, targets, 1.5),
+                        fatigue: Math.max(0, s.fatigue - 4),
+                        general: { ...s.general, mindset: s.general.mindset + 5 }
+                    };
+                }
+            },
+            {
+                text: '【天赋】找出两张卷子里用同一种解法的题',
+                condition: (s) => s.talents.some(t => t.id === 'genius' || t.id === 'oi_nerd'),
+                tags: ['study'],
+                resultDescription: '你看清后面四道题用的都是同一种转化套路，赶在零点前把两张卷子都收进书包。',
+                action: (s) => {
+                    const targets: SubjectKey[] = s.selectedSubjects.length ? s.selectedSubjects : ['chinese', 'math', 'english'];
+                    return {
+                        subjects: modifySub(s, targets, 3.5),
+                        fatigue: s.fatigue + 3,
+                        general: { ...s.general, efficiency: s.general.efficiency + 1, mindset: s.general.mindset + 4 }
+                    };
+                }
+            },
+            {
+                text: '收起卷子，先睡觉',
+                tags: ['sleep'],
+                resultDescription: '你把没写完的卷子夹进书包，定好闹钟后关了灯。',
+                action: (s) => ({ fatigue: Math.max(0, s.fatigue - 10), sleepCount: (s.sleepCount || 0) + 1 })
+            }
+        ]
+    },
+    {
+        id: 's2_mock_rank_shock',
+        title: '后墙贴出的周测统计表',
+        description: '下课铃刚响，后墙白板新贴了一张周测小题分统计。这周压轴题全年级卡了一大半，你的名字比上回掉了一截。',
+        type: 'negative',
+        triggerType: 'RANDOM',
+        once: true,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.week >= 8 && s.week <= 15,
+        choices: [
+            {
+                text: '今晚留在自习室把错题每一步拆透',
+                hint: '学科与效率会往上抬，但心里多少有点憋闷。',
+                tags: ['study'],
+                resultDescription: '你一条一条对着步骤排查，最后发现真正丢分的是第二问那个漏掉的分类讨论。',
+                action: (s) => {
+                    const targets: SubjectKey[] = s.selectedSubjects.length ? s.selectedSubjects : ['chinese', 'math', 'english'];
+                    return {
+                        subjects: modifySub(s, targets, 2.5),
+                        fatigue: s.fatigue + 8,
+                        general: { ...s.general, efficiency: s.general.efficiency + 1, mindset: s.general.mindset - 6 }
+                    };
+                }
+            },
+            {
+                text: `找${RIVAL_NICKNAME}借一份解题思路互相核对`,
+                hint: '既能顺完最难的一问，也能稳住心态。',
+                tags: ['study'],
+                resultDescription: `${RIVAL_NICKNAME}直接把草稿纸翻过来看你的第一步：“你这步其实快到了，后面换元换错了个符号。”`,
+                action: (s) => {
+                    const targets: SubjectKey[] = s.selectedSubjects.length ? s.selectedSubjects : ['chinese', 'math', 'english'];
+                    return {
+                        subjects: modifySub(s, targets, 1.5),
+                        general: { ...s.general, experience: s.general.experience + 8, mindset: s.general.mindset + 6 }
+                    };
+                }
+            },
+            {
+                text: '【天赋】收好卷子，挑一道题留到下周',
+                condition: (s) => s.talents.some(t => t.id === 'poor_student' || t.id === 'optimist'),
+                resultDescription: '一次小题没拿稳说明还有空间。你在目录页贴了一张小便利贴，心里反而踏实下来。',
+                action: (s) => ({
+                    general: { ...s.general, mindset: s.general.mindset + 12, efficiency: s.general.efficiency + 1.5 }
+                })
+            }
         ]
     }
 ];

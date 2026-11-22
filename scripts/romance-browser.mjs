@@ -57,9 +57,9 @@ try {
     log:[{message:'陈默借走了错题本，周竞还在等。',type:'info',timestamp:1}],
     history:[{phase:'SEMESTER_2',week:19,eventTitle:'周竞的错题本',choiceText:'等陈默一起走',resultSummary:'TA在楼道里等你。',timestamp:1}]}));
   flushSync(()=>game.saveGame());flushSync(()=>game.setState(initial));flushSync(()=>game.loadGame('manual'));
-  checks.push(['saved names and diary migrated',game.state.romancePartner==='小键盘'&&game.state.flags.rival_name==='抢答机'
-    &&game.state.log.some(entry=>entry.message.includes('小键盘借走了错题本，抢答机还在等'))
-    &&game.state.history[0]?.choiceText==='等小键盘一起走'&&game.state.history[0]?.resultSummary==='小键盘在楼道里等你。']);
+  checks.push(['saved names and diary migrated',game.state.romancePartner==='C同学'&&game.state.flags.rival_name==='Z同学'
+    &&game.state.log.some(entry=>entry.message.includes('C同学借走了错题本，Z同学还在等'))
+    &&game.state.history[0]?.choiceText==='等C同学一起走'&&game.state.history[0]?.resultSummary==='C同学在楼道里等你。']);
   const {default:EventModal}=await import('/components/EventModal.tsx');
   document.getElementById('root').style.display='none';
   flushSync(()=>root.render(React.createElement(EventModal,{event:event('romance_after_rejection'),state:rejected,eventResult:null,autoContinueEnabled:false,onChoice:()=>{},onConfirm:()=>{}})));

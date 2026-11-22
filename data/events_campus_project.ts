@@ -40,12 +40,14 @@ export const CAMPUS_PROJECT_EVENTS: GameEvent[] = [
             {
                 text: '记录食堂的等餐时间',
                 hint: '第 12 周截止。接下后，在周计划里安排三次「整理课题记录」。',
+                hintKind: 'rule',
                 resultDescription: '你和同桌各选了一个窗口。你们约好，从排进队尾的时候计时。',
                 action: state => start(state, 'lunch')
             },
             {
                 text: '记录图书馆的空座',
                 hint: '第 12 周截止。接下后，在周计划里安排三次「整理课题记录」。',
+                hintKind: 'rule',
                 resultDescription: '你选了两排座位，在纸上画出位置，准备放学后去数。',
                 action: state => start(state, 'library')
             },
