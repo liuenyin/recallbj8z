@@ -1,8 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { ACTIVITY_REPEAT_MULTIPLIERS, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, clamp } from '../data/balance.ts';
+import type { GameState } from '../types.ts';
+import { getMoResult, isMoAwardScore, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from '../data/mo_competition.ts';
+import { ACTIVITY_REPEAT_MULTIPLIERS, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, clamp, getAcademicSubjectScore, getRealisticExamRank } from '../data/balance.ts';
 import { clearWeekdaySchedule, ALLOWED_SLOTS_MAP, BLOCKED_SLOTS_MAP } from '../data/timetable.ts';
+
+test('Chinese scores cluster more tightly than maths and English', () => {
+  assert.ok(getAcademicSubjectScore('chinese', 55, 150) > 80);
+  assert.ok(getAcademicSubjectScore('math', 55, 150) < 80);
+  assert.ok(getAcademicSubjectScore('chinese', 100, 150) < 130);
+  assert.ok(getAcademicSubjectScore('math', 94, 150) >= 130);
+  assert.ok(getAcademicSubjectScore('english', 91, 150) >= 130);
+  assert.equal(getAcademicSubjectScore('physics', 80, 100), 80);
+});
+
+test('realistic exams use the year group score cutoffs', () => {
+  for (const [score, rank] of [[710, 1], [701, 2], [693, 2], [690, 3], [677, 10], [655, 50], [640, 100], [628, 150]]) {
+    assert.equal(getRealisticExamRank(score, 750), rank);
+  }
+  assert.equal(getRealisticExamRank(693 * 450 / 750, 450), 2);
+});
+
+test('MO counts blanks in eights and gives partial credit for written work', () => {
+  const starter = { flags: {}, subjects: { math: { level: 20 } },
+    fatigue: 20, general: { mindset: 70, health: 85, luck: 150 } } as GameState;
+  const steady = () => 0.5;
+  const novice = scoreMoPaperOne(starter, 'check', steady);
+  const shortPractice = { ...starter, flags: trainMo(starter, { speed: 34 }) };
+  const proofs = { ...starter, flags: trainMo(starter, { geometry: 32, algebra: 30, number_theory: 32, combinatorics: 32 }) };
+  const rested = scoreMoPaperTwo(proofs, 'geometry_algebra', steady);
+  const tired = scoreMoPaperTwo({ ...proofs, fatigue: 95 }, 'geometry_algebra', steady);
+  assert.equal(novice.blanks % 8, 0);
+  assert.ok(novice.written > 0 && novice.written < 56);
+  assert.ok(scoreMoPaperOne(shortPractice, 'check', steady).total > novice.total);
+  assert.ok(rested.total > tired.total && rested.marks.every((mark, i) => mark > 0 && mark < (i < 2 ? 40 : 50)));
+  assert.equal(isMoAwardScore(novice.total, scoreMoPaperTwo(starter, 'geometry_algebra', steady).total), false);
+  const expert = { ...starter, flags: trainMo(starter, { speed: 100, geometry: 100, algebra: 100, number_theory: 100, combinatorics: 100 }) };
+  assert.equal(scoreMoPaperOne(expert, 'written', steady).total, 120);
+  assert.equal(scoreMoPaperTwo(expert, 'number_combinatorics', steady).total, 180);
+  assert.deepEqual(getMoResult({ ...starter, flags: { mo_league_first: 0, mo_league_second: 0 } }, 'league'), { first: 0, second: 0, total: 0 });
+  assert.equal(getMoResult({ ...starter, flags: { mo_league_first: 121, mo_league_second: 0 } }, 'league'), null);
+});
 
 test('repeated activity multipliers decline without becoming punitive', () => {
   assert.deepEqual(

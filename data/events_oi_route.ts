@@ -44,7 +44,7 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
         condition: (s) => s.competition === 'OI' && s.phase === Phase.SEMESTER_1 && s.week >= 8 && s.week <= 12 && !s.flags.oi_external_training,
         choices: [
             {
-                text: '买票去听课',
+                text: '花 20 元买票去听课',
                 tags: ['study'],
                 hint: '花 20 元，听一个新专题，也能认识外校同学。',
                 hintKind: 'rule',

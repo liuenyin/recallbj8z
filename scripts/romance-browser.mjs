@@ -22,8 +22,20 @@ try {
   const initial=game.state, checks=[];
   const event=id=>ROMANCE_EVENTS.find(e=>e.id===id)||CHAINED_EVENTS[id];
   function choose(s,id,index=0){flushSync(()=>game.setState({...s,isPlaying:false,isWeekend:false,currentEvent:event(id),eventResult:null,chainedEvent:null,eventQueue:[]}));flushSync(()=>game.handleChoice(event(id).choices[index]));return game.state;}
+  const seat=PHASE_EVENTS.SEMESTER_2.find(e=>e.id==='s2_seat_change');
   for(const profile of RELATIONSHIP_PROFILES){
-    let s={...initial,phase:'SEMESTER_2',week:18,relationshipProfileId:profile.id,flags:{relationship_name:profile.name,ta_favorability:75}};
+    const early={...initial,phase:'SEMESTER_1',week:2,relationshipProfileId:profile.id,flags:{relationship_name:profile.name,ta_favorability:75}};
+    const help=event('romance_peer_help'), interest=event('romance_interest_choice');
+    checks.push(['high favour alone cannot start a crush',!help.condition(early)&&!interest.condition(early)&&!seat.choices[0].condition(early)&&!event('romance_confession_prep').condition(early)]);
+    const met=choose(early,'romance_first_encounter');
+    checks.push([profile.name+' has a help scene',help.condition(met)&&help.description(met).includes('TA')]);
+    const helped=choose({...met,week:3},help.id);
+    checks.push(['the player has time before the interest choice',!interest.condition(helped)&&interest.condition({...helped,week:4})]);
+    const liked=choose({...helped,week:4},interest.id);
+    const platonic=choose({...helped,week:4},interest.id,1);
+    checks.push(['only choosing interest starts the crush',liked.activeStatuses.some(s=>s.id==='crush')&&seat.choices[0].condition(liked)&&!platonic.activeStatuses.some(s=>s.id==='crush')&&!seat.choices[0].condition(platonic)&&!event('romance_confession_prep').condition(platonic)]);
+    checks.push(['platonic choice gets a later school scene',!event('romance_friend_callback').condition(platonic)&&event('romance_friend_callback').condition({...platonic,week:5})]);
+    let s={...initial,phase:'SEMESTER_2',week:18,relationshipProfileId:profile.id,flags:{relationship_name:profile.name,ta_favorability:75,romance_met:true,romance_interest:'interested'}};
     const personal=event('romance_personal_moment');checks.push([profile.name+' has distinct scene',personal.description(s).includes(profile.name)]);
     s=choose(s,personal.id);s=choose(s,'romance_confession_prep');
     checks.push(['no same-week confession',!event('romance_confession').condition(s)]);
@@ -58,8 +70,8 @@ try {
     history:[{phase:'SEMESTER_2',week:19,eventTitle:'周竞的错题本',choiceText:'等陈默一起走',resultSummary:'TA在楼道里等你。',timestamp:1}]}));
   flushSync(()=>game.saveGame());flushSync(()=>game.setState(initial));flushSync(()=>game.loadGame('manual'));
   checks.push(['saved names and diary migrated',game.state.romancePartner==='C同学'&&game.state.flags.rival_name==='Z同学'
-    &&game.state.log.some(entry=>entry.message.includes('C同学借走了错题本，Z同学还在等'))
-    &&game.state.history[0]?.choiceText==='等C同学一起走'&&game.state.history[0]?.resultSummary==='C同学在楼道里等你。']);
+    &&game.state.log.some(entry=>entry.message.includes('TA借走了错题本，Z同学还在等'))
+    &&game.state.history[0]?.choiceText==='等TA一起走'&&game.state.history[0]?.resultSummary==='TA在楼道里等你。']);
   const {default:EventModal}=await import('/components/EventModal.tsx');
   document.getElementById('root').style.display='none';
   flushSync(()=>root.render(React.createElement(EventModal,{event:event('romance_after_rejection'),state:rejected,eventResult:null,autoContinueEnabled:false,onChoice:()=>{},onConfirm:()=>{}})));

@@ -12,11 +12,11 @@ const scenarios = [
   {name:'academic-humanities',route:'None',difficulty:'NORMAL',seed:22,humanities:true,alternate:true},
   {name:'academic-hard',route:'None',difficulty:'HARD',seed:33},
   {name:'academic-reality',route:'None',difficulty:'REALITY',seed:44},
-  {name:'academic-hell',route:'None',difficulty:'HELL',seed:55},
+  {name:'academic-reality-balanced',route:'None',difficulty:'REALITY',seed:55,focusAcademics:true},
   {name:'oi-cooperate',route:'OI',difficulty:'NORMAL',seed:66},
   {name:'oi-independent',route:'OI',difficulty:'NORMAL',seed:77,alternate:true},
-  {name:'mo-cooperate',route:'MO',difficulty:'NORMAL',seed:88},
-  {name:'mo-risky',route:'MO',difficulty:'NORMAL',seed:99,alternate:true},
+  {name:'mo-league',route:'MO',difficulty:'NORMAL',seed:88,expectedLeague:true},
+  {name:'mo-mock-only',route:'MO',difficulty:'REALITY',seed:99,choices:{mo_september_entry:1}},
   {name:'romance',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true}
   ,{name:'romance-friends',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_confession_prep:1}}
   ,{name:'romance-separate',expectedRomance:'separated',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_missed_message:1,romance_repair:1}},
@@ -29,8 +29,9 @@ const scenarios = [
   ,...['rap','dance','volleyball','vocaloid','poetry','social_science','mun','touhou','astronomy','math_research','ttrpg','literature','otaku','anime','human_behavior'].map((club,i)=>({name:'club-'+club,club,route:'None',difficulty:'NORMAL',seed:200+i})),
   {name:'oi-rough-repair',route:'OI',difficulty:'NORMAL',seed:301,choices:{oi_problem_draft:1,oi_problem_testing:1}},
   {name:'oi-rough-defend',route:'OI',difficulty:'NORMAL',seed:302,choices:{oi_problem_draft:1,oi_problem_testing:1,oi_problem_feedback:1}},
-  {name:'mo-rough',route:'MO',difficulty:'NORMAL',seed:303,choices:{mo_setter_review:1}},
-  {name:'mo-medal',route:'MO',difficulty:'NORMAL',seed:304,club:'math_research',talents:['lucky_dog','healthy','optimist']},
+  {name:'mo-light',route:'MO',difficulty:'REALITY',seed:303,expectedLeague:true,skipMock:true,lightMo:true,
+    choices:{mo_summer_diagnostic:2,mo_summer_topics:2,mo_summer_mock:2,mo_mock_paper_one:2}},
+  {name:'mo-reality',route:'MO',difficulty:'REALITY',seed:304,expectedLeague:true},
   {name:'festival-build',route:'None',difficulty:'NORMAL',seed:401,club:'astronomy',expectedFestival:'built',
     choices:{sci_fest_first_day:0,sci_fest_signup:0,sci_fest_rehearsal:0,evt_sci_fest:0}},
   {name:'festival-guide',route:'None',difficulty:'NORMAL',seed:402,club:'math_research',expectedFestival:'guided',
@@ -65,9 +66,12 @@ try {
       const {default:EventModal} = await import('/components/EventModal.tsx');
       const {isExamPhase,getSubjectReselectionReturnPhase,isWintryWeek} = await import('/data/game_flow.ts');
       const {isStudyChoice,isStudyBlocked,getWeekendActivityUpdates,clampGameStateMetrics,getActivityBlockReason,isLearningActivity} = await import('/data/utils.ts');
-      const {SCHEDULE_SLOTS,ALLOWED_SLOTS_MAP,BLOCKED_SLOTS_MAP,getActivityMaxSlots} = await import('/data/timetable.ts');
+      const {SCHEDULE_SLOTS,ALLOWED_SLOTS_MAP,BLOCKED_SLOTS_MAP,getActivityMaxSlots,getEveningStudySlots,getMoExamSlots,HOMEWORK_ACTIVITY_ID} = await import('/data/timetable.ts');
+      const {getSaturdayCourses} = await import('/data/saturday_courses.ts');
+      const {SUBJECT_NAMES} = await import('/types.ts');
       const {IRREGULAR_CHALLENGES} = await import('/data/challenges.ts');
       const {getEndingData,getEndingMemories} = await import('/data/ending.ts');
+      const {getMoReadiness,getMoResult} = await import('/data/mo_competition.ts');
       const {TALENTS} = await import('/data/mechanics.ts');
       // Use the component's module instance after a Vite hot update.
       const eventModule = config.english ? await (await fetch('/components/EventModal.tsx')).text() : '';
@@ -97,7 +101,8 @@ try {
       await wait();
       for (let attempt=0;config.english && language!=='en' && attempt<100;attempt++) await wait();
       if (config.english && language!=='en') throw new Error('English catalog did not load');
-      const talents = config.difficulty === 'HELL' ? TALENTS.filter(t=>t.id==='loner') : TALENTS.filter(t=>(config.talents||['genius']).includes(t.id));
+      const talentIds = config.talents || (config.focusAcademics ? ['lucky_dog','healthy','loner','frail'] : config.difficulty === 'REALITY' ? [] : ['genius']);
+      const talents = TALENTS.filter(t=>talentIds.includes(t.id));
       flushSync(()=>game.startGameState(config.difficulty,{},talents,IRREGULAR_CHALLENGES.find(c=>c.id===config.challenge)));
       const timeline=[], exams=[], failures=[], seen=new Set();
       const visitedChoices=[], activityCounts={};
@@ -119,8 +124,10 @@ try {
           value += ((after.general?.[key]??before.general[key])-before.general[key])*weight;
         }
         value -= ((after.fatigue??before.fatigue)-before.fatigue)*(before.fatigue>55?1.5:0.15);
-        for (const key of Object.keys(before.subjects)) value += ((after.subjects?.[key]?.level??before.subjects[key].level)-before.subjects[key].level)*(config.route==='MO'&&key==='math'?6:0.2);
+        const testedSubjects = ['chinese','math','english',...before.selectedSubjects];
+        for (const key of Object.keys(before.subjects)) value += ((after.subjects?.[key]?.level??before.subjects[key].level)-before.subjects[key].level)*(config.focusAcademics&&testedSubjects.includes(key)?6:0.2);
         for (const key of ['dp','ds','math','string','graph','misc']) value += ((after.oiStats?.[key]??before.oiStats[key])-before.oiStats[key])*(config.route==='OI'?4:0);
+        if (config.route==='MO' && update.flags) value += (getMoReadiness({...before,flags:update.flags})-getMoReadiness(before))*24;
         if (update.phase==='WITHDRAWAL') value-=10000;
         return value;
       }
@@ -145,7 +152,9 @@ try {
           else if (s.phase==='SELECTION'||s.phase==='SUBJECT_RESELECTION') {
             const retPhase = prevPhase => prevPhase==='SELECTION'?'PLACEMENT_EXAM':getSubjectReselectionReturnPhase(s);
             const targetPhase = retPhase(s.phase);
-            flushSync(()=>game.setState(prev=>({...prev,selectedSubjects:config.humanities?['history','geography','politics']:['physics','chemistry','biology'],
+            const electives = config.focusAcademics ? ['physics','chemistry','biology','history','geography','politics'].sort((a,b) => s.subjects[b].level + s.subjects[b].aptitude/7.5 - s.subjects[a].level - s.subjects[a].aptitude/7.5).slice(0,3)
+              : config.humanities ? ['history','geography','politics'] : ['physics','chemistry','biology'];
+            flushSync(()=>game.setState(prev=>({...prev,selectedSubjects:electives,
               phase:targetPhase,
               week:prev.phase==='SUBJECT_RESELECTION'?(targetPhase==='SEMESTER_1'?Math.max(12,prev.week+1):Math.min(21,prev.week+1)):prev.week,
               isPlaying:prev.phase==='SUBJECT_RESELECTION',totalWeeksInPhase:prev.phase==='SELECTION'?0:21,subjectReselectionReturnPhase:null})));
@@ -155,9 +164,16 @@ try {
               let choices=(s.currentEvent.choices||[]).filter(c=>(!c.condition||c.condition(s))&&!(isStudyChoice(c)&&isStudyBlocked(s)));
               if (config.fail) choices=choices.filter(c=>! /睡|梦/.test(c.text));
               let choice = config.choices?.[s.currentEvent.id] === undefined ? undefined : choices[config.choices[s.currentEvent.id]];
+              if (s.currentEvent.id.startsWith('saturday_course_')) {
+                const testedSubjects = ['chinese','math','english',...s.selectedSubjects].filter(key => key !== s.flags.saturday_course_first);
+                testedSubjects.sort((a,b)=>s.subjects[a].level + s.subjects[a].aptitude/7.5 - s.subjects[b].level - s.subjects[b].aptitude/7.5);
+                const wanted = config.focusAcademics ? SUBJECT_NAMES[testedSubjects[0]] : '这学年先不报三修课';
+                choice = choices.find(c=>c.text===wanted) || choices[0];
+              }
               if (!config.expectedProject && s.currentEvent.id === 'campus_project_signup') choice = choices.find(c=>c.text==='这次先不报名');
               if (s.currentEvent.id==='sum_goal_selection') choice=choices.find(c=>config.route==='None'?c.text==='专注课内综合':c.text.includes('('+config.route+')'));
               if (config.challenge==='c_sleep_king'&&!config.fail&&!s.hasSleptThisWeek) choice=choices.find(c=>/睡|梦/.test(c.text))||choice;
+              if (!choice && s.currentEvent.id==='romance_first_encounter' && !config.romance) choice=choices[1];
               if (!choice && /^(oi_|mo_|rival_|romance_|s1_class_board|campus_project_report|campus_.*return)/.test(s.currentEvent.id)) choice=choices[config.alternate?choices.length-1:0];
               if (!choice) choice=choices.map(c=>({c,value:score(s,probe(c.action,s))+(config.romance&&/表白|约|搭话/.test(c.text)?20:0)})).sort((a,b)=>b.value-a.value)[0]?.c;
               if (choice) {
@@ -170,22 +186,28 @@ try {
             if (button) flushSync(()=>button.click());
           } else if (s.phase==='SEMESTER_1'&&s.week===2&&!s.hasSelectedClub) flushSync(()=>game.handleClubSelect(config.club||'none'));
           else if (s.isWeekend) {
-            const schedule={},counts={},blocked=new Set();let simulated=s,studies=0;
+            const schedule={},counts={},blocked=new Set([...getEveningStudySlots(s),...getMoExamSlots(s)]);let simulated=s;
+            const fixedCourses = getSaturdayCourses(s);
             for (const slot of SCHEDULE_SLOTS) {
-              if (blocked.has(slot.id)||s.flags.joined_evening_study&&['Mon','Tue','Wed','Thu','Fri'].includes(slot.day)) continue;
+              if (blocked.has(slot.id)) continue;
+              const course = fixedCourses[slot.id];
+              if (course) {
+                if (!isStudyBlocked(simulated)) simulated=clampGameStateMetrics({...simulated,...getWeekendActivityUpdates(simulated,course,1,true)});
+                continue;
+              }
               const candidates=game.weekendOptions.filter(a=> (!a.condition||a.condition(simulated))&&!getActivityBlockReason(simulated,a)
                 && (a.id !== 'w_project_work' || !config.expectedProject || config.expectedProject === 'compare' && s.week === 12)
+                && (!config.lightMo || !a.id.startsWith('w_mo_'))
                 && (!ALLOWED_SLOTS_MAP[a.id]||ALLOWED_SLOTS_MAP[a.id].includes(slot.id))
-                && (counts[a.id]||0)<getActivityMaxSlots(a.id)
-                && !(isLearningActivity(a)&&(isStudyBlocked(simulated)||config.difficulty==='HELL'&&studies>=1)));
+                && (counts[a.id]||0)<getActivityMaxSlots(a.id,s)
+                && !(isLearningActivity(a)&&isStudyBlocked(simulated)));
               const rated=candidates.map(a=>({a,updates:probe(st=>getWeekendActivityUpdates(st,a,(counts[a.id]||0)+1,true),simulated)}))
-                .map(r=>({...r,value:score(simulated,r.updates)+(aProject(r.a)?12:0)+(config.club&&r.a.id==='w_club_activity'?12:0)+(config.route==='OI'&&r.a.id==='act_cf'?8:0)}))
+                .map(r=>({...r,value:score(simulated,r.updates)+(r.a.id===HOMEWORK_ACTIVITY_ID?26:0)+(aProject(r.a)?12:0)+(config.club&&r.a.id==='w_club_activity'?12:0)+(config.route==='OI'&&r.a.id==='act_cf'?8:0)}))
                 .sort((a,b)=>b.value-a.value);
               const picked=config.challenge==='c_sleep_king'&&!config.fail&&!Object.values(schedule).includes('w_sleep')?rated.find(r=>r.a.id==='w_sleep')||rated[0]:rated[0];
               if (!picked) continue;
               if (config.fail&&picked.a.id==='w_sleep') continue;
               schedule[slot.id]=picked.a.id;activityCounts[picked.a.id]=(activityCounts[picked.a.id]||0)+1;counts[picked.a.id]=(counts[picked.a.id]||0)+1;
-              if(isLearningActivity(picked.a))studies++;
               (BLOCKED_SLOTS_MAP[picked.a.id]||[]).forEach(id=>blocked.add(id));
               simulated=clampGameStateMetrics({...simulated,...picked.updates});
             }
@@ -196,6 +218,21 @@ try {
       } catch(error) {failures.push(error.message);}
       function aProject(a){return a.id==='w_project_work';}
       const final=game.state;
+      const moResults = config.route==='MO' ? {league:getMoResult(final,'league'),mock:getMoResult(final,'mock')} : undefined;
+      if (moResults && (Boolean(moResults.league) !== Boolean(config.expectedLeague)
+          || Boolean(moResults.mock) === Boolean(config.skipMock)
+          || (config.lightMo && (final.flags.mo_league_awarded || moResults.league?.total >= 80))
+          || (moResults.league && (!final.flags.mo_league_published || !visitedChoices.some(e=>e.id==='mo_league_paper_two'&&e.phase==='SEMESTER_1'&&e.week===2)))
+          || (moResults.mock && (!final.flags.mo_mock_published || !visitedChoices.some(e=>e.id==='mo_mock_paper_two'&&e.phase==='SEMESTER_2'&&e.week===14)))
+          || visitedChoices.some(e=>/mo_(setter|problem_circle)/.test(e.id)) || activityCounts.w_invite_contest)) {
+        failures.push('MO competition dates, marks or route were incorrect');
+      }
+      if (config.romance) {
+        const helpAt = visitedChoices.findIndex(event => event.id === 'romance_peer_help');
+        const interestAt = visitedChoices.findIndex(event => event.id === 'romance_interest_choice');
+        const confessionAt = visitedChoices.findIndex(event => event.id === 'romance_confession_prep');
+        if (helpAt < 0 || interestAt <= helpAt || confessionAt <= interestAt) failures.push('Romance scenes were out of order');
+      }
       if (config.expectedRomance && final.flags.romance_resolution!==config.expectedRomance) failures.push('Romance outcome: '+final.flags.romance_resolution);
       if (!config.fail&&!fullYear) failures.push('Expected a full year');
       if (config.club && (!activityCounts.w_club_activity || final.club!==config.club)) failures.push('Club route was not exercised');
@@ -226,7 +263,7 @@ try {
           failures.push('Unexpected project progress, report or spring follow-up');
         }
       }
-      const report={...config,steps,fullYear,phase:final.phase,week:final.week,failures,timeline,exams,visitedChoices,
+      const report={...config,steps,fullYear,phase:final.phase,week:final.week,failures,timeline,exams,moResults,visitedChoices,
         ending:getEndingData(final),academicExams:final.academicExamHistory,activityCounts,flags:final.flags,activeProjects:final.activeProjects,completedProjects:final.completedProjects,club:final.club,romancePartner:final.romancePartner,health:final.general.health,endingLogs:final.log.slice(-8),history:final.history};
       flushSync(()=>root.render(localized(React.createElement(EndingScreen,{state:final,endingData:getEndingData(final),onRestart:()=>{},onViewHistory:()=>{}}))));
       checkEnglish('ending');
@@ -234,14 +271,14 @@ try {
       if (report.untranslated.length) failures.push(`${report.untranslated.length} untranslated pieces of visible copy`);
       return report;
     },{...scenario,english});
-    if (['sleep-challenge-fail','mo-rough','oi-cooperate','romance','festival-guide'].includes(scenario.name)) {
+    if (['sleep-challenge-fail','mo-league','oi-cooperate','romance','festival-guide'].includes(scenario.name)) {
       await page.setViewport({width:390,height:844});
       await page.screenshot({path:`artifacts/ending-${scenario.name}.png`,fullPage:true});
     }
     report.errors=errors;reports.push(report);
     const suffix = english ? '-en' : '';
     writeFileSync(process.env.ROUTE ? `artifacts/playthrough-${process.env.ROUTE}${suffix}.json` : `artifacts/full-playthrough${suffix}.json`,JSON.stringify(reports,null,2));
-    console.log(JSON.stringify({name:report.name,fullYear:report.fullYear,phase:report.phase,week:report.week,steps:report.steps,events:report.visitedChoices.length,exams:report.exams,failures:report.failures,errors}));
+    console.log(JSON.stringify({name:report.name,fullYear:report.fullYear,phase:report.phase,week:report.week,steps:report.steps,events:report.visitedChoices.length,exams:report.exams,moResults:report.moResults,finalRank:report.academicExams.at(-1)?.rank,failures:report.failures,errors}));
     await page.close();
   }
 } finally {await browser.close();}

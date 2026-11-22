@@ -44,7 +44,7 @@ export const MECHANICS_CONFIG = {
 export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, DifficultyPreset> = {
     'NORMAL': {
         label: '普通',
-        desc: '体验相对轻松的高中生活。(属性大幅提升，更易获得高分)',
+        desc: '开局属性较高，学习收益更高，疲劳积累较慢。',
         color: 'bg-emerald-500',
         stats: {
             mindset: 40,
@@ -66,7 +66,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
     },
     'HARD': {
         label: '困难',
-        desc: '资源紧张，压力较大。',
+        desc: '开局资源较少，考试排名更难提升。',
         color: 'bg-orange-500',
         stats: {
             mindset: 35,
@@ -88,7 +88,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
     },
     'REALITY': {
         label: '现实',
-        desc: '这就是真实的人生。现实与地狱模式下均可解锁成就。',
+        desc: '周末活动每周变化。除余额外，属性以体感呈现。心态过低或疲劳过高时无法学习。',
         color: 'bg-rose-600',
         stats: {
             mindset: 30,
@@ -106,35 +106,9 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
         learningRewardMultiplier: 0.9,
         fatigueGainMultiplier: 1.2,
         restRecoveryMultiplier: 0.8,
-        peerAverage: 0.68
-    },
-    'HELL': {
-        label: '地狱',
-        desc: '极限生存：健康低于10会结束，心态低于20或疲劳超过90不能学习；每周最多安排1次学习、学习收益为2/3、同学更强、商店价格翻倍，开局天赋点为-1。',
-        color: 'bg-slate-900',
-        stats: {
-            mindset: 25,
-            experience: 0,
-            luck: 25,
-            romance: 0,
-            health: 48,
-            money: 10,
-            efficiency: 7,
-            excitement: 10
-        },
-        subjectAptitudeDelta: -15,
-        subjectLevelDelta: -4,
-        lessonEfficiencyMultiplier: 2 / 3,
-        learningRewardMultiplier: 2 / 3,
-        fatigueGainMultiplier: 1.5,
-        restRecoveryMultiplier: 0.65,
-        peerAverage: 0.74,
-        weekendStudyLimit: 1,
-        healthDeathThreshold: 10,
+        peerAverage: 0.8,
         studyMindsetThreshold: 20,
-        studyFatigueThreshold: 90,
-        shopPriceMultiplier: 2,
-        talentPoints: -1
+        studyFatigueThreshold: 90
     }
 };
 

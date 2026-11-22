@@ -54,6 +54,18 @@ export const STANDARD_SUMMER_WEEKS = 3;
 export const COMPETITION_SUMMER_WEEKS = 8;
 export const MILITARY_TRAINING_WEEKS = 1;
 
+export const getCalendarWeekCount = (phase: Phase, competition: GameState['competition']): number => {
+  switch (phase) {
+    case 'SUMMER': return competition === 'OI' || competition === 'MO' ? COMPETITION_SUMMER_WEEKS : STANDARD_SUMMER_WEEKS;
+    case 'MILITARY': return MILITARY_TRAINING_WEEKS;
+    case 'SEMESTER_1':
+    case 'SEMESTER_2': return 21;
+    case 'WINTER_BREAK': return 5;
+    case 'SUMMER_BREAK': return 8;
+    default: return 0;
+  }
+};
+
 export const isWintryWeek = ({ phase, week }: Pick<GameState, 'phase' | 'week'>): boolean =>
   phase === 'WINTER_BREAK'
   || (phase === 'SEMESTER_1' && week >= 14)

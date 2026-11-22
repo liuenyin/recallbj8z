@@ -4,6 +4,7 @@ import { modifySub, modifyOI, getEffectiveEfficiency } from './utils';
 import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS } from './event_defs';
 import { isWintryWeek } from './game_flow';
+import { hasRomanticInterest } from './relationships';
 import oiEventsData from '../oi_events.json';
 
 const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
@@ -130,6 +131,7 @@ export const generateStudyEvent = (state: GameState, queuedIds: readonly string[
     const subName = SUBJECT_NAMES[subject];
     const efficiency = getEffectiveEfficiency(state);
     const isHoliday = state.phase === Phase.WINTER_BREAK || state.phase === Phase.SUMMER_BREAK;
+    const distracted = !isHoliday && hasRomanticInterest(state);
 
     return {
         id: `study_weekly_${subject}`,
@@ -142,14 +144,25 @@ export const generateStudyEvent = (state: GameState, queuedIds: readonly string[
         choices: [
             { 
                 text: isHoliday ? '系统整理一轮重点' : '认真听讲',
-                resultDescription: isHoliday ? '整理到最后，至少知道下一页该从哪里复习起。' : '你把老师补充的那一步标在笔记边上，下次遇到类似的题可以翻回来。',
                 tags: ['study'],
-                action: (s) => ({ 
-                    subjects: modifySub(s, [subject], 1 + efficiency * 0.05),
-                    general: { ...s.general, mindset: s.general.mindset - 2 }
-                }) 
+                action: (s) => {
+                    const lookedOver = distracted && Math.random() < 0.22;
+                    const result = lookedOver ? '你以为自己一直在听，回神才发现又朝TA那边看了几眼，只记下来半道例题。'
+                        : isHoliday ? '整理到最后，至少知道下一页该从哪里复习起。' : '你把老师补充的那一步标在笔记边上，下次遇到类似的题可以翻回来。';
+                    return {
+                        subjects: modifySub(s, [subject], (1 + efficiency * 0.05) * (lookedOver ? 0.5 : 1)),
+                        general: { ...s.general, mindset: s.general.mindset - 2 },
+                        log: [...s.log, { message: result, type: 'event', timestamp: Date.now() }]
+                    };
+                }
             },
-            { 
+            ...(distracted ? [{
+                text: '下课拿笔记去问TA',
+                tags: ['social' as const],
+                resultDescription: 'TA把笔记翻到那道例题，给你指了指老师刚加的条件。',
+                action: (s: GameState) => ({ subjects: modifySub(s, [subject], 0.5), flags: { ...s.flags, ta_favorability: Number(s.flags.ta_favorability || 0) + 2 } })
+            }] : []),
+            {
                 text: isHoliday ? '集中刷套卷' : '偷偷刷题',
                 resultDescription: isHoliday ? '做完一套卷子，纸角上攒了几道还值得回看的题。' : '你多做了两页自己的题，抬头时老师已经讲到下一处了。',
                 tags: ['study', 'risky'],
@@ -246,6 +259,7 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
         };
     }
 
+    const returningFromWinterBreak = state.phase === Phase.WINTER_BREAK && state.week === state.totalWeeksInPhase;
     const events: Record<string, (s: GameState) => GameEvent> = {
         flavor_0: (s) => ({
             id: 'evt_rain',
@@ -266,8 +280,8 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
         }),
         flavor_1: () => ({
             id: 'evt_homework',
-            title: '明早要交的作业',
-            description: isHoliday ? '离开学还有两天，桌上还剩一张数学卷和一篇英语作文。' : '数学卷和英语作文都要明早交，你刚写完第一道大题。',
+            title: returningFromWinterBreak ? '开学前的两份作业' : '明早要交的作业',
+            description: returningFromWinterBreak ? '寒假快结束了。你翻了一下开学要交的作业，还剩一张数学卷和一篇英语作文。' : '数学卷和英语作文都要明早交，你刚写完第一道大题。',
             type: 'negative',
             choices: [
                 {
@@ -276,6 +290,15 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                     action: (st) => ({
                         general: { ...st.general, health: st.general.health - 15, efficiency: st.general.efficiency - 2 },
                         subjects: modifySub(st, ['math', 'english'], 3)
+                    })
+                },
+                {
+                    text: '先写会做的，留着没懂的题去问',
+                    tags: ['study'],
+                    resultDescription: '你把会做的题写完，在剩下几道题旁边贴了张便签。',
+                    action: st => ({
+                        subjects: modifySub(st, ['math', 'english'], 1),
+                        general: { ...st.general, experience: st.general.experience + 2 }
                     })
                 },
                 { 
@@ -384,7 +407,8 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
     const eligibleEvents = Object.entries(events)
         .map(([id, buildEvent]) => ({ event: buildEvent(state), id }))
         .filter(({ event }) => (event.id !== 'evt_snow' || isWintryWeek(state))
-            && (!isHoliday || event.id !== 'evt_help_card'));
+            && (!isHoliday || event.id !== 'evt_help_card')
+            && (event.id !== 'evt_homework' || !isHoliday || returningFromWinterBreak));
     const freshEvents = eligibleEvents.filter(({ id }) => !state.recentEventIds.includes(id));
     const pool = freshEvents.length ? freshEvents : eligibleEvents;
     const picked = pool[Math.floor(Math.random() * pool.length)];

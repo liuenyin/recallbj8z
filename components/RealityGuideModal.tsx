@@ -1,6 +1,7 @@
 import { useLanguage } from '../lib/i18n';
 
 import React, { useState } from 'react';
+import { DIFFICULTY_PRESETS } from '../data/constants';
 
 interface RealityGuideModalProps {
     onClose: () => void;
@@ -39,8 +40,8 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
                     {tab === 'STATS' && (
                         <div className="space-y-6">
                             <div>
-                                <h3 className="font-bold text-slate-900 mb-2 border-l-4 border-indigo-500 pl-2">{tr("现实 / 地狱模式 · 自我认知")}</h3>
-                                <p className="text-xs text-slate-500 mb-2">{tr("【现实】与【地狱】模式下隐去具体数字，改以带有认知偏差的体感档位呈现（金钱始终显示真实余额）：")}</p>
+                                <h3 className="font-bold text-slate-900 mb-2 border-l-4 border-indigo-500 pl-2">{tr("现实难度 · 自我认知")}</h3>
+                                <p className="text-xs text-slate-500 mb-2">{tr("现实难度显示精确余额，其余属性以体感档位呈现。")}</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                     <div className="p-2 bg-rose-50 text-rose-700 rounded border border-rose-100 flex justify-between"><span>{tr("糟糕透顶")}</span> <span>&lt; 20</span></div>
                                     <div className="p-2 bg-orange-50 text-orange-600 rounded border border-orange-100 flex justify-between"><span>{tr("不太妙")}</span> <span>20 - 39</span></div>
@@ -65,15 +66,14 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
                                 <p>{tr("• 疲劳 &ge; 50/75/90 时，有效效率依次扣除 1 / 3 / 6 点；疲劳 &ge; 75 还会持续扣减健康与心态。")}</p>
                                 <p>{tr("• 兴奋值越高，学习与运动正向收益越高，但休息恢复效率会相应下降。")}</p>
                                 <p>{tr("• 周末同一项活动重复安排会触发收益递减（第 1~4 次：100% / 68% / 45% / 30%）。")}</p>
-                                <p>{tr("• 认知偏差与波动：现实/地狱模式下，心态低于 50 容易低估自己，高于 50 容易高估自己；经验越高自我判断越稳；健康危急或极度疲劳时保留真实警示。")}</p>
+                                <p>{tr("• 现实难度下，心态低时容易低估自己，心态高时容易高估。经验越多，自我判断越稳定。")}</p>
                             </div>
 
                             <div className="space-y-2 text-xs">
                                 <h4 className="font-bold text-slate-900 text-sm">{tr("高难度专属限制")}</h4>
                                 <ul className="list-disc list-inside space-y-1.5 pl-1">
-                                    <li><span className="font-bold text-orange-600">{tr("困难 / 现实 / 地狱难度")}</span>{tr("：隐藏事件选项的收益与胜率提示，保留截止时间与规则说明。")}</li>
-                                    <li><span className="font-bold text-rose-600">{tr("现实难度")}</span>{tr("：每周周末仅随机提供 6 项可选活动，且隐藏具体数值（金钱除外）。")}</li>
-                                    <li><span className="font-bold text-slate-900">{tr("地狱难度")}</span>{tr("：健康低于 10 立即结束；心态 < 20 或疲劳 > 90 无法学习；每周最多安排 1 次学习；商店价格翻倍；同样可解锁成就。")}</li>
+                                    <li><span className="font-bold text-orange-600">{tr("困难 / 现实难度")}</span>{tr("：隐藏事件选项的收益与胜率提示，保留截止时间与规则说明。")}</li>
+                                    <li><span className="font-bold text-rose-600">{tr("现实难度")}</span>{tr("：周末活动每周变化。心态低于 20 或疲劳超过 90 时，先恢复状态再学习。")}</li>
                                 </ul>
                             </div>
                         </div>
@@ -83,27 +83,21 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
                         <div className="space-y-6">
                             <div>
                                 <h3 className="font-bold text-slate-900 mb-2">{tr("排名计算机制")}</h3>
-                                <p className="mb-4">{tr("文化课大考按全年级 633 人正态分布模拟排名（标准差约 13%），不同难度的同学平均水平如下：")}</p>
+                                <p className="mb-4">{tr("文化课考试按 633 人估算年级排名，以下均分以满分 750 为例。")}</p>
                                 
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">{tr("普")}</div>
-                                        <div className="flex-1 text-xs">{tr("普通难度：年级平均分约占总分 ")}<strong>58%</strong></div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded bg-rose-100 text-rose-700 flex items-center justify-center font-bold">{tr("现")}</div>
-                                        <div className="flex-1 text-xs">{tr("困难 / 现实难度：年级平均分约占总分 ")}<strong>68%</strong></div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded bg-slate-200 text-slate-800 flex items-center justify-center font-bold">{tr("狱")}</div>
-                                        <div className="flex-1 text-xs">{tr("地狱难度：年级平均分约占总分 ")}<strong>74%</strong></div>
-                                    </div>
-                                </div>
+                                <dl className="grid gap-2">
+                                    {Object.values(DIFFICULTY_PRESETS).map(preset => (
+                                        <div key={preset.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                                            <dt className="font-bold">{tr(preset.label)}</dt>
+                                            <dd>{Math.round(preset.peerAverage * 750)} / 750</dd>
+                                        </div>
+                                    ))}
+                                </dl>
                             </div>
 
                             <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-amber-800 text-xs">
                                 <span className="font-bold block mb-1"><i className="fas fa-lightbulb"></i> {tr("提示：")}</span>
-                                {tr("总分达到满分的 ")}<strong>&ge; 98%</strong> {tr("即可锁定年级第一；OI 竞赛成绩会同时结合各算法维度的训练积累而非单靠数学基础。")}</div>
+                                {tr("现实难度的 750 分制参照：约 710 分为年级第 1，677 分为第 10，655 分为第 50，640 分为第 100。")}</div>
                         </div>
                     )}
 

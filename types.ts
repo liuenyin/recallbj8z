@@ -72,7 +72,7 @@ export interface StoryEntry {
 
 export type CompetitionType = 'None' | 'OI' | 'MO';
 
-export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' | 'HELL' ;
+export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY';
 
 export interface AiConfig {
   enabled: boolean;
@@ -251,6 +251,7 @@ export interface GameState {
   activeChallengeId: string | null; 
   isWeekend: boolean;
   lastWeekSchedule: Record<string, string>;
+  recentWeekendActivities?: string[][];
   availableWeekendActivityIds?: string[]; 
   sleepCount: number;
   rejectionCount: number; 
@@ -278,6 +279,7 @@ export interface GameEvent {
   choices?: EventChoice[];
   condition?: (state: GameState) => boolean;
   once?: boolean;
+  allowChallengeSleep?: boolean;
   triggerType?: EventTriggerType;
   fixedPhase?: Phase;
   fixedWeek?: number;

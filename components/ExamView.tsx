@@ -1,4 +1,5 @@
 import { useLanguage } from '../lib/i18n';
+import { getAcademicSubjectScore } from '../data/balance';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ExamResult, SubjectKey, SUBJECT_NAMES, Phase, OIProblem, OIStats } from '../types';
@@ -25,7 +26,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   const [isFinished, setIsFinished] = useState(false);
   const finishSubmittedRef = useRef(false);
   const logBoxRef = useRef<HTMLDivElement>(null);
-  const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+  const hideDetails = state.difficulty === 'REALITY';
 
   // Determine which subjects to test based on phase
   const getSubjectsToTest = (): string[] => {
@@ -72,11 +73,11 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
   // Lower is easier (divider), Higher is harder
   const getDifficultyModifier = (phase: Phase): number => {
       switch (phase) {
-          case Phase.PLACEMENT_EXAM: return 1.0; // 新手福利，很容易高分
-          case Phase.MIDTERM_EXAM: return 1.2;   // 标准难度
-          case Phase.FINAL_EXAM: return 1.5;     // 期末地狱难度，检验一学期成果
-          case Phase.MIDTERM_EXAM_2: return 1.3; // 下半学期期中
-          case Phase.FINAL_EXAM_2: return 1.6;   // 高一下期末
+          case Phase.PLACEMENT_EXAM: return state.difficulty === 'REALITY' ? 0.69 : 1.0;
+          case Phase.MIDTERM_EXAM: return state.difficulty === 'REALITY' ? 1.13 : 1.2;
+          case Phase.FINAL_EXAM: return state.difficulty === 'REALITY' ? 1.44 : 1.5;
+          case Phase.MIDTERM_EXAM_2: return state.difficulty === 'REALITY' ? 1.815 : 1.3;
+          case Phase.FINAL_EXAM_2: return state.difficulty === 'REALITY' ? 1.885 : 1.6;
           case Phase.CSP_EXAM: return 1.0;
           case Phase.NOIP_EXAM: return 1.3;
           case Phase.WC_EXAM: return 1.5;
@@ -96,20 +97,22 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
     let logMsg = '';
     let extraLog = '';
 
-    let luckMultiplier = 1.0 + (Math.random() * 0.2 - 0.1);
-    luckMultiplier += (state.general.luck - 50) / 500;
+    const isRealisticAcademic = !isOI && state.difficulty === 'REALITY';
+    const fluctuation = isRealisticAcademic ? 0.055 : 0.1;
+    let luckMultiplier = 1 + (Math.random() * 2 - 1) * fluctuation;
+    luckMultiplier += (state.general.luck - 50) / (isRealisticAcademic ? 900 : 500);
     const critChance = Math.max(0, state.general.luck - 20) / 500;
     if (Math.random() < critChance) {
-      luckMultiplier += 0.25;
+      luckMultiplier += isRealisticAcademic ? 0.08 : 0.25;
       extraLog = ' (超常发挥！)';
     }
     const fumbleChance = Math.max(0, (50 - state.general.luck) / 500);
     if (Math.random() < fumbleChance) {
-      luckMultiplier -= 0.2;
+      luckMultiplier -= isRealisticAcademic ? 0.08 : 0.2;
       extraLog = ' (失误了...)';
     }
     if (state.general.mindset < 30) {
-      luckMultiplier -= Math.random() * 0.1;
+      luckMultiplier -= Math.random() * (isRealisticAcademic ? 0.06 : 0.1);
     }
 
     if (isOI) {
@@ -140,9 +143,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
       let basePercentage = (stats.aptitude * 0.4 + stats.level * 3.0) / difficultyMod;
       const effectiveEfficiency = getEffectiveEfficiency(state);
       if (effectiveEfficiency > 15) basePercentage += (effectiveEfficiency - 15) * 1.0;
-      const finalScoreRaw = basePercentage * luckMultiplier;
-      const finalPercentage = Math.min(100, Math.max(0, finalScoreRaw)) / 100;
-      score = Math.floor(finalPercentage * maxScore);
+      score = getAcademicSubjectScore(subject, basePercentage * luckMultiplier, maxScore);
       logMsg = `${SUBJECT_NAMES[subject]} 考试结束，${hideDetails ? '表现已记录' : `得分 ${score}/${maxScore}`}${extraLog}。`;
     }
     return { subjectKey, score, logMsg };
@@ -186,7 +187,7 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
       finishSubmittedRef.current = true;
       const total = (Object.values(currentScores) as number[]).reduce((a, b) => a + b, 0);
       
-      let comment = "继续努力。";
+      let comment = "试卷已批阅。";
       // Comments based on relative performance (Phase sensitive)
       const isOIExam = [Phase.CSP_EXAM, Phase.NOIP_EXAM, Phase.WC_EXAM, Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM, Phase.NOI_EXAM].includes(state.phase);
       const maxTotal = isOIExam ? subjectsToTest.length * 100 : getAcademicMaxScore(subjectsToTest);
@@ -197,12 +198,6 @@ const ExamView: React.FC<ExamViewProps> = ({ title, state, onFinish }) => {
           else if (ratio >= 0.65) comment = "发挥稳定，成绩有竞争力，但奖项仍取决于当年分数线和名额。";
           else if (ratio >= 0.4) comment = "拿到了一部分分数，赛后补题和复盘比猜奖项更重要。";
           else comment = "这场发挥不理想，先把失分点记下来，之后再决定是否继续参赛。";
-      } else {
-          if (ratio > 0.90) comment = "傲视群雄，你是八中当之无愧的传说！"; 
-          else if (ratio > 0.80) comment = "表现优异，稳居年级前列。";
-          else if (ratio > 0.70) comment = "成绩良好，未来可期。";
-          else if (ratio > 0.60) comment = "中规中矩，还需要加把劲。";
-          else comment = "基础不牢，地动山摇，要小心了。";
       }
 
       onFinish({

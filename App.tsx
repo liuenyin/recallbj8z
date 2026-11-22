@@ -19,10 +19,11 @@ import EventModal from './components/EventModal';
 import FloatingTextLayer, { FloatingTextItem } from './components/FloatingTextLayer';
 import RealityGuideModal from './components/RealityGuideModal';
 import { loadAiConfig, saveAiConfig } from './lib/gemini';
-import { getActiveAccountId, getAccounts } from './lib/accounts';
+import { getActiveAccountId } from './lib/accounts';
 import AccountModal from './components/AccountModal';
 import { getAcademicMaxScore, getSubjectReselectionReturnPhase, isExamPhase, getPhaseLabel, formatStoryDiary } from './data/game_flow';
-import { clearWeekdaySchedule } from './data/timetable';
+import { clearEveningStudySchedule } from './data/timetable';
+import { OI_EVENTS } from './data/events_oi';
 import { getProjectSessionsLeft } from './data/project_effects';
 import { isSoundMuted, setSoundMuted, playSound } from './lib/sound';
 import { LanguageProvider, useLanguage, type Language } from './lib/i18n';
@@ -36,6 +37,9 @@ const PHASE_TRANSITION_NOTES: Partial<Record<Phase, string>> = {
   [Phase.SEMESTER_2]: '新学期第一天的早自习，走廊里还留着寒假前的粉笔灰。',
   [Phase.SUMMER_BREAK]: '高一的最后一张考卷交上去了，楼道忽然安静下来。'
 };
+
+const hasUpcomingOiInvite = (state: GameState, id: string): boolean =>
+    !state.triggeredEvents.includes(id) && OI_EVENTS.some(event => event.id === id && event.condition?.(state));
 
 const getMilestoneCountdown = (state: GameState): { label: string; urgent: boolean } | null => {
   if (state.phase === Phase.SUMMER) {
@@ -65,18 +69,18 @@ const getMilestoneCountdown = (state: GameState): { label: string; urgent: boole
     if (state.competition === 'OI' && state.week <= 2 && (state.flags.csp_score || 0) > 280) {
       return { label: '冬令营节点：关注 NOIWC 报到通知', urgent: state.week === 2 };
     }
-    const left = Math.max(0, 4 - state.week);
+    const left = Math.max(0, state.totalWeeksInPhase - state.week);
     return { label: left === 0 ? '即将进入高一下学期' : `距春季开学还有 ${left} 周`, urgent: left <= 1 };
   }
   if (state.phase === Phase.SEMESTER_2) {
-    if (state.competition === 'OI' && state.week <= 4 && (state.flags.noip_score || 0) >= 180) {
+    if (state.week <= 4 && hasUpcomingOiInvite(state, 'oi_provincial_invite')) {
       return { label: `距联合省选窗口还有 ${Math.max(0, 4 - state.week)} 周`, urgent: true };
     }
     if (state.week <= 11 && state.midtermRank !== 'SEMESTER_2_DONE') {
       const left = Math.max(0, 11 - state.week);
       return { label: left === 0 ? '本周节点：高一下期中考试' : `距高一下期中考试还有 ${left} 周`, urgent: left <= 2 };
     }
-    if (state.competition === 'OI' && state.week <= 12 && (state.flags.noip_score || 0) > 200) {
+    if (state.week <= 12 && hasUpcomingOiInvite(state, 'oi_apio_invite')) {
       return { label: `距 APIO 线上赛窗口还有 ${Math.max(0, 12 - state.week)} 周`, urgent: state.week >= 11 };
     }
     if (state.week <= 19) {
@@ -153,7 +157,7 @@ const GameApp: React.FC = () => {
 
   const calculateAndVisualizeDiff = (oldState: GameState, newState: GameState, x?: number, y?: number) => {
       const diffs: string[] = [];
-      const hideDetails = newState.difficulty === 'REALITY' || newState.difficulty === 'HELL';
+      const hideDetails = newState.difficulty === 'REALITY';
       const addDiff = (text: string, color: string) => {
           diffs.push(text);
           if (x === undefined || y === undefined || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -287,37 +291,25 @@ const GameApp: React.FC = () => {
       setAvailableTalents([...buffs, ...debuffs].sort(() => 0.5 - Math.random()));
   };
 
-  const prepareGame = (challenge?: Challenge, skipTalents = false) => {
+  const prepareGame = (challenge?: Challenge) => {
       if (hasSave && !window.confirm(tr('开启新学期会覆盖当前的自动存档。要继续吗？'))) return;
       setShowClubSelection(false); setShowRealityGuide(false);
       setPendingChallenge(challenge || null);
       talentActionStateRef.current = null;
       startGameSubmittedRef.current = false;
-      if (skipTalents && !challenge && selectedDifficulty !== 'HELL') {
-          startGameSubmittedRef.current = true;
-          startGameState(selectedDifficulty, customStats, []);
-          setView('GAME');
-          return;
-      }
       
-      rollAvailableTalents();
+      if (availableTalents.length === 0) rollAvailableTalents();
       setSelectedTalents([]);
       const baseDifficulty = challenge ? 'REALITY' : selectedDifficulty;
       setTalentPoints(DIFFICULTY_PRESETS[baseDifficulty as keyof typeof DIFFICULTY_PRESETS]?.talentPoints ?? (baseDifficulty === 'HARD' ? 1 : (baseDifficulty === 'REALITY' ? 0 : 3)));
       setView('TALENTS');
   };
 
-  const handleRerollTalents = () => {
-      rollAvailableTalents();
-      setSelectedTalents([]);
-      const baseDifficulty = pendingChallenge ? 'REALITY' : selectedDifficulty;
-      setTalentPoints(DIFFICULTY_PRESETS[baseDifficulty as keyof typeof DIFFICULTY_PRESETS]?.talentPoints ?? (baseDifficulty === 'HARD' ? 1 : (baseDifficulty === 'REALITY' ? 0 : 3)));
-  };
-
   const handleStartGame = () => {
       if (startGameSubmittedRef.current) return;
       startGameSubmittedRef.current = true;
       startGameState(selectedDifficulty, customStats, selectedTalents, pendingChallenge);
+      setAvailableTalents([]);
       setView('GAME');
   };
 
@@ -387,7 +379,6 @@ const GameApp: React.FC = () => {
               hasManualSave={hasManualSave} onLoadManual={() => { if (loadGame('manual')) setView('GAME'); }}
               unlockedAchievements={state.unlockedAchievements}
               aiConfig={aiConfig} onAiConfigChange={handleAiConfigChange}
-              account={getAccounts().find(account => account.id === activeAccountId) || getAccounts()[0]}
               onManageAccounts={() => setShowAccounts(true)}
             />
             {showAccounts && <AccountModal activeAccountId={activeAccountId} onClose={() => setShowAccounts(false)} onChanged={setAccountId} />}
@@ -399,7 +390,7 @@ const GameApp: React.FC = () => {
       return (
           <TalentView 
             availableTalents={availableTalents} selectedTalents={selectedTalents} talentPoints={talentPoints}
-            onToggleTalent={handleTalentToggle} onReroll={handleRerollTalents} onConfirm={handleStartGame} onBack={() => setView('HOME')}
+            onToggleTalent={handleTalentToggle} onConfirm={handleStartGame} onBack={() => setView('HOME')}
           />
       )
   }
@@ -408,6 +399,13 @@ const GameApp: React.FC = () => {
   const isDangerState = state.general.health <= 30 || state.fatigue >= 85;
   const isCriticalState = state.general.health <= 15 || state.fatigue >= 95;
   const isOverstimulated = (state.general.excitement ?? 0) >= 80;
+  const statusIds = new Set(state.activeStatuses.map(status => status.id));
+  const moodEffect = isWarmMood ? 'screen-warm-glow'
+      : statusIds.has('homework_fog') || statusIds.has('late_night_lag') || statusIds.has('fatigued') ? 'screen-tired-glow'
+      : statusIds.has('anxious') || statusIds.has('heartbroken') || statusIds.has('low_morale') ? 'screen-low-mood-glow'
+      : statusIds.has('focused') ? 'screen-focused-glow'
+      : isOverstimulated ? 'screen-stimulated-glow'
+      : '';
   const isHealthWarning = state.isSick || state.general.health <= 30;
   const interactionLocked = !!state.currentEvent
       || !!state.chainedEvent
@@ -442,8 +440,7 @@ const GameApp: React.FC = () => {
       )}
             {showContestHistory && <ContestHistoryModal state={state} onClose={() => closeGameOverlay(setShowContestHistory)} />}
       {isDangerState && <div className={`fixed inset-0 pointer-events-none z-[15] transition-opacity duration-1000 motion-reduce:animate-none ${isCriticalState ? 'screen-danger-flicker' : 'screen-danger-vignette'}`} aria-hidden="true"></div>}
-      {isWarmMood && <div className="fixed inset-0 pointer-events-none z-[15] motion-reduce:animate-none screen-warm-glow" aria-hidden="true"></div>}
-      {isOverstimulated && !isDangerState && <div className="fixed inset-0 pointer-events-none z-[15] bg-amber-300/5" aria-hidden="true"></div>}
+      {moodEffect && !isDangerState && <div className={`fixed inset-0 pointer-events-none z-[15] motion-reduce:animate-none ${moodEffect}`} aria-hidden="true" />}
       <FloatingTextLayer items={floatingTexts} />
       
       {showRealityGuide && <RealityGuideModal onClose={() => closeGameOverlay(setShowRealityGuide)} />}
@@ -506,7 +503,7 @@ const GameApp: React.FC = () => {
                        </div>
                         <div className="flex gap-2 items-center flex-wrap">
                             {state.activeStatuses.map(s => (
-                                <div key={s.id} title={tr(`${s.description}${s.effectDescription ? ` ${s.effectDescription}` : ''}`)} className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                <div key={s.id} title={[tr(s.description), tr(s.effectDescription)].filter(Boolean).join(' ')} className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold ${s.type === 'BUFF' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : s.type === 'DEBUFF' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
                                     <i className={`fas ${s.icon}`}></i> {tr(s.name)} （{s.duration} {tr("周）")}</div>
                             ))}
                             {state.talents.map(t => (
@@ -524,11 +521,11 @@ const GameApp: React.FC = () => {
                       <i className={`fas ${state.isPlaying ? 'fa-pause' : 'fa-play'} text-xl`}></i>
                    </button>
                </div>
-               <div className="flex items-center gap-2 w-full">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+               <div className="flex items-center justify-end gap-2 w-full">
+                    {state.totalWeeksInPhase > 0 && <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                        <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${calculateProgress()}%` }}></div>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">{tr("第 ")}{displayedWeek} / {tr(state.totalWeeksInPhase || '—')} {tr("周")}</span>
+                    </div>}
+                    <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">{tr(state.totalWeeksInPhase > 0 ? `第 ${displayedWeek} / ${state.totalWeeksInPhase} 周` : `第 ${displayedWeek} 周`)}</span>
                </div>
                {(milestone || currentProject || isDangerState || state.general.mindset <= 30) && (
                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[11px]">
@@ -569,7 +566,7 @@ const GameApp: React.FC = () => {
 
         {/* Timetable Menu */}
         {state.isWeekend && (
-            <TimetableModal state={state} quickStart onConfirm={(schedule) => {
+            <TimetableModal state={state} onConfirm={(schedule) => {
                 executeTimetable(schedule);
             }} />
         )}
@@ -580,9 +577,7 @@ const GameApp: React.FC = () => {
                 // week's reusable schedule. Respect the evening-study lock.
                 setState(prev => ({
                     ...prev,
-                    lastWeekSchedule: prev.flags.joined_evening_study
-                        ? clearWeekdaySchedule(schedule)
-                        : schedule
+                    lastWeekSchedule: clearEveningStudySchedule(schedule, prev)
                 }));
                 closeGameOverlay(setShowSchedule);
             }} />
@@ -613,21 +608,19 @@ const GameApp: React.FC = () => {
                     <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-2">{tr(state.popupExamResult.title)}</h3>
                     <div className="bg-slate-50 rounded-2xl p-5 mb-6 border border-slate-100">
                         <div className="text-3xl md:text-4xl font-black text-indigo-600 mb-2">
-                            {tr(state.difficulty === 'REALITY' || state.difficulty === 'HELL'
-                              ? '本次表现已记录'
-                              : `${state.popupExamResult.totalScore} / ${state.popupExamResult.type === 'COMPETITION'
+                            {`${state.popupExamResult.totalScore} / ${state.popupExamResult.type === 'COMPETITION'
                                 ? Object.keys(state.popupExamResult.scores).length * 100
-                                : getAcademicMaxScore(Object.keys(state.popupExamResult.scores))}`)}
+                                : getAcademicMaxScore(Object.keys(state.popupExamResult.scores))}`}
                         </div>
                         {state.popupExamResult.rank && state.popupExamResult.rank > 0 && (
                             <div className="text-xl font-bold text-slate-500 mb-4">
-                                {tr(state.difficulty === 'REALITY' || state.difficulty === 'HELL' ? '排名已记录' : `年级排名: ${state.popupExamResult.rank}`)}
+                                {tr(`年级排名: ${state.popupExamResult.rank}`)}
                             </div>
                         )}
                         {state.phase === Phase.PLACEMENT_EXAM && state.className && (
                             <p className="font-bold text-indigo-700">{tr("已分到")}{tr(state.className)}</p>
                         )}
-                        {rankDelta !== null && state.difficulty !== 'REALITY' && state.difficulty !== 'HELL' && (
+                        {rankDelta !== null && (
                             <p className={`text-xs font-bold ${rankDelta > 0 ? 'text-emerald-700' : rankDelta < 0 ? 'text-amber-800' : 'text-slate-600'}`}>
                                 {tr(rankDelta === 0 ? '和上次文化课考试的名次相同' : `比上次文化课考试${rankDelta > 0 ? '前进' : '后退'} ${Math.abs(rankDelta)} 名`)}
                             </p>
@@ -641,7 +634,7 @@ const GameApp: React.FC = () => {
                                 return (
                                     <div key={subj} className="bg-white p-2 rounded border border-slate-200">
                                         <span className="font-bold text-slate-600">{tr(label)}: </span>
-                                        <span className="text-indigo-600">{tr(state.difficulty === 'REALITY' || state.difficulty === 'HELL' ? '·' : score)}</span>
+                                        <span className="text-indigo-600">{score}</span>
                                     </div>
                                 );
                             })}
@@ -659,7 +652,7 @@ const GameApp: React.FC = () => {
                <p className="text-xs text-slate-500 mb-6">{tr("请选择 3 门选考科目（已选 ")}{state.selectedSubjects.length} / 3）</p>
                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-8 w-full max-w-lg">
                   {(['physics', 'chemistry', 'biology', 'history', 'geography', 'politics'] as SubjectKey[]).map(s => {
-                    const hideStats = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+                    const hideStats = state.difficulty === 'REALITY';
                     const info = state.subjects[s];
                     const selected = state.selectedSubjects.includes(s);
                     return (
@@ -731,7 +724,7 @@ const GameApp: React.FC = () => {
                          <div>
                              <h2 className="text-2xl font-black text-slate-800">{tr("小卖部")}</h2>
                              <p className="text-sm text-slate-500">
-                                 {tr("资金状况: ")}<span className="text-yellow-600 font-bold">{tr(state.difficulty === 'REALITY' || state.difficulty === 'HELL' ? (state.general.money < 0 ? '负债' : state.general.money < 30 ? '紧张' : '充足') : state.general.money)}</span>
+                                 {tr("资金状况: ")}<span className="text-yellow-600 font-bold">{Number(state.general.money.toFixed(2))}</span>
                                  <span className="ml-3 text-xs font-bold text-slate-400">{tr("本周限购：")}{boughtCount} / 3</span>
                              </p>
                          </div>

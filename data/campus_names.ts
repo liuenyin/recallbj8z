@@ -45,5 +45,5 @@ export const formatCampusText = (text: string, relationshipName?: string, oldRel
             ? replaced.replace(new RegExp(`${oldRelationshipName}(?=在等|等你|朝你|向你|说话|笑着|发来|问你|对你说|向你招手)`, 'g'), name)
             : replaced.replaceAll(oldRelationshipName, name);
     }
-    return migrated.replace(/\bTA\b/g, name);
+    return migrated.replace(/(?:L|S|C|X)同学/g, 'TA');
 };

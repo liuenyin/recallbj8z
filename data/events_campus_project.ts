@@ -30,7 +30,7 @@ export const CAMPUS_PROJECT_EVENTS: GameEvent[] = [
     {
         id: 'campus_project_signup',
         title: '班里的观察作业',
-        description: '老师发了一张选题表，想请几位同学用一页纸写清楚一个校园里的小问题。同桌问，你午饭排队的时候愿不愿意顺手记几个时间。',
+        description: '老师发了一张选题表，请大家用一页纸写清楚一个校园里的小问题。老师说第 12 周交，周末要留出三个时段整理课题记录。同桌问，你午饭排队时愿不愿意顺手记几个时间。',
         type: 'neutral',
         triggerType: 'FIXED',
         fixedPhase: Phase.SEMESTER_1,

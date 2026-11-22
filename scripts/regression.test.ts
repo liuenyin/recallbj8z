@@ -9,14 +9,14 @@ const modalSource = read('../components/TimetableModal.tsx');
 const generatorSource = read('../data/event_generators.ts');
 const utilsModuleSource = read('../data/utils.ts');
 
-test('health fatality handles zero in normal/reality and the hell threshold', () => {
+test('health fatality handles zero in normal and realistic modes', () => {
   assert.ok(utilsSource.includes('threshold === undefined ? health <= 0'));
   assert.ok(utilsSource.includes('threshold <= 0 ? health <= 0 : health < threshold'));
   assert.ok(logicSource.includes('isHealthFatal(state.difficulty, state.general.health)'));
   assert.ok(logicSource.includes('isHealthFatal(prev.difficulty, updatedGeneral.health)'));
 });
 
-test('OI weekend activities use the same hell restrictions as study activities', () => {
+test('OI weekend activities use the same realistic-mode restrictions as study activities', () => {
   assert.ok(utilsSource.includes("activity.type === 'STUDY' || activity.type === 'OI'"));
   assert.ok(logicSource.includes('const learningActivity = isLearningActivity(activity)'));
   assert.ok(modalSource.includes('isLearningActivity(act)'));
@@ -38,7 +38,7 @@ test('OI events choose the nearest authored rating band when out of range', () =
   assert.ok(generatorSource.includes('const nearest = phasePool.filter'));
 });
 
-test('HELL study blocking covers untagged authored study wording', () => {
+test('study blocking covers untagged authored study wording', () => {
   assert.match(utilsModuleSource, /自学\|网课/);
   assert.match(utilsModuleSource, /背单词/);
   assert.match(utilsModuleSource, /全神贯注/);

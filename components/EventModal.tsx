@@ -23,8 +23,8 @@ const isNegativeDiff = (diff: string): boolean => {
 };
 
 const getInnerWhisper = (state: GameState): string | null => {
-    if (state.general.health <= 30) return '头有点沉，教室里的日光灯显得格外刺眼。';
-    if (state.fatigue >= 80) return '眼皮发沉，卷子上的字像在轻轻晃动。';
+    if (state.general.health <= 30) return '头有点沉，你停了一会儿才继续。';
+    if (state.fatigue >= 80) return '眼皮发沉，你把手里的事放下了一会儿。';
     if (state.general.mindset <= 25) return '最近总觉得自己比旁边的人慢了半拍。';
     if (state.general.money < 0) return '手头紧巴巴的，每次路过小卖部都要先算一下账。';
     if (
@@ -32,7 +32,7 @@ const getInnerWhisper = (state: GameState): string | null => {
         || state.phase === Phase.FINAL_EXAM
         || state.phase === Phase.MIDTERM_EXAM_2
         || state.phase === Phase.FINAL_EXAM_2
-        || (state.phase !== Phase.SUMMER && state.totalWeeksInPhase > 0 && state.week >= Math.max(1, state.totalWeeksInPhase - 1))
+        || ((state.phase === Phase.SEMESTER_1 || state.phase === Phase.SEMESTER_2) && state.totalWeeksInPhase > 0 && state.week >= state.totalWeeksInPhase - 1)
     ) {
         return '离这一阶段收尾没几天了，桌角堆着的卷子比上周更高。';
     }
@@ -50,14 +50,6 @@ const getResultTone = (diffs: string[]): { boxClass: string } | null => {
         return { boxClass: 'border-l-2 border-rose-400 pl-3' };
     }
     return { boxClass: 'border-l-2 border-amber-400 pl-3' };
-};
-
-const getEventStrip = (event: GameEvent): string => {
-    if (event.type === 'negative') return 'bg-rose-500';
-    if (/^(oi_|mo_)|_oi_/.test(event.id)) return 'bg-indigo-500';
-    if (/^(romance_|rival_|sum_confess)/.test(event.id)) return 'bg-pink-400';
-    if (/sci_fest|campus_project|debate|sport_meet/.test(event.id)) return 'bg-amber-400';
-    return 'bg-sky-400';
 };
 
 const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onChoice, onConfirm, paused = false, autoContinueEnabled = true, onToggleAutoContinue }) => {
@@ -107,7 +99,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
 
     const visibleChoices = event.choices?.filter(c => !c.condition || c.condition(state)) || [];
     const studyBlocked = isStudyBlocked(state);
-    const hideHints = state.difficulty === 'HARD' || state.difficulty === 'REALITY' || state.difficulty === 'HELL';
     const innerWhisper = !eventResult ? getInnerWhisper(state) : null;
     const resultTone = eventResult ? getResultTone(eventResult.diff) : null;
 
@@ -152,7 +143,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                   transition={{ duration: 0.14 }}
                   className="relative rounded-[2rem] shadow-2xl max-w-xl w-full border border-slate-200 bg-white max-h-full overflow-y-auto custom-scroll outline-none"
                >
-                  <div className={`h-1 w-full ${getEventStrip(event)}`} aria-hidden="true" />
                   <div className="p-5 md:p-9">
                   {!eventResult ? (
                     <div>
@@ -173,7 +163,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                       <div className="space-y-3">
                          {visibleChoices.map((c, i) => {
                            const disabled = studyBlocked && isStudyChoice(c);
-                           const isRisky = c.tags?.includes('risky');
+                           const isRisky = state.difficulty !== 'REALITY' && c.tags?.includes('risky');
                            const isTalentChoice = /^【(天赋|天生我才|家里有矿|万人迷|机房幽灵|锦鲤附体|体育特长|乐天派|寒门学子|睡神)】/.test(c.text);
                            return (
                            <button
@@ -182,12 +172,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                                  playSound('choice');
                                  onChoice(c);
                              }}
-                             title={tr(disabled ? '极限难度：当前心态或疲劳状态不允许学习' : undefined)}
+                             title={tr(disabled ? '当前状态不适合学习。' : undefined)}
                              className={`w-full text-left p-4 rounded-2xl border transition-all font-bold group flex justify-between items-center gap-3 shadow-sm ${disabled ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : isTalentChoice ? 'bg-indigo-50/80 border-indigo-200 text-indigo-800 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-200/50 hover:shadow-lg' : isRisky ? 'bg-rose-50/40 border-rose-200/70 text-slate-800 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-rose-200/50 hover:shadow-lg' : 'bg-white border-slate-200/70 text-slate-800 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-indigo-200/50 hover:shadow-lg'}`}
                            >
                               <span className="flex-1 min-w-0">
                                   <span className="block">{tr(formatStoryText(c.text))}</span>
-                                  {c.hint && (!hideHints || c.hintKind === 'rule') && <span className={`block mt-1 text-xs font-medium leading-relaxed ${disabled ? 'text-slate-500' : 'text-slate-600 group-hover:text-white'}`}>{tr(formatStoryText(c.hint))}</span>}
                               </span>
                               <span className="flex items-center gap-2 shrink-0">
                                   {isRisky && !disabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 group-hover:bg-white/20 group-hover:text-white">{tr("有风险")}</span>}
@@ -197,7 +186,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                            </button>
                            );
                          })}
-                         {studyBlocked && <div className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{tr("极限难度：心态低于 20 或疲劳超过 90，学习选项暂时不可用。")}</div>}
+                         {studyBlocked && <div className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{tr("当前状态不适合学习。可以先休息。")}</div>}
                          {studyBlocked && visibleChoices.length > 0 && visibleChoices.every(isStudyChoice) && (
                            <button type="button" onClick={onConfirm} className="w-full p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 font-bold hover:bg-amber-100">
                              {tr("跳过本次学习机会")}</button>

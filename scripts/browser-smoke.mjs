@@ -29,22 +29,39 @@ try {
   await page.setViewport({width:390,height:844});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   assert.ok(await page.evaluate(() => {
-    const start = [...document.querySelectorAll('button')].find(button => button.textContent.includes('开启新学期'));
+    const start = [...document.querySelectorAll('button')].find(button => button.textContent.includes('开启模拟'));
     return start.getBoundingClientRect().bottom < innerHeight;
   }));
-  assert.ok(await page.evaluate(() => !document.body.innerText.includes('账号与存档') && !document.body.innerText.includes('特殊挑战')));
+  assert.equal((await page.$$('button[aria-pressed]')).length, 4);
+  assert.ok(await page.$eval('button[aria-pressed="true"]', button => button.textContent.includes('普通')));
+  assert.ok(await page.$eval('main header', header => header.textContent.includes('Made by liuenyin')));
+  assert.ok(await page.$eval('footer a[href="https://lg37.com/"]', link => link.textContent.includes('想看更多作品')));
+  assert.ok(await page.evaluate(() => ['账号与存档', '成就与图鉴', '特殊挑战'].every(label => document.body.innerText.includes(label))));
+  assert.ok(await page.evaluate(() => ![...document.querySelectorAll('main button')].some(button => ['更多', '更新日志', '帮助', '跳过天赋速开'].includes(button.textContent.trim()))));
   mkdirSync('artifacts', {recursive:true});
   await page.screenshot({path:'artifacts/review-home-mobile.png',fullPage:true});
   await page.setViewport({width:1280,height:900});
+  await page.screenshot({path:'artifacts/review-home-desktop.png',fullPage:true});
+  await clickText('特殊挑战');
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('嗜睡生存挑战')));
+  await clickText('负债生存挑战');
+  await page.waitForFunction(() => document.body.innerText.includes('天赋抉择'));
+  assert.ok(await page.evaluate(() => !document.body.innerText.includes('换一批')));
+  await clickText('返回');
+  await clickText('自定义');
+  assert.equal((await page.$$('input[type=range]')).length, 8);
+  await clickText('普通');
+  assert.equal((await page.$$('input[type=range]')).length, 0);
   console.log('PASS: home, local styles/icons, mobile width with external network blocked');
-  await clickText('更多');
   await clickText('账号与存档');
   await page.type('input[placeholder="例如：高一重开"]', '浏览器测试');
   await clickText('创建');
   assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('recall_accounts_v1')).some(a => a.name === '浏览器测试')));
   await page.reload({waitUntil:'networkidle0'});
-  await clickText('开启新学期');
+  await clickText('开启模拟');
+  assert.ok(await page.evaluate(() => !document.body.innerText.includes('换一批')));
   await clickText('入学吧。');
+  assert.ok(await page.evaluate(() => !document.body.innerText.includes('重要同学')));
   await clickText('专注课内综合');
   await clickText('确认结果');
   await page.waitForFunction(() => !document.body.innerText.includes('暑假的抉择'));
@@ -70,7 +87,7 @@ try {
   await page.screenshot({path:'artifacts/review-game.png',fullPage:true});
   assert.deepEqual(errors, []);
   console.log('PASS: account creation and malformed optional save recovery without render errors');
-  await clickText('手动安排');
+  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
   await clickText('清空安排');
   assert.ok(await page.evaluate(() => document.body.innerText.includes('0 项可执行')));
   await clickText('恢复上次');
@@ -166,21 +183,20 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('recall_auto_continue_v1')), 'false');
   await clickText('恢复自动继续');
   await page.waitForFunction(() => document.body.innerText.includes('片刻后自动继续'));
-  await page.waitForFunction(() => document.body.innerText.includes('周末安排'));
+  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
   const automaticSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
   assert.equal(automaticSave.history.filter(entry => entry.eventTitle === '借一支笔').length, 1);
   assert.equal(automaticSave.currentEvent, null);
   await page.reload({waitUntil:'networkidle0'});
   await clickText('继续');
-  await page.waitForFunction(() => document.body.innerText.includes('周末安排'));
+  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
   const resumedSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
   assert.deepEqual(resumedSave.history, automaticSave.history);
   assert.deepEqual(resumedSave.general, automaticSave.general);
   console.log('PASS: daily scene auto-continues, autosaves, and reloads without repeating its reward');
   await page.reload({waitUntil:'networkidle0'});
-  await clickText('更多');
   await clickText('读取手动存档');
   await page.waitForFunction(() => document.body.innerText.includes('高一上学期'));
   const manualAfter = await page.evaluate(() => JSON.parse(localStorage.getItem(
@@ -203,8 +219,12 @@ try {
   console.log('PASS: unreadable save is backed up before removal');
 
   await page.setViewport({width:390,height:844});
-  await page.goto(new URL('?lang=en', base).href);
+  await clickText('English');
   await page.waitForFunction(() => document.documentElement.lang === 'en');
+  assert.ok(await page.evaluate(() => [...document.querySelectorAll('main, footer')].every(el => !/\p{Script=Han}/u.test(el.innerText.replace('简体中文', '')))));
+  assert.ok(await page.evaluate(() => ['Start a new game', 'Choose a difficulty', 'Send feedback'].every(label => document.querySelector('main').innerText.includes(label))));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({path:'artifacts/review-home-english-mobile.png',fullPage:true});
   await clickText('Start a new game');
   await clickText('Go to school.');
   await clickText('Focus on school and campus life');
@@ -250,6 +270,8 @@ try {
   await page.goto(new URL('?lang=en', base).href);
   await page.waitForFunction(() => document.documentElement.lang === 'en');
   await clickText('Continue');
+  await page.waitForSelector('[aria-label="Weekly schedule"]');
+  await clickText('See suggested schedule');
   await page.waitForSelector('[aria-label="Weekend plans"]');
   await clickText('Help at the club');
   assert.ok(await page.evaluate(() => {

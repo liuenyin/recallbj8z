@@ -1,11 +1,10 @@
 import React from 'react';
 import { AiConfig, Challenge, Difficulty, GeneralStats } from '../types';
-import { DIFFICULTY_PRESETS, CHANGELOG_DATA } from '../data/constants';
+import { DIFFICULTY_PRESETS } from '../data/constants';
 import { ACHIEVEMENTS } from '../data/mechanics';
 import { IRREGULAR_CHALLENGES } from '../data/challenges';
 import { ENDING_CATALOG, getUnlockedEndings } from '../data/ending';
 import AiSettingsModal from './AiSettingsModal';
-import { LocalAccount } from '../lib/accounts';
 import { useLanguage } from '../lib/i18n';
 
 interface HomeViewProps {
@@ -13,7 +12,7 @@ interface HomeViewProps {
     onDifficultyChange: (diff: Difficulty) => void;
     customStats: GeneralStats;
     onCustomStatsChange: (stats: GeneralStats) => void;
-    onStart: (challenge?: Challenge, skipTalents?: boolean) => void;
+    onStart: (challenge?: Challenge) => void;
     hasSave: boolean;
     onLoadGame: () => void;
     hasManualSave: boolean;
@@ -21,7 +20,6 @@ interface HomeViewProps {
     unlockedAchievements: string[];
     aiConfig: AiConfig;
     onAiConfigChange: (config: AiConfig) => void;
-    account: LocalAccount;
     onManageAccounts: () => void;
 }
 
@@ -36,12 +34,20 @@ const CUSTOM_STAT_LABELS: Partial<Record<keyof GeneralStats, string>> = {
     health: '健康', money: '金钱', efficiency: '效率', excitement: '兴奋'
 };
 
-const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, hasManualSave, onLoadManual, unlockedAchievements, aiConfig, onAiConfigChange, account, onManageAccounts }) => {
+const DIFFICULTY_CARDS = [
+    { difficulty: 'NORMAL', icon: 'fa-mug-hot' },
+    { difficulty: 'HARD', icon: 'fa-exclamation' },
+    { difficulty: 'REALITY', icon: 'fa-skull' },
+    { difficulty: 'CUSTOM', icon: 'fa-sliders' },
+] as const;
+
+const CUSTOM_DIFFICULTY_CARD = { label: '自定义', color: 'bg-slate-800' };
+const HOME_SHORTCUT_STYLE = 'flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-center text-sm font-bold transition sm:px-4';
+
+const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, hasManualSave, onLoadManual, unlockedAchievements, aiConfig, onAiConfigChange, onManageAccounts }) => {
     const { language, setLanguage, t: tr } = useLanguage();
-    const [showMore, setShowMore] = React.useState(false);
-    const [showChangelog, setShowChangelog] = React.useState(false);
+    const [showChallenges, setShowChallenges] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
-    const [showSettings, setShowSettings] = React.useState(false);
     const [showAiSettings, setShowAiSettings] = React.useState(false);
     const [showAchievements, setShowAchievements] = React.useState(false);
     const [collectionTab, setCollectionTab] = React.useState<'achievements' | 'endings'>('achievements');
@@ -56,95 +62,129 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
             if (showVideo) setShowVideo(false);
             else if (showAiSettings) setShowAiSettings(false);
             else if (showAchievements) setShowAchievements(false);
-            else if (showSettings) setShowSettings(false);
             else if (showSponsor) setShowSponsor(false);
-            else if (showChangelog) setShowChangelog(false);
             else if (showQQGroup) setShowQQGroup(false);
-            else setShowMore(false);
+            else if (showChallenges) setShowChallenges(false);
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [showVideo, showAiSettings, showAchievements, showSettings, showSponsor, showChangelog, showQQGroup]);
-    
-                
+    }, [showVideo, showAiSettings, showAchievements, showSponsor, showQQGroup, showChallenges]);
+
     return (
-        <div className="min-h-[100dvh] bg-slate-50 px-4 py-8 md:py-16 text-slate-800 flex items-center justify-center">
-            <main className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white px-6 py-8 shadow-xl shadow-slate-200/60 sm:px-10 sm:py-12">
-                <div className="flex items-center gap-3">
-                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-600 text-xl text-white sm:size-14" aria-hidden="true"><i className="fas fa-school" /></span>
-                    <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">{tr("八中重开模拟器")}</h1>
-                    <button type="button" onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')} className="ml-auto shrink-0 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-indigo-800 hover:bg-slate-50" lang={language === 'zh' ? 'en' : 'zh-CN'}>{language === 'zh' ? 'English' : '简体中文'}</button>
-                </div>
-                <p className="mt-4 text-sm text-slate-600">{tr("从入学前的暑假开始，过完在八中的高一。")}</p>
-
-                <div className="mt-8 space-y-2.5">
-                    {hasSave && (
-                        <button type="button" onClick={onLoadGame} className="w-full rounded-2xl bg-indigo-700 px-6 py-3.5 font-bold text-white hover:bg-indigo-800">{tr("继续游戏")}</button>
-                    )}
-                    <button type="button" onClick={() => onStart()} className={`w-full rounded-2xl px-6 py-3.5 font-bold ${hasSave ? 'border border-indigo-200 text-indigo-700 hover:bg-indigo-50' : 'bg-indigo-700 text-white hover:bg-indigo-800'}`}>
-                        {tr("开启新学期")}</button>
-                </div>
-
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                    <label className="flex items-center gap-2 text-sm text-slate-700">
-                        {tr("开局难度")}<select value={selectedDifficulty} onChange={e => onDifficultyChange(e.target.value as Difficulty)} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-800">
-                            {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof DIFFICULTY_PRESETS.NORMAL][]).map(([key, preset]) => (
-                                <option key={key} value={key}>{tr(preset.label)}</option>
-                            ))}
-                            <option value="CUSTOM">{tr("自定义")}</option>
-                        </select>
-                    </label>
-                    <button type="button" onClick={() => setShowMore(value => !value)} aria-expanded={showMore} aria-controls="home-more" className="rounded-lg px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">
-                        {tr("更多 ")}<i className={`fas fa-chevron-${showMore ? 'up' : 'down'} ml-1 text-xs`} aria-hidden="true" />
-                    </button>
-                </div>
-                {selectedDifficulty !== 'NORMAL' && (
-                    <p className="mt-2 text-xs leading-relaxed text-slate-600">{tr(selectedDifficulty === 'CUSTOM' ? '设置开局属性。' : DIFFICULTY_PRESETS[selectedDifficulty].desc)}</p>
-                )}
-                {selectedDifficulty === 'CUSTOM' && (
-                    <div className="mt-3 grid gap-x-5 gap-y-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
-                        {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
-                            <label key={key} className="flex items-center gap-2 text-xs text-slate-600">
-                                <span className="w-8 shrink-0">{tr(CUSTOM_STAT_LABELS[key] || key)}</span>
-                                <input type="range" min="0" max={key === 'efficiency' ? 30 : 100} value={Math.min(customStats[key], key === 'efficiency' ? 30 : 100)} onChange={e => onCustomStatsChange({ ...customStats, [key]: Number(e.target.value) })} className="w-full accent-indigo-600" />
-                                <span className="w-7 shrink-0 text-right">{customStats[key]}</span>
-                            </label>
-                        ))}
-                    </div>
-                )}
-
-                {showMore && (
-                    <div id="home-more" className="mt-5 space-y-4 border-t border-slate-200 pt-4">
-                        <div className="grid grid-cols-2 gap-1.5 text-left text-sm">
-                            <button type="button" onClick={() => onStart(undefined, true)} disabled={selectedDifficulty === 'HELL'} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100 disabled:opacity-40">{tr("跳过天赋速开")}</button>
-                            <button type="button" onClick={() => { setShowMore(false); onManageAccounts(); }} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("账号与存档 ")}<span className="block truncate text-xs text-slate-500">{tr(account.name)}</span></button>
-                            {hasManualSave && <button type="button" onClick={onLoadManual} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("读取手动存档")}</button>}
-                            <button type="button" onClick={() => { setUnlockedEndings(getUnlockedEndings()); setShowAchievements(true); }} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("成就与图鉴")}</button>
-                            <button type="button" onClick={() => setShowAiSettings(true)} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("AI 模式")}{tr(aiConfig.enabled ? '（已开启）' : '')}</button>
-                        </div>
-
-                        <details className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
-                            <summary className="cursor-pointer font-medium">{tr("特殊挑战")}</summary>
-                            <div className="mt-2 space-y-1">
-                                {IRREGULAR_CHALLENGES.map(challenge => (
-                                    <button key={challenge.id} type="button" onClick={() => onStart(challenge)} className="block w-full rounded-lg px-2 py-2 text-left hover:bg-white">
-                                        <strong>{tr(challenge.title)}</strong>
-                                        <span className="mt-0.5 block text-xs text-slate-600">{tr(challenge.description)}</span>
-                                    </button>
-                                ))}
+        <div className="relative isolate flex min-h-[100dvh] items-center justify-center bg-slate-50 p-4 text-slate-800 md:p-8">
+            <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden text-[12rem] font-black opacity-5">
+                <span className="absolute left-10 top-10 rotate-12">8</span>
+                <span className="absolute bottom-10 right-10 -rotate-12">OI</span>
+            </div>
+            <main className="grid w-full max-w-6xl gap-5 lg:gap-6">
+                <section className="relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white p-6 shadow-xl shadow-indigo-100/50 md:p-10 lg:min-h-[380px]">
+                    <div aria-hidden="true" className="pointer-events-none absolute right-0 top-0 size-64 rounded-full bg-indigo-100/70 blur-3xl" />
+                    <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 size-64 rounded-full bg-emerald-50 blur-3xl" />
+                    <div className="relative">
+                        <header className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-3 md:gap-5">
+                                <span aria-hidden="true" className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-2xl bg-indigo-600 text-2xl text-white shadow-lg shadow-indigo-200 md:size-20 md:rounded-3xl md:text-4xl">
+                                    <i className="fas fa-school" />
+                                </span>
+                                <div className="min-w-0">
+                                    <h1 className="text-2xl font-black leading-tight tracking-tighter text-slate-900 sm:text-4xl md:text-5xl">{tr("八中重开模拟器")}</h1>
+                                    <p className="mt-1 text-xs font-bold text-slate-500 md:text-sm">Made by liuenyin</p>
+                                </div>
                             </div>
-                        </details>
-
-                        <div className="flex flex-wrap gap-x-4 gap-y-2 px-1 text-xs text-slate-600">
-                            <button type="button" onClick={() => setShowSettings(true)} className="hover:text-indigo-700">{tr("帮助")}</button>
-                            <button type="button" onClick={() => setShowChangelog(true)} className="hover:text-indigo-700">{tr("更新日志")}</button>
-                            <button type="button" onClick={() => setShowQQGroup(true)} className="hover:text-indigo-700">{tr("QQ群")}</button>
-                            <button type="button" onClick={() => setShowVideo(true)} className="hover:text-indigo-700">{tr("介绍视频")}</button>
-                            <button type="button" onClick={() => setShowSponsor(true)} className="hover:text-indigo-700">{tr("支持作者")}</button>
+                            <button type="button" onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-indigo-800 hover:bg-indigo-50" lang={language === 'zh' ? 'en' : 'zh-CN'}>{language === 'zh' ? 'English' : '简体中文'}</button>
+                        </header>
+                        <p className="mt-5 max-w-lg text-sm font-medium leading-relaxed text-slate-600 md:mt-8 md:text-lg">{tr("从入学前的暑假开始，过完在八中的高一。")}</p>
+                    </div>
+                    <div className="relative mt-7 md:mt-10">
+                        <h2 id="home-difficulty" className="mb-3 text-xs font-black tracking-wider text-slate-600">{tr("选择你的开局难度")}</h2>
+                        <div role="group" aria-labelledby="home-difficulty" className="flex flex-wrap gap-2 sm:gap-3">
+                            {DIFFICULTY_CARDS.map(({ difficulty, icon }) => {
+                                const preset = difficulty === 'CUSTOM' ? CUSTOM_DIFFICULTY_CARD : DIFFICULTY_PRESETS[difficulty];
+                                return (
+                                    <button key={difficulty} type="button" onClick={() => onDifficultyChange(difficulty)} aria-pressed={selectedDifficulty === difficulty} className={`flex items-center gap-2 rounded-2xl border-2 px-3 py-2 text-sm font-bold transition sm:px-5 sm:py-2.5 ${selectedDifficulty === difficulty ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-100' : 'border-slate-100 bg-white/70 text-slate-600 hover:border-slate-300'}`}>
+                                        {difficulty === 'CUSTOM' ? <i className={`fas ${icon} text-xs`} aria-hidden="true" /> : <span aria-hidden="true" className={`size-2.5 rounded-full ${preset.color}`} />}
+                                        {tr(preset.label)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selectedDifficulty === 'CUSTOM' && (
+                            <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <h2 className="mb-3 text-sm font-bold text-slate-700">{tr("配置初始属性")}</h2>
+                                <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                                    {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => {
+                                        const max = key === 'efficiency' ? 30 : 100;
+                                        return (
+                                            <label key={key} className="flex items-center gap-2 text-xs text-slate-600">
+                                                <span className="w-16 shrink-0">{tr(CUSTOM_STAT_LABELS[key] || key)}</span>
+                                                <input type="range" min="0" max={max} value={Math.min(customStats[key], max)} onChange={e => onCustomStatsChange({ ...customStats, [key]: Number(e.target.value) })} className="min-w-0 flex-1 accent-indigo-600" />
+                                                <span className="w-7 shrink-0 text-right font-bold text-indigo-700">{Math.min(customStats[key], max)}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
+                        <div className="mt-6 flex flex-wrap gap-3">
+                            <button type="button" onClick={() => onStart()} className="flex min-h-12 min-w-fit flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 font-black text-white shadow-xl transition hover:bg-slate-800 active:scale-95 md:px-8 md:py-4 md:text-xl">
+                                <i className="fas fa-play text-indigo-300" aria-hidden="true" />{tr("开启模拟")}
+                            </button>
+                            {hasSave && (
+                                <button type="button" onClick={onLoadGame} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-emerald-100 bg-white px-4 py-3 font-bold text-emerald-700 shadow-md hover:bg-emerald-50 md:px-6">
+                                    <i className="fas fa-floppy-disk" aria-hidden="true" />{tr("继续游戏")}
+                                </button>
+                            )}
                         </div>
                     </div>
-                )}
+                </section>
+
+                <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-lg shadow-slate-200/50">
+                    <nav className="flex flex-wrap gap-2" aria-label={tr("游戏工具")}>
+                        {[
+                            { label: '成就与图鉴', icon: 'fa-trophy', color: 'bg-amber-50 text-amber-800 hover:bg-amber-100', action: () => { setUnlockedEndings(getUnlockedEndings()); setShowAchievements(true); } },
+                            { label: '特殊挑战', icon: 'fa-bolt', color: 'bg-violet-50 text-violet-800 hover:bg-violet-100', action: () => setShowChallenges(true) },
+                            { label: '账号与存档', icon: 'fa-folder-open', color: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100', action: onManageAccounts },
+                            ...(hasManualSave ? [{ label: '读取手动存档', icon: 'fa-floppy-disk', color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100', action: onLoadManual }] : []),
+                            { label: '介绍视频', icon: 'fa-video', color: 'bg-pink-50 text-pink-700 hover:bg-pink-100', action: () => setShowVideo(true) },
+                            { label: '赞助', icon: 'fa-heart', color: 'bg-rose-50 text-rose-700 hover:bg-rose-100', action: () => setShowSponsor(true) },
+                            { label: 'AI 模式', icon: 'fa-robot', color: 'bg-slate-100 text-slate-700 hover:bg-slate-200', action: () => setShowAiSettings(true) },
+                            { label: 'QQ群', icon: 'fa-brands fa-qq', color: 'bg-blue-50 text-blue-700 hover:bg-blue-100', action: () => setShowQQGroup(true) },
+                        ].map(tool => (
+                            <button key={tool.label} type="button" onClick={tool.action} className={`${HOME_SHORTCUT_STYLE} ${tool.color}`}>
+                                <i className={`${tool.icon.startsWith('fa-brands') ? '' : 'fas '}${tool.icon}`} aria-hidden="true" />{tr(tool.label)}{tool.label === 'AI 模式' && aiConfig.enabled && tr('（已开启）')}
+                            </button>
+                        ))}
+                        <a href="https://v.wjx.cn/vm/exSyEK0.aspx" target="_blank" rel="noopener noreferrer" className={`${HOME_SHORTCUT_STYLE} bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}><i className="fas fa-comment-dots" aria-hidden="true" />{tr("反馈建议")}</a>
+                    </nav>
+                </div>
+                <footer className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-bold text-slate-500">
+                    <a href="https://github.com/liuenyin/recallbj8z" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-indigo-700">
+                        <i className="fab fa-github" aria-hidden="true" />{tr("GitHub 仓库")}
+                    </a>
+                    <a href="https://lg37.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-indigo-700 hover:underline">
+                        {tr("想看更多作品？访问 lg37.com")}<i className="fas fa-arrow-up-right-from-square" aria-hidden="true" />
+                    </a>
+                </footer>
             </main>
+
+            {showChallenges && (
+                <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm animate-fadeIn" onClick={() => setShowChallenges(false)}>
+                    <section role="dialog" aria-modal="true" aria-labelledby="challenge-heading" className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-7" onClick={event => event.stopPropagation()}>
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 id="challenge-heading" className="flex items-center gap-2 text-xl font-black"><i className="fas fa-bolt text-violet-600" aria-hidden="true" />{tr("特殊挑战")}</h2>
+                            <button type="button" autoFocus onClick={() => setShowChallenges(false)} aria-label={tr("关闭")} className="grid size-9 place-items-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200"><i className="fas fa-times" aria-hidden="true" /></button>
+                        </div>
+                        <div className="grid gap-2">
+                            {IRREGULAR_CHALLENGES.map(challenge => (
+                                <button key={challenge.id} type="button" onClick={() => onStart(challenge)} className="group rounded-2xl border border-violet-100 bg-violet-50 p-4 text-left hover:border-violet-300 hover:bg-violet-100">
+                                    <span className="flex items-center justify-between gap-2 font-bold text-violet-900">{tr(challenge.title)}<i className="fas fa-chevron-right text-xs" aria-hidden="true" /></span>
+                                    <span className="mt-1.5 block text-sm leading-relaxed text-slate-700">{tr(challenge.description)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            )}
 
              {showQQGroup && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowQQGroup(false)}>
@@ -245,32 +285,6 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
              
              
              
-             {showChangelog && (
-                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowChangelog(false)}>
-                     <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">{tr("更新日志")}</h2>
-                             <button onClick={() => setShowChangelog(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
-                         </div>
-                         <div className="overflow-y-auto custom-scroll space-y-6 pr-2">
-                             {CHANGELOG_DATA.map((log, i) => (
-                                 <div key={i}>
-                                     <div className="flex items-baseline gap-2 mb-2">
-                                         <span className="text-lg font-bold text-indigo-600">{tr(log.version)}</span>
-                                         <span className="text-xs text-slate-400 font-mono">{tr(log.date)}</span>
-                                     </div>
-                                     <ul className="list-disc list-inside space-y-1">
-                                         {log.content.map((item, idx) => (
-                                             <li key={idx} className="text-sm text-slate-600">{tr(item)}</li>
-                                         ))}
-                                     </ul>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
-                 </div>
-             )}
-             
              {showSponsor && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSponsor(false)}>
                      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -301,43 +315,6 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  </div>
              )}
              
-             {showSettings && (
-                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSettings(false)}>
-                     <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">{tr("游戏帮助")}</h2>
-                             <button onClick={() => setShowSettings(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
-                         </div>
-                         <div className="overflow-y-auto custom-scroll space-y-6 pr-2">
-                             {/* ... Content ... */}
-                             <div className="space-y-4">
-                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">{tr("关于本项目")}</h3>
-                                 <p className="text-sm text-slate-600 leading-relaxed">
-                                     {tr("本项目纯属虚构，如有雷同，纯属巧合。")}</p>
-                                 <div className="text-xs text-slate-400">
-                                     <p>Developer: liuenyin</p>
-                                     <p>Tech Stack: React, Tailwind, TypeScript</p>
-                                 </div>
-                             </div>
-                             
-                             <div className="space-y-4">
-                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">{tr("游戏机制")}</h3>
-                                 <div className="text-sm text-slate-600 space-y-2">
-                                     <p><span className="font-bold text-slate-800">{tr("最终评价：")}</span><br/>
-                                     {tr("以各科水平为主，结合经验、效率、长期项目、社团和关键路线成果；不同路线会影响结局。")}</p>
-                                 </div>
-                             </div>
-
-                             <div className="space-y-4">
-                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">FAQ</h3>
-                                 <div className="text-sm text-slate-600 space-y-2">
-                                     <p><span className="font-bold text-slate-800">{tr("Q: 怎么存档？")}</span><br/>{tr("A: 游戏中用「更多」里的「保存」建立手动存档。到达存档点时，游戏也会自动保存。")}</p>
-                                 </div>
-                             </div>
-                         </div>
-                     </div>
-                 </div>
-             )}
         </div>
     );
 };

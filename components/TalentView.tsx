@@ -8,7 +8,6 @@ interface TalentViewProps {
     selectedTalents: Talent[];
     talentPoints: number;
     onToggleTalent: (talent: Talent) => void;
-    onReroll?: () => void;
     onConfirm: () => void;
     onBack: () => void;
 }
@@ -21,7 +20,7 @@ const RARITY_STYLES: Record<Talent['rarity'], { label: string; badge: string }> 
     cursed: { label: '负面', badge: 'bg-rose-100 text-rose-600' }
 };
 
-const TalentView: React.FC<TalentViewProps> = ({ availableTalents, selectedTalents, talentPoints, onToggleTalent, onReroll, onConfirm, onBack }) => {
+const TalentView: React.FC<TalentViewProps> = ({ availableTalents, selectedTalents, talentPoints, onToggleTalent, onConfirm, onBack }) => {
     const { t: tr } = useLanguage();
     const isAtCap = selectedTalents.length >= 5;
     return (
@@ -35,10 +34,6 @@ const TalentView: React.FC<TalentViewProps> = ({ availableTalents, selectedTalen
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isAtCap ? 'bg-amber-100 text-amber-700' : 'bg-indigo-50 text-indigo-600'}`}>
                       {tr("已选 ")}{selectedTalents.length} / 5 {tr(isAtCap ? '（已满）' : '')}
                   </span>
-                  {onReroll && (
-                      <button type="button" onClick={onReroll} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 px-2.5 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 transition-colors">
-                          <i className="fas fa-dice mr-1" />{tr("换一批")}</button>
-                  )}
                   <span className="text-xs text-slate-400 hidden sm:inline border-l border-slate-200 pl-3">{tr("选择负面天赋以获取更多点数")}</span>
               </div>
               

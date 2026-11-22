@@ -1,8 +1,18 @@
 
 import { Talent, Item, Achievement, GameStatus, Club, WeekendActivity, GameState, Phase } from '../types';
-import { modifySub, modifyOI } from './utils';
+import { getLearningMultiplier, modifySub, modifyOI } from './utils';
 import { PROJECT_WORK_PROGRESS } from './project_effects';
 import { WEEKEND_INVITATIONS } from './weekend_invites';
+import { getHomeworkSlotsNeeded, HOMEWORK_ACTIVITY_ID } from './timetable';
+import { WEEKEND_STATUSES } from './balance';
+import { getMoPracticeTopic, trainMo } from './mo_competition';
+
+const MO_PROOF_FEEDBACK = {
+    geometry: '你用相似把图上的两段线段联系起来，补齐了辅助线的证明。',
+    algebra: '你在放缩时检查了等号成立的条件，把漏掉的一种情况补上了。',
+    number_theory: '你按余数逐一排除，最后验算了剩下的整数解。',
+    combinatorics: '你写出一个排法，又用反证说明更少的步数行不通。'
+};
 
 // --- Talents ---
 export const TALENTS: Talent[] = [
@@ -20,7 +30,7 @@ export const TALENTS: Talent[] = [
       effect: (s) => ({ general: { ...s.general, money: s.general.money + 180 } })
     },
     // --- Rare (Cost 2-3) ---
-    { id: 'attractive', name: '万人迷', description: '初始魅力+20，恋爱事件概率UP。', rarity: 'rare', cost: 2,
+    { id: 'attractive', name: '万人迷', description: '初始魅力 +20，和同学聊起来更容易。', rarity: 'rare', cost: 2,
       effect: (s) => ({ general: { ...s.general, romance: s.general.romance + 20 } })
     },
     { id: 'oi_nerd', name: '机房幽灵', description: 'OI各项能力初始+5，但魅力-10。', rarity: 'rare', cost: 3,
@@ -74,10 +84,10 @@ export const SHOP_ITEMS: Item[] = [
       }) },
     { id: 'game_skin', name: '限定游戏皮肤', description: '虽然不能变强，但心情变好了。心态+8。', price: 68, icon: 'fa-gamepad',
       effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8 } }) },
-    { id: 'flowers', name: '鲜花', description: '送给心仪的TA：关系好感+6、魅力+5；若已恋爱心态+8。', price: 50, icon: 'fa-fan',
+    { id: 'flowers', name: '鲜花', description: '认识TA后可以送花。', price: 50, icon: 'fa-fan',
       effect: (s) => ({
           general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset + (s.romancePartner ? 8 : 0) },
-          flags: s.flags.relationship_name ? { ...s.flags, ta_favorability: Number(s.flags.ta_favorability || 0) + 6 } : s.flags
+          flags: s.flags.romance_met || s.romancePartner ? { ...s.flags, ta_favorability: Number(s.flags.ta_favorability || 0) + 6 } : s.flags
       }) },
     { id: 'algo_book', name: '算法导论', description: '厚得可以当枕头。OI能力全面+2。', price: 80, icon: 'fa-code',
       effect: (s) => ({ oiStats: modifyOI(s, { dp: 2, ds: 2, math: 2, graph: 2, string: 2, misc: 2 }) }) },
@@ -107,13 +117,14 @@ export const ACHIEVEMENTS: Record<string, Achievement> = {
 
 // --- Statuses ---
 export const STATUSES: Record<string, Omit<GameStatus, 'duration'>> = {
+    ...WEEKEND_STATUSES,
     'focused': { id: 'focused', name: '心流', description: '你进入了极度专注的状态。', type: 'BUFF', icon: 'fa-bolt', effectDescription: '全学科效率大幅提升' },
     'anxious': { id: 'anxious', name: '焦虑', description: '对未来的担忧让你无法平静。', type: 'DEBUFF', icon: 'fa-cloud-rain', effectDescription: '每回合心态 -2' },
-    'crush': { id: 'crush', name: '暗恋', description: '那个人的身影总是在脑海挥之不去。', type: 'NEUTRAL', icon: 'fa-heart', effectDescription: '效率 -2，魅力 +2' },
-    'in_love': { id: 'in_love', name: '恋爱', description: '甜，太甜了。', type: 'BUFF', icon: 'fa-heartbeat', effectDescription: '每周心态 +5' },
+    'crush': { id: 'crush', name: '暗恋', description: '上课时，你偶尔会想到TA。', type: 'NEUTRAL', icon: 'fa-heart', effectDescription: '效率 -2，魅力 +2' },
+    'in_love': { id: 'in_love', name: '恋爱', description: '放学后有人等你一起走。', type: 'BUFF', icon: 'fa-heartbeat', effectDescription: '每周心态 +5' },
     'heartbroken': { id: 'heartbroken', name: '失恋', description: '心如刀绞，这就是青春的代价吗？', type: 'DEBUFF', icon: 'fa-heart-broken', effectDescription: '每周心态 -3, 效率 -1' },
     'exhausted': { id: 'exhausted', name: '透支', description: '你需要休息。', type: 'DEBUFF', icon: 'fa-bed', effectDescription: '健康无法自然恢复' },
-    'crush_pending': { id: 'crush_pending', name: '恋人未满', description: '虽然还没捅破窗户纸，但这种暧昧的感觉真好。', type: 'BUFF', icon: 'fa-comments', effectDescription: '每周运气 +2，经验 +2' },
+    'crush_pending': { id: 'crush_pending', name: '恋人未满', description: '你们最近常在课间聊天。', type: 'BUFF', icon: 'fa-comments', effectDescription: '每周运气 +2，经验 +2' },
     'sleep_compulsion': { id: 'sleep_compulsion', name: '让我睡觉！', description: '每周不睡觉就会死。', type: 'DEBUFF', icon: 'fa-dizzy', effectDescription: '每周必须进行一次睡觉事件' },
     'fatigued': { id: 'fatigued', name: '疲惫', description: '身体开始向你索要休息，硬撑会越来越难。', type: 'DEBUFF', icon: 'fa-battery-quarter', effectDescription: '每周心态-1，效率-1' },
     'overstimulated': { id: 'overstimulated', name: '过度兴奋', description: '脑子停不下来，短期很有冲劲，睡眠却变浅了。', type: 'DEBUFF', icon: 'fa-fire-alt', effectDescription: '每周效率-1，休息恢复降低' },
@@ -194,6 +205,15 @@ export const CLUBS: Club[] = [
 export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
     ...WEEKEND_INVITATIONS,
 
+    {
+        id: HOMEWORK_ACTIVITY_ID, name: '写作业', icon: 'fa-pen', type: 'STUDY',
+        description: '写完一个时段的作业，复习这周上过的内容。',
+        condition: state => getHomeworkSlotsNeeded(state) > 0,
+        resultText: '你按作业清单写完了一部分。',
+        action: state => ({
+            subjects: modifySub(state, ['chinese', 'math', 'english', ...state.selectedSubjects], 0.7)
+        })
+    },
     {
         id: 'act_music', name: '听音乐放松', icon: 'fa-headphones', type: 'REST',
         description: '花 2 元听歌，恢复心态。',
@@ -329,19 +349,44 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
         resultText: '你沿公园的小路走了一圈。',
         action: (s) => ({ general: { ...s.general, health: s.general.health + 5, mindset: s.general.mindset + 5 } })
     },
+    {
+        id: 'w_cook', name: '在家做顿饭', icon: 'fa-utensils', type: 'REST',
+        description: '花 6 元买菜，给自己做顿饭。',
+        condition: state => state.general.money >= 6,
+        resultText: '你炒了一盘菜，把剩下的装进饭盒。',
+        action: state => ({ general: { ...state.general, money: state.general.money - 6, mindset: state.general.mindset + 4, experience: state.general.experience + 2 } })
+    },
+    {
+        id: 'w_cycle', name: '骑车出门', icon: 'fa-bicycle', type: 'REST',
+        description: '骑车去附近转转，动一动。',
+        resultText: '你骑到了平时放学会经过的河边，停了一会儿。',
+        action: state => ({ general: { ...state.general, health: state.general.health + 4, mindset: state.general.mindset + 3 }, fatigue: state.fatigue + 2 })
+    },
+    {
+        id: 'w_book_stall', name: '逛二手书摊', icon: 'fa-book-open', type: 'REST',
+        description: '翻几本平时碰不到的书。',
+        resultText: '你翻到一本旧地图册，记下了几个熟悉的地名。',
+        action: state => ({ general: { ...state.general, experience: state.general.experience + 3, mindset: state.general.mindset + 2 } })
+    },
+    {
+        id: 'w_photo_walk', name: '和同学出去拍照', icon: 'fa-camera', type: 'SOCIAL',
+        description: '带手机出去走走，看看能拍到什么。',
+        resultText: '你们在快关门的文具店外拍了张照片，回去后从中挑了一张发到群里。',
+        action: state => ({ general: { ...state.general, mindset: state.general.mindset + 4, romance: state.general.romance + 2, experience: state.general.experience + 1 } })
+    },
     // Romance Exclusive (Visible only when has partner)
     {
         id: 'w_date_call', name: '打电话', icon: 'fa-phone-alt', type: 'LOVE',
         condition: (s) => !!s.romancePartner,
         description: '和对方聊聊这周的事。',
-        resultText: (s) => `你和${s.romancePartner}通了半小时电话，聊起班上刚换的座位。`,
+        resultText: '你和TA通了半小时电话，聊起班上刚换的座位。',
         action: (s) => ({ general: { ...s.general, romance: s.general.romance + 4, mindset: s.general.mindset + 5 } })
     },
     {
         id: 'w_date_game', name: '一起打游戏', icon: 'fa-gamepad', type: 'LOVE',
         condition: (s) => !!s.romancePartner,
         description: '和对方打几局游戏。',
-        resultText: (s) => `你和${s.romancePartner}组队打了三局，约好下次换张地图。`,
+        resultText: '你和TA组队打了三局，约好下次换张地图。',
         action: (s) => ({ general: { ...s.general, romance: s.general.romance + 3, experience: s.general.experience + 3 } })
     },
     {
@@ -389,12 +434,23 @@ export const WEEKEND_ACTIVITIES: WeekendActivity[] = [
     },
     // MO Exclusive
     {
-        id: 'w_mo_training', name: '数学竞赛训练', icon: 'fa-square-root-alt', type: 'STUDY',
-        condition: (s) => s.competition === 'MO',
-        description: '用一个周末把一道题从猜想推到完整证明。',
-        resultText: '你把训练题拆成三个引理，写完了证明。',
-        action: (s) => ({
-            subjects: modifySub(s, ['math'], 0.7),
+        id: 'w_mo_training', name: '数竞一试限时练习', icon: 'fa-stopwatch', type: 'STUDY',
+        condition: s => s.competition === 'MO',
+        description: '限时做函数、数列和不等式题，交卷前验算填空。',
+        resultText: '你给填空题留了验算时间，订正了一道数列题。',
+        action: s => ({
+            flags: trainMo(s, { speed: 2.3, algebra: 0.7 }, getLearningMultiplier(s)),
+            subjects: modifySub(s, ['math'], 0.5),
+            general: { ...s.general, experience: s.general.experience + 2, mindset: s.general.mindset - 2 }
+        })
+    },
+    {
+        id: 'w_mo_proof', name: '数竞二试专题练习', icon: 'fa-square-root-alt', type: 'STUDY',
+        condition: s => s.competition === 'MO',
+        description: '每周轮换平面几何、代数、数论和组合，写出完整证明再看讲义。',
+        resultText: s => MO_PROOF_FEEDBACK[getMoPracticeTopic(s)],
+        action: s => ({
+            flags: trainMo(s, { [getMoPracticeTopic(s)]: 3.6 }, getLearningMultiplier(s)),
             general: { ...s.general, experience: s.general.experience + 2, mindset: s.general.mindset - 2 }
         })
     }

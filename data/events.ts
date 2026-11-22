@@ -2,7 +2,6 @@ import { SEMESTER_2_EVENTS, WINTER_BREAK_EVENTS } from "./events_semester2";
 import { OI_ROUTE_EVENTS } from './events_oi_route';
 import { MO_EVENTS } from './events_mo';
 import { OI_EVENTS } from "./events_oi";
-import { canPursueRomance } from './relationships';
 import { ROMANCE_EVENTS } from "./events_romance";
 import { RIVAL_EVENTS } from "./events_character";
 
@@ -11,6 +10,8 @@ import { modifySub, modifyOI, mapAiEventToGameEvent } from './utils';
 import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS, NEW_YEAR_GALA_EVENT } from './event_defs';
 import { SCIENCE_FESTIVAL_EVENTS } from './events_science_festival';
+import { SATURDAY_COURSE_SIGNUP } from './saturday_courses';
+import { SCHOOL_SIGNALS } from './events_school_signals';
 import { CAMPUS_PROJECT_EVENTS } from './events_campus_project';
 import { COMPETITION_SUMMER_WEEKS, MILITARY_TRAINING_WEEKS } from './game_flow';
 import { clearWeekdaySchedule } from './timetable';
@@ -32,7 +33,7 @@ const CHALLENGE_SLEEP_CHOICE: EventChoice = {
 
 // Apply at display time too: generated and historical events are not in PHASE_EVENTS.
 export const withChallengeSleep = (event: GameEvent): GameEvent => {
-    if (event.choices?.some(c => /睡|梦/.test(c.text) && !c.condition) ||
+    if (event.allowChallengeSleep === false || event.choices?.some(c => /睡|梦/.test(c.text) && !c.condition) ||
         event.choices?.some(c => c.text === CHALLENGE_SLEEP_CHOICE.text)) return event;
     return { ...event, choices: [...(event.choices || []), CHALLENGE_SLEEP_CHOICE] };
 };
@@ -42,7 +43,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_goal_selection',
         title: '暑假的抉择',
-        description: '录取通知书到了。军训前这段时间，你准备怎么过？',
+        description: '录取通知书到了。家长把两张报名表递给你。“信竞（OI）用编程解题，数竞（MO）做竞赛数学题，还要把证明写清楚。两项暑假准备都是八周，你也可以先按自己的节奏准备开学。”',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',
@@ -62,9 +63,9 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
             },
             {
                 text: '数学竞赛(MO)',
-                hint: '暑假 8 周，提前练数学。入学后有组队、竞赛和审稿。',
+                hint: '暑假练竞赛数学，开学后可以参加联赛和训练。',
                 hintKind: 'rule',
-                resultDescription: '你给自己留了一个完整暑假做数学准备。开学后可以试着找人一起训练。',
+                resultDescription: '你给暑假留了时间练竞赛数学。教练说开学就到联赛的月份了。',
                 action: (s) => ({
                     competition: 'MO',
                     totalWeeksInPhase: COMPETITION_SUMMER_WEEKS,
@@ -378,24 +379,24 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
 const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     {
         id: 's1_evening_study',
-        title: '晚自习动员',
-        description: '开学第二周，班主任拿来了一叠《晚自习家长同意书》。如果你选择报名晚自习，这学期周一到周五晚上你将被死死按在教室里，失去平日去机房或者打球的自由，但课内成绩将突飞猛进。',
+        title: '周五晚自习报名',
+        description: '周一到周四照常晚自习。班主任问，有没有人也想把周五晚上留在教室里，用来整理这周没弄懂的题。',
         triggerType: 'FIXED',
         fixedWeek: 2,
         once: true,
         type: 'neutral',
         choices: [
             { 
-                text: '报名参加晚自习 (大幅提升课内)', 
+                text: '周五也参加晚自习',
                 action: (s) => ({ 
                     flags: { ...s.flags, joined_evening_study: true },
                     lastWeekSchedule: clearWeekdaySchedule(s.lastWeekSchedule),
-                    general: { ...s.general, efficiency: s.general.efficiency + 10, mindset: s.general.mindset - 5 },
-                    log: [...s.log, { message: '你签署了晚自习同意书。平日时间表已被锁定。', type: 'warning', timestamp: Date.now() }]
+                    general: { ...s.general, efficiency: s.general.efficiency + 4, mindset: s.general.mindset - 2 },
+                    log: [...s.log, { message: '你在报名表上签了字。周五晚也留给自习。', type: 'info', timestamp: Date.now() }]
                 }) 
             },
             { 
-                text: '我不上，我要自由！', 
+                text: '周五晚上自己安排',
                 action: (s) => ({ 
                     general: { ...s.general, mindset: s.general.mindset + 5 }
                 }) 
@@ -448,28 +449,9 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
             }
         ]
     },
+    SATURDAY_COURSE_SIGNUP,
     ...SCIENCE_FESTIVAL_EVENTS,
     NEW_YEAR_GALA_EVENT,
-    {
-        id: 'evt_crush_encounter',
-        title: '偶遇',
-        description: '在去食堂的路上，你撞见了一个特别的身影。只是一瞬间的对视，你的心跳好像漏了一拍。',
-        condition: (s) => canPursueRomance(s) && !s.activeStatuses.find(st => st.id === 'crush') && s.general.romance >= 10,
-        triggerType: 'RANDOM',
-        once: true,
-        type: 'positive',
-        choices: [
-            { 
-                text: '是心动的感觉', 
-                action: (s) => ({ 
-                    general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset - 2 },
-                    activeStatuses: [...s.activeStatuses, { ...STATUSES['crush'], duration: 4 }],
-                    log: [...s.log, { message: "你获得状态【暗恋】。效率-2，魅力+2。", type: 'event', timestamp: Date.now() }]
-                }) 
-            },
-            { text: '无视', action: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 1 } }) }
-        ]
-    },
     {
         id: 'evt_fight',
         title: '争吵',
@@ -762,9 +744,9 @@ const HOLIDAY_ROMANCE_EVENTS = ROMANCE_EVENTS.filter(event => HOLIDAY_ROMANCE_ID
 
 export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.INIT]: [],
-    [Phase.SUMMER]: injectSleep(SUMMER_EVENTS_RAW),
+    [Phase.SUMMER]: injectSleep([...SUMMER_EVENTS_RAW, ...MO_EVENTS.filter(event => event.fixedPhase === Phase.SUMMER)]),
     [Phase.MILITARY]: injectSleep(MILITARY_EVENTS_RAW),
-    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_1), ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...SCHOOL_SIGNALS, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_1), ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...OI_ROUTE_EVENTS, ...MO_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_1), ...ROMANCE_EVENTS]),
     [Phase.SELECTION]: [],
     [Phase.PLACEMENT_EXAM]: [],
     [Phase.MIDTERM_EXAM]: [],
@@ -777,7 +759,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.ENDING]: [],
     [Phase.WITHDRAWAL]: [],
     [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
-    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_2), ...RIVAL_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...SCHOOL_SIGNALS, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_2), ...RIVAL_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_2), ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...ROMANCE_EVENTS]),
     [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
     [Phase.WC_EXAM]: [],
     [Phase.PROVINCIAL_EXAM]: [],

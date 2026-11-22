@@ -44,13 +44,16 @@ export const getRelationshipStage = (state: GameState): string => {
   if (state.flags.romance_resolution === 'separated') return '各自往前走';
   if (state.flags.ready_for_confession) return '有一个约定';
   const favorability = Number(state.flags.ta_favorability || 0);
-  if (favorability >= 70) return '暧昧期';
+  if (hasRomanticInterest(state)) return '有些在意';
   if (favorability >= 30) return '熟悉的朋友';
   if (favorability >= 8) return '正在认识';
   return '还没说上几句话';
 };
 
 export const canPursueRomance = (s: GameState): boolean => !s.romancePartner && !s.flags.romance_resolution;
+
+export const hasRomanticInterest = (s: GameState): boolean =>
+  canPursueRomance(s) && s.flags.romance_interest === 'interested';
 
 // A promise survives a semester change, but never resolves in the same week.
 export const afterRelationshipWeek = (s: GameState, key: string): boolean => {

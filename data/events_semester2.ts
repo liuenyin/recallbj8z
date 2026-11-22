@@ -2,6 +2,7 @@
 import { GameEvent, GameState, Phase, SUBJECT_NAMES, SubjectKey } from '../types';
 import { RIVAL_NICKNAME, restoreRelationshipName } from './campus_names';
 import { modifySub } from './utils';
+import { hasRomanticInterest } from './relationships';
 
 const PROFICIENCY_SUBJECTS = ['chemistry', 'biology', 'history', 'geography'] as const;
 const hasTripCompanion = (state: GameState) =>
@@ -627,6 +628,108 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     },
     // --- RANDOM FILLERS ---
     {
+        id: 's2_daily_lost_card',
+        title: '饭卡去哪了',
+        description: '排到食堂窗口时，你摸了两次口袋都没找到饭卡。身后的同班同学说可以先帮你刷。',
+        type: 'neutral', triggerType: 'RANDOM', once: true,
+        condition: s => s.week >= 2 && s.week <= 11,
+        choices: [
+            {
+                text: '请同学先刷，吃完一起回去找',
+                tags: ['social'],
+                resultDescription: '你吃完饭回教室翻了翻书包，饭卡夹在今天早上用过的那本练习册里。',
+                action: s => ({ general: { ...s.general, mindset: s.general.mindset + 3 } })
+            },
+            {
+                text: '回教室找找饭卡',
+                resultDescription: '你从练习册里抽出饭卡。再到食堂时，你想点的那道菜已经卖完了。',
+                action: s => ({ general: { ...s.general, experience: s.general.experience + 2 } })
+            }
+        ]
+    },
+    {
+        id: 's2_daily_pendulums',
+        title: '一长一短两根线',
+        description: '物理老师收拾演示器材时，你发现两个摆锤长得一样，挂在长线上的那个摆得慢些。',
+        type: 'neutral', triggerType: 'RANDOM', once: true,
+        condition: s => s.week >= 3 && s.week <= 16,
+        choices: [
+            {
+                text: '问老师能不能自己换一次线',
+                tags: ['study'],
+                resultDescription: '你把同一个摆锤换到短线上，数完十次摆动，再回去和刚才记的时间对照。',
+                action: s => ({ subjects: modifySub(s, ['physics'], 0.8) })
+            },
+            {
+                text: '把两个摆的区别记在本上',
+                resultDescription: '你把线长和摆动时间记在同一页，下节课能接着看。',
+                action: s => ({ general: { ...s.general, experience: s.general.experience + 2 } })
+            }
+        ]
+    },
+    {
+        id: 's2_daily_wet_track',
+        title: '雨后的体育课',
+        description: '雨停了，跑道内侧还有积水。体育老师取消了今天的计时跑，让大家在干燥的地方活动。',
+        type: 'neutral', triggerType: 'RANDOM', once: true,
+        condition: s => s.week >= 5 && s.week <= 18,
+        choices: [
+            {
+                text: '跟同学做一组拉伸',
+                tags: ['sport'],
+                resultDescription: '你们轮着数拍子。下课前，腿已经不像早上那么僵了。',
+                action: s => ({ general: { ...s.general, health: s.general.health + 2, mindset: s.general.mindset + 2 } })
+            },
+            {
+                text: '帮体育委员把球收回去',
+                tags: ['social'],
+                resultDescription: '你们数出少了一只球，在看台边找了回来。',
+                action: s => ({ general: { ...s.general, experience: s.general.experience + 3 } })
+            }
+        ]
+    },
+    {
+        id: 's2_daily_duplicate_page',
+        title: '印重的一页',
+        description: '英语卷发下来，第三页和第四页一模一样。后排已经有人做完了前两页。',
+        type: 'neutral', triggerType: 'RANDOM', once: true,
+        condition: s => s.week >= 7 && s.week <= 19,
+        choices: [
+            {
+                text: '告诉老师，先给全班补发第四页',
+                tags: ['social'],
+                resultDescription: '老师把最后一页投在屏幕上。课代表去补印的时候，大家先接着看题。',
+                action: s => ({ general: { ...s.general, experience: s.general.experience + 3 } })
+            },
+            {
+                text: '先把前两页写完',
+                tags: ['study'],
+                resultDescription: '你刚写完第二页，课代表就拿来了补印的卷子。',
+                action: s => ({ subjects: modifySub(s, ['english'], 0.7) })
+            }
+        ]
+    },
+    {
+        id: 's2_daily_book_corner',
+        title: '清点图书角',
+        description: '午休前，班长摊开图书角的登记本。书架上有几本书插错了格子，还有一本在你课桌里。',
+        type: 'neutral', triggerType: 'RANDOM', once: true,
+        condition: s => s.week >= 12,
+        choices: [
+            {
+                text: '还书，顺手帮忙清点',
+                tags: ['social'],
+                resultDescription: '你和班长按书脊上的编号排好书，总算对上了登记本。',
+                action: s => ({ general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 1 } })
+            },
+            {
+                text: '问问能不能借到周五',
+                resultDescription: '你在登记本上改了归还日期。晚上有空，可以把最后几页看完。',
+                action: s => ({ general: { ...s.general, mindset: s.general.mindset + 3 } })
+            }
+        ]
+    },
+    {
         id: 's2_spring_fatigue',
         title: '春困秋乏',
         description: '外面的阳光暖洋洋的，微风吹过，你坐在教室里上物理课，眼皮疯狂打架。',
@@ -639,12 +742,12 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     },
     {
         id: 's2_seat_change',
-        title: '换座位的悸动',
-        description: '班主任宣布本周重新排座位，你暗暗祈祷能和心仪的那个TA坐得近一点。',
+        title: '换座位',
+        description: '班主任把新的座位表贴到了黑板上。下课后要搬桌子，你收书时先往黑板上看了一眼。',
         type: 'neutral', triggerType: 'RANDOM', once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.general.romance > 10,
+        condition: (s) => s.phase === Phase.SEMESTER_2,
         choices: [
-            { text: '期待座位挨得近一点', action: (s) => {
+            { text: '看看离 TA 的座位有多远', condition: s => !!s.romancePartner || hasRomanticInterest(s), action: (s) => {
                 const luck = Math.random() > 0.5;
                 return {
                     general: { ...s.general, mindset: s.general.mindset + (luck ? 10 : -5), romance: s.general.romance + (luck ? 5 : -2) },
@@ -652,7 +755,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
                 };
             } },
             {
-                text: '只求靠窗透点气，方便自己专心看书',
+                text: '看看自己能不能坐到窗边',
                 resultDescription: '你被调到了靠近过道的位置，至少抬头能看到一点树梢。',
                 action: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 1, mindset: s.general.mindset + 3 } })
             }

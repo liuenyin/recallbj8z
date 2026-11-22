@@ -4,7 +4,7 @@ import React from 'react';
 import { GameState, SUBJECT_NAMES, SubjectKey } from '../types';
 import { getEffectiveEfficiency } from '../data/utils';
 import { getPhaseLabel } from '../data/game_flow';
-import { getRelationshipStage, getRelationshipHint, RELATIONSHIP_PROFILES } from '../data/relationships';
+import { getRelationshipStage } from '../data/relationships';
 
 interface StatsPanelProps {
   state: GameState;
@@ -13,9 +13,11 @@ interface StatsPanelProps {
 }
 
 const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowContestHistory }) => {
-    const { t: tr } = useLanguage();
+    const { language, t: tr } = useLanguage();
   const effectiveEfficiency = getEffectiveEfficiency(state);
-  const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+  const hideDetails = state.difficulty === 'REALITY';
+  const hasMetRelationshipPeer = Boolean(state.romancePartner) || state.flags.romance_met === true
+    || !!state.flags.romance_resolution || !!state.flags.ready_for_confession;
 
   // Restore May-era cognitive bias & experience-based self-perception with critical safety floors for survival stats
   const getFuzzyDesc = (
@@ -145,22 +147,16 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
         </div>
       </div>
 
-      {state.relationshipProfileId && (() => {
-        const profile = RELATIONSHIP_PROFILES.find(item => item.id === state.relationshipProfileId);
-        if (!profile) return null;
-        return (
+      {hasMetRelationshipPeer && (
           <div className="bg-rose-50 rounded-xl p-3 border border-rose-100">
             <div className="flex items-center justify-between gap-2 mb-1">
               <span className="text-xs font-black text-rose-800 flex items-center gap-2">
                 <i className="fas fa-user-friends"></i> {tr("重要同学")}</span>
               <span className="text-[10px] font-bold text-rose-500">{tr(getRelationshipStage(state))}</span>
             </div>
-            <div className="text-sm font-black text-slate-800">{tr(profile.name)} · {tr(profile.role)}</div>
-            <div className="text-[11px] leading-relaxed text-slate-600 mt-1">{tr(profile.personality)}</div>
-            {!hideDetails && <div className="text-[10px] leading-relaxed text-rose-600 mt-1">{tr("路线提示：")}{tr(getRelationshipHint(state))}</div>}
+            <div className="text-sm font-black text-slate-800">{language === 'zh' ? 'TA' : 'Your classmate'}</div>
           </div>
-        );
-      })()}
+      )}
 
       {/* 学业背景 */}
       <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
@@ -193,7 +189,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
       <div>
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
             <i className="fas fa-chart-bar"></i> {tr("身心状态")}</h3>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
             {hideDetails ? (
               <>
                 <StatText icon="fa-brain" label="心态" fuzzy={getFuzzyDesc(state.general.mindset, 'general', 1, { criticalFloor: 20 })} />
@@ -310,7 +306,7 @@ const StatMini = ({ icon, label, value, color }: { icon: string, label: string, 
     <div className="bg-slate-50 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 hover:border-indigo-200 transition-colors">
       <i className={`fas ${icon} ${color} text-sm mb-1`}></i>
       <span className="text-[10px] text-slate-500">{tr(label)}</span>
-      <span className={`text-xs font-bold ${color}`}>{value.toFixed(0)}</span>
+      <span className={`text-xs font-bold ${color}`}>{label === '金钱' ? Number(value.toFixed(2)) : value.toFixed(0)}</span>
     </div>
   );
 };

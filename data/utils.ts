@@ -2,7 +2,8 @@
 import { GameState, GameStatus, SubjectKey, OIStats, SerializableEffect, GameEvent, GeneralStats, EventChoice, WeekendActivity, Difficulty, SUBJECT_NAMES } from '../types';
 import { getDifficultyPreset } from './constants';
 import { restoreRelationshipName } from './campus_names';
-import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from './balance';
+import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, WEEKEND_STATUSES } from './balance';
+import { getHomeworkSlotsNeeded, HOMEWORK_ACTIVITY_ID } from './timetable';
 
 export const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
   const newSubs = { ...s.subjects };
@@ -38,7 +39,9 @@ const STATUS_EFFICIENCY_MODIFIERS: Record<string, number> = {
     heartbroken: -1,
     fatigued: -1,
     overstimulated: -1,
-    low_morale: -1
+    low_morale: -1,
+    homework_backlog: -1,
+    late_night_lag: -1
 };
 
 export const getEffectiveEfficiency = (state: GameState): number => {
@@ -60,7 +63,6 @@ export const getEffectiveEfficiency = (state: GameState): number => {
     const fatiguePenalty = state.fatigue >= 90 ? 6 : state.fatigue >= 75 ? 3 : state.fatigue >= 50 ? 1 : 0;
     eff -= fatiguePenalty;
 
-    // In HELL, classroom distractions cut the efficiency that reaches actual learning.
     return Math.max(0, eff * difficulty.lessonEfficiencyMultiplier);
 };
 
@@ -81,7 +83,6 @@ export const getRestRecoveryMultiplier = (state: GameState): number => {
 };
 
 export const isStudyBlocked = (state: Pick<GameState, 'difficulty' | 'general' | 'fatigue'>): boolean => {
-    if (state.difficulty !== 'HELL') return false;
     const preset = getDifficultyPreset(state.difficulty);
     return (preset.studyMindsetThreshold !== undefined && state.general.mindset < preset.studyMindsetThreshold)
         || (preset.studyFatigueThreshold !== undefined && state.fatigue > preset.studyFatigueThreshold);
@@ -92,7 +93,7 @@ export const isStudyChoice = (choice: Pick<EventChoice, 'text' | 'tags'>): boole
     if (choice.tags?.includes('study')) return true;
     if (choice.tags?.some(tag => tag === 'sleep' || tag === 'rest' || tag === 'social')) return false;
     // Choosing a competition route is a life-direction decision, not a study
-    // action that should be blocked by HELL's momentary fatigue gate.
+    // action that should be blocked by a temporary fatigue gate.
     if (/信息竞赛\s*\(OI\)|数学竞赛\s*\(MO\)/.test(choice.text)) return false;
     // A few authored events predate the tag convention. Keep the text
     // fallback broad enough to cover obvious academic actions, while the
@@ -120,7 +121,7 @@ export const getActivityBlockReason = (
 export const getShopPriceMultiplier = (state: Pick<GameState, 'difficulty'>): number =>
     getDifficultyPreset(state.difficulty).shopPriceMultiplier || 1;
 
-/** Health at or below zero is fatal in all modes; Hell has an earlier threshold. */
+/** Health at or below zero ends a run. */
 export const isHealthFatal = (state: Pick<GameState, 'difficulty'> | Difficulty, health: number): boolean => {
     const difficulty = typeof state === 'string' ? state : state.difficulty;
     const threshold = getDifficultyPreset(difficulty).healthDeathThreshold;
@@ -443,7 +444,8 @@ export const getWeekendActivityUpdates = (
 ): Partial<GameState> => {
     let updates = (preview ? activity.previewAction || activity.action : activity.action)(state);
     if (isLearningActivity(activity)) {
-        const multiplier = getLearningMultiplier(state);
+        const fogged = activity.id === HOMEWORK_ACTIVITY_ID && state.activeStatuses?.some(status => status.id === 'homework_fog');
+        const multiplier = getLearningMultiplier(state) * (fogged ? 0.5 : 1);
         updates = {
             ...updates,
             general: scalePositiveGeneralDeltas(state, updates.general, multiplier),
@@ -471,10 +473,22 @@ export const getWeekendActivityUpdates = (
     if (!updates.general) delete updates.general;
     if (!updates.subjects) delete updates.subjects;
     if (!updates.oiStats) delete updates.oiStats;
-    return {
-        ...updates,
-        fatigue: Math.min(100, Math.max(0, (updates.fatigue ?? state.fatigue) + getWeekendActivityFatigueDelta(
-            activity, getRestRecoveryMultiplier(state), getDifficultyPreset(state.difficulty).fatigueGainMultiplier
-        )))
-    };
+    let fatigue = Math.min(100, Math.max(0, (updates.fatigue ?? state.fatigue) + getWeekendActivityFatigueDelta(
+        activity, getRestRecoveryMultiplier(state), getDifficultyPreset(state.difficulty).fatigueGainMultiplier
+    )));
+    const statuses = updates.activeStatuses ?? state.activeStatuses ?? [];
+    if (activity.id === 'w_sleep') {
+        updates.activeStatuses = statuses.filter(status => status.id !== 'homework_fog' && status.id !== 'late_night_lag');
+    } else if (state.difficulty === 'REALITY' && activity.id === 'w_game_late' && fatigue >= 70) {
+        updates.activeStatuses = [...statuses.filter(status => status.id !== 'late_night_lag'), { ...WEEKEND_STATUSES.late_night_lag, duration: 2 }];
+    } else if (state.difficulty === 'REALITY' && activity.id === HOMEWORK_ACTIVITY_ID && !preview
+        && repeatCount < getHomeworkSlotsNeeded(state) && fatigue >= 55) {
+        const week = `${state.phase}:${state.week}`;
+        if (state.flags.homework_fog_week !== week && Math.random() < Math.min(0.26, 0.12 + (fatigue - 55) * 0.004)) {
+            updates.activeStatuses = [...statuses.filter(status => status.id !== 'homework_fog'), { ...WEEKEND_STATUSES.homework_fog, duration: 1 }];
+            updates.flags = { ...(updates.flags ?? state.flags), homework_fog_week: week };
+            fatigue = Math.min(100, fatigue + 4);
+        }
+    }
+    return { ...updates, fatigue };
 };

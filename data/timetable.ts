@@ -1,3 +1,6 @@
+import type { GameState } from '../types';
+import { getMoExamScheduleTitle } from './mo_competition.ts';
+
 export type TimeSlotId = 'Mon_Eve' | 'Tue_Eve' | 'Wed_Eve' | 'Thu_Eve' | 'Fri_Eve' | 'Sat_Morn' | 'Sat_Aft' | 'Sat_Eve' | 'Sat_Night' | 'Sun_Morn' | 'Sun_Aft' | 'Sun_Eve';
 
 export interface ScheduleSlot {
@@ -26,11 +29,15 @@ export const BLOCKED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
 };
 
 /** Activities that are only meaningful in a specific time slot. */
+export const HOMEWORK_ACTIVITY_ID = 'w_homework';
+export const WEEKEND_ACTIVITY_HISTORY_LIMIT = 3;
+
 export const ALLOWED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
     'act_cf': ['Sat_Night'],
     w_invite_contest: ['Sat_Aft'],
     w_invite_club: ['Sat_Aft'],
     w_invite_peer: ['Sat_Aft'],
+    [HOMEWORK_ACTIVITY_ID]: SCHEDULE_SLOTS.filter(slot => slot.day === 'Sat' || slot.day === 'Sun').map(slot => slot.id),
 };
 
 /** Weekly slot caps shared between the planner preview and timetable executor. */
@@ -41,11 +48,34 @@ export const ACTIVITY_MAX_SLOTS: Record<string, number> = {
     'w_game_late': 1,
     'w_game': 2,
     'w_club_activity': 1,
+    w_mo_training: 1,
+    w_mo_proof: 1,
 };
 
-export const getActivityMaxSlots = (activityId: string): number => ACTIVITY_MAX_SLOTS[activityId] || 3;
+export const getActivityMaxSlots = (activityId: string, state?: Pick<GameState, 'phase' | 'week'>): number =>
+    activityId === HOMEWORK_ACTIVITY_ID && state ? getHomeworkSlotsNeeded(state) : ACTIVITY_MAX_SLOTS[activityId] || 3;
 
 const WEEKDAY_DAYS = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+
+export const isSchoolSemester = (state: Pick<GameState, 'phase'>): boolean =>
+    state.phase === 'SEMESTER_1' || state.phase === 'SEMESTER_2';
+
+export const getEveningStudySlots = (state: Pick<GameState, 'phase' | 'flags'>): TimeSlotId[] => {
+    if (!isSchoolSemester(state)) return [];
+    return SCHEDULE_SLOTS.filter(slot => WEEKDAY_DAYS.has(slot.day) && (slot.day !== 'Fri' || state.flags.joined_evening_study))
+        .map(slot => slot.id);
+};
+
+export const getMoExamSlots = (state: Pick<GameState, 'phase' | 'week' | 'flags'>): TimeSlotId[] =>
+    getMoExamScheduleTitle(state) ? ['Sun_Morn'] : [];
+
+export const getHomeworkSlotsNeeded = (state: Pick<GameState, 'phase' | 'week'>): number =>
+    isSchoolSemester(state) ? (state.week % 3 === 0 ? 3 : 2) : 0;
+
+export const clearEveningStudySchedule = (schedule: Record<string, string>, state: Pick<GameState, 'phase' | 'flags'>): Record<string, string> => {
+    const reserved = new Set<string>(getEveningStudySlots(state));
+    return Object.fromEntries(Object.entries(schedule).filter(([slot]) => !reserved.has(slot)));
+};
 
 /** Remove evening slots made unavailable by the evening-study agreement. */
 export const clearWeekdaySchedule = (schedule: Record<string, string> = {}): Record<string, string> =>

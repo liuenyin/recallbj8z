@@ -2,7 +2,8 @@ import { GameState, Phase, SubjectKey } from '../types';
 import { CLUBS } from './mechanics';
 import { isHealthFatal } from './utils';
 import { getAcademicExamPhase } from './game_flow';
-import { restoreRelationshipName, RIVAL_NICKNAME, FESTIVAL_PARTNER_NICKNAME } from './campus_names';
+import { getMoResult } from './mo_competition';
+import { RIVAL_NICKNAME, FESTIVAL_PARTNER_NICKNAME } from './campus_names';
 
 export interface EndingCatalogEntry {
     title: string;
@@ -19,9 +20,8 @@ export const ENDING_CATALOG: EndingCatalogEntry[] = [
     { title: 'OI 命题与竞赛实践者', rank: 'S/A/B', category: 'OI', hint: '加入 OI 出题组并完成公开赛出题与新生赛后续邀约。' },
     { title: 'OI 出题实践者', rank: 'A/B', category: 'OI', hint: '加入 OI 出题组并起草题面（公开赛或草稿均可）。' },
     { title: 'OI 探索者', rank: 'A/B/C', category: 'OI', hint: '坚持 OI 路线并积累一定算法训练量。' },
-    { title: '数学竞赛获奖者', rank: 'S/A', category: 'MO', hint: '选择 MO 路线并保持高数学水平，在决赛日中获奖。' },
-    { title: '数学命题实践者', rank: 'A/B', category: 'MO', hint: '参与校内数学竞赛命题组讨论与审稿。' },
-    { title: '数学竞赛探索者', rank: 'A/B/C', category: 'MO', hint: '选择 MO 路线并完成数学竞赛决赛日。' },
+    { title: '数学竞赛获奖者', rank: 'S/A', category: 'MO', hint: '在秋季高中数学联赛北京赛区获奖。' },
+    { title: '数学竞赛探索者', rank: 'A/B/C', category: 'MO', hint: '完成高中数学联赛或春季校内模拟。' },
     { title: '年级学神', rank: 'S', category: '学业', hint: '高一下期末进入年级前 5%，综合评分达到 90。' },
     { title: '尖子生', rank: 'A', category: '学业', hint: '高一下期末进入年级前 20%，综合评分达到 75。' },
     { title: '中流砥柱', rank: 'B', category: '学业', hint: '走完高一，综合评分达到 60。' },
@@ -38,7 +38,7 @@ export const ENDING_CATALOG: EndingCatalogEntry[] = [
 ];
 
 const ENDING_COLLECTION_KEY = 'recall_ending_collection_v1';
-const RENAMED_ENDINGS: Record<string, string> = { '家里蹲预备役': '学业待补', '退学离场': '提前离校' };
+const RENAMED_ENDINGS: Record<string, string> = { '家里蹲预备役': '学业待补', '退学离场': '提前离校', '数学命题实践者': '数学竞赛探索者' };
 
 export const getUnlockedEndings = (): string[] => {
     if (typeof window === 'undefined') return [];
@@ -69,32 +69,6 @@ export const recordUnlockedEnding = (title: string): string[] => {
         }
     }
     return next;
-};
-
-export const getNextRunSuggestion = (state: GameState, unlockedTitles: string[]): string => {
-    const unlocked = new Set(unlockedTitles);
-    if (state.flags.campus_project_report === 'draft') {
-        return '下局可以早点在周计划里安排「整理课题记录」，在第 12 周交表。';
-    }
-    if (state.competition !== 'OI' && !unlocked.has('省队巨佬')) {
-        return '下局可以选信息竞赛，参加 CSP-S 和后续训练。';
-    }
-    if (state.competition === 'OI' && !state.flags.provincial_team) {
-        return '想参加省选的话，下局可以在周末多安排几场竞赛练习。';
-    }
-    if (state.competition !== 'MO' && !unlocked.has('数学竞赛获奖者')) {
-        return '下局可以选数学竞赛，进命题组和同学互审题目。';
-    }
-    if (!state.romancePartner && !unlocked.has('平衡生活者')) {
-        return '下局可以多和同桌聊几次，看看对方会不会约你放学后见面。';
-    }
-    if (state.difficulty === 'NORMAL') {
-        return '想试试每周活动随机的玩法，可以在首页选「现实」难度。';
-    }
-    if (!state.activeChallengeId) {
-        return '首页可以选负债或嗜睡挑战。';
-    }
-    return `你已解锁 ${unlocked.size} / ${ENDING_CATALOG.length} 个结局。`;
 };
 
 export const getEndingData = (state: GameState) => {
@@ -136,8 +110,9 @@ export const getEndingData = (state: GameState) => {
 
      const noiMedal = state.flags.noi_medal;
      const provincialTeam = state.flags.provincial_team;
-     const moContestResult = state.flags.mo_contest_result;
-     const moSetter = state.flags.mo_setter === true;
+     const moLeague = state.flags.mo_league_published && getMoResult(state, 'league');
+     const moMock = state.flags.mo_mock_published && getMoResult(state, 'mock');
+     const legacyMoResult = state.flags.mo_contest_result;
      const oiSetter = state.flags.oi_setter === true;
      const oiProblemDrafted = state.flags.oi_problem_drafted === true;
      const oiSetterFollowup = state.flags.oi_setter_followup;
@@ -184,18 +159,10 @@ export const getEndingData = (state: GameState) => {
            ? '你写的题已经上线。赛后还有几条关于题面的留言没处理。'
            : '你把这道题放进了公开赛，赛后看了选手的提交。')
          : '你存下了题目草稿，写好了样例，还差几组边界数据。';
-     } else if (state.competition === 'MO' && moContestResult === 'medal') {
+     } else if (state.competition === 'MO' && ((moLeague && state.flags.mo_league_award_announced) || legacyMoResult === 'medal')) {
        rank = score >= 85 ? 'S' : 'A';
        title = '数学竞赛获奖者';
-       comment = moSetter
-         ? '你在数学竞赛决赛获奖，也和命题组互审过证明。'
-         : '你在数学竞赛决赛获奖。答卷上用到了训练时练过的放缩。';
-     } else if (state.competition === 'MO' && moSetter) {
-       rank = score >= 75 ? 'A' : 'B';
-       title = '数学命题实践者';
-       comment = state.flags.mo_review === 'polished'
-         ? '你补全了命题草稿上的证明。审稿同学核对之后签了字。'
-         : '你交了命题草稿。审稿同学用红笔圈出了证明里的几处空缺。';
+       comment = '你在数学竞赛的获奖名单上找到了自己的考号。';
      } else if (score >= 90 && finalRankFraction <= 0.05) {
        rank = 'S';
        title = '年级学神';
@@ -203,15 +170,15 @@ export const getEndingData = (state: GameState) => {
      } else if (balancedLife && score >= 40) {
        rank = score >= 75 ? 'A' : score >= 60 ? 'B' : 'C';
        title = '平衡生活者';
-       comment = `你和${restoreRelationshipName(state.romancePartner, state.relationshipProfileId)}在学年结束时仍在交往。你的健康和疲劳状态也保持稳定。`;
+       comment = '你和TA在学年结束时仍在交往。你的健康和疲劳状态也保持稳定。';
      } else if (state.competition === 'OI' && oiPower >= 12 && !oiProblemDrafted && score >= 40) {
        rank = score >= 75 ? 'A' : score >= 60 ? 'B' : 'C';
        title = 'OI 探索者';
        comment = '你参加了线上赛，赛后也做了几次复盘。';
-     } else if (state.competition === 'MO' && !!moContestResult && score >= 40) {
+     } else if (state.competition === 'MO' && (moLeague || moMock || legacyMoResult === 'completed') && score >= 40) {
        rank = score >= 75 ? 'A' : score >= 60 ? 'B' : 'C';
        title = '数学竞赛探索者';
-       comment = '你参加了数学竞赛训练，后来在决赛交了卷。';
+       comment = moMock ? '春季模拟讲评之后，你把没做出来的证明重新写了一遍。' : '联赛查分时，你把两张卷子的分数都记在了训练本上。';
      } else if (clubOrganizer && score >= 40) {
        rank = score >= 75 ? 'A' : score >= 60 ? 'B' : 'C';
        title = '社团组织者';
@@ -271,14 +238,11 @@ export const getEndingMemories = (state: GameState): string[] => {
         ? '你出的公开赛题上线了，讨论区里几处关于题面边界的留言还没去改完。'
         : '你自己写的算法题真正登上了公开赛，看着别人一条条提交代码，感受挺奇妙的。');
     else if (state.flags.oi_problem_drafted) memories.push('电脑里存着一套算法题草稿，虽然还差几组对拍数据，但题面框架已经写出来了。');
-    else if (state.flags.mo_contest_result === 'medal') memories.push('在数学竞赛决赛场交出了一张拿奖的答卷，之前在草稿本上划掉的思路都有了着落。');
-    else if (state.flags.mo_setter) memories.push(state.flags.mo_review === 'polished'
-        ? '在数学命题组把几处跳步证明补严密了，算真正替自己验过一道题。'
-        : '参与了数学命题草稿，漂亮结论后面还留着审稿人标的几处推导问号。');
-    const partnerName = restoreRelationshipName(state.romancePartner, state.relationshipProfileId);
+    else if (state.flags.mo_league_published) memories.push('九月联赛的一试和二试之间，你在考场外等了二十分钟。');
+    else if (state.flags.mo_mock_published) memories.push('春季模拟发回两张卷子，你在证明题旁边补了几行。');
     if (state.romancePartner) memories.push(state.flags.romance_communication
-        ? `你和${partnerName}约好，忙的时候先发条消息。`
-        : state.flags.romance_date_memory === 'walk' ? `你和${partnerName}有几个傍晚沿着护城河散步。` : `放学后，你和${partnerName}常在楼道里聊一会儿再走。`);
+        ? '你和TA约好，忙的时候先发条消息。'
+        : state.flags.romance_date_memory === 'walk' ? '你和TA有几个傍晚沿着护城河散步。' : '放学后，你和TA常在楼道里聊一会儿再走。');
     else if (state.flags.romance_resolution === 'friends') memories.push('你们说开以后，课间还会借笔记、对答案。');
     else if (state.flags.romance_resolution === 'separated') memories.push('你们在楼梯口说了再见。第二天，你照常去教室上早读。');
     else if (state.flags.romance_moved_on) memories.push('你又走了去食堂的近路。排到窗口时，你多要了一个煎蛋。');

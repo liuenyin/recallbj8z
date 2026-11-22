@@ -1,44 +1,96 @@
 import { GameEvent, Phase } from '../types';
 import { modifySub } from './utils';
 import { CHAINED_EVENTS } from './event_defs';
-import { canPursueRomance, afterRelationshipWeek, relationshipCheckpoint } from './relationships';
+import { canPursueRomance, hasRomanticInterest, afterRelationshipWeek, relationshipCheckpoint } from './relationships';
 import { restoreRelationshipName } from './campus_names';
+import { STATUSES } from './mechanics';
+
+const HELP_SCENES: Record<string, string> = {
+    profile_linxia: '放学时下起了雨。你没带伞，正打算等雨停。TA看你站在门口，问你是不是也去车站。走过路口时，TA把伞往你这边挪了挪。',
+    profile_shenzhiyao: '你请了半天假，回来时已经错过作业讲评。TA把笔记递给你，连老师临下课才补充的两道订正题也标了出来。',
+    profile_chenmo: '你去机房打印作业，打印机吞了第一页。TA跑去找老师取出卡纸，回来帮你重打一份。预备铃响之前，你拿到了整份作业。',
+    profile_xujiahe: '你拿值日检查表去找班主任，一翻书包才发现纸掉了。TA在楼梯口捡到表，看见你在值日名单上，特意回教室等你。'
+};
 
 export const ROMANCE_EVENTS: GameEvent[] = [
-    // --- 阶段1：初识与萌芽 (好感度 < 30) ---
+    // 先认识，再让玩家决定要不要继续发展。
     {
         id: 'romance_first_encounter',
         title: '走廊的转角',
-        description: '你抱着一摞作业本匆匆走过拐角，不小心撞到了TA。几本书掉在了地上。',
+        description: '你抱着一摞作业本走到办公室门口，跟来交另一摞本子的TA撞了一下。几本作业本掉在了地上。',
         type: 'neutral',
-        triggerType: 'RANDOM',
+        triggerType: 'CONDITIONAL',
         once: true,
-        condition: (s) => canPursueRomance(s) && (s.flags.ta_favorability || 0) < 30 && Math.random() < (0.20 + s.general.romance * 0.006),
+        allowChallengeSleep: false,
+        condition: s => canPursueRomance(s) && !s.flags.romance_met && s.week >= 2,
         choices: [
             {
                 text: '捡起掉在地上的书，道个歉',
                 resultDescription: '你递过去两本书。TA把剩下的一本捡起来，说了声谢谢。',
                 action: (s) => ({
                     general: { ...s.general, romance: s.general.romance + 2 },
-                    flags: { ...s.flags, ta_favorability: (s.flags.ta_favorability || 0) + 10 }
+                    flags: { ...s.flags, romance_met: true, ta_favorability: Number(s.flags.ta_favorability || 0) + 10 }
                 })
             },
             {
                 text: '赶紧让路，补一句不好意思',
                 resultDescription: '你让到墙边，说了句对不起。TA点点头，把书抱了起来。',
+                action: () => ({})
+            },
+            {
+                text: '把书递过去，问问是不是来交同一科作业',
+                condition: (s) => s.general.romance > 20,
+                resultDescription: 'TA指了指作业本上的名字。你们一个收前两排，一个收后两排，难怪下课都往办公室跑。',
                 action: (s) => ({
-                    general: { ...s.general, mindset: s.general.mindset - 5, romance: s.general.romance - 2 },
-                    flags: { ...s.flags, ta_favorability: (s.flags.ta_favorability || 0) + 8 }
+                    general: { ...s.general, mindset: s.general.mindset + 5, romance: s.general.romance + 5 },
+                    flags: { ...s.flags, romance_met: true, ta_favorability: Number(s.flags.ta_favorability || 0) + 15 }
+                })
+            }
+        ]
+    },
+    {
+        id: 'romance_peer_help',
+        title: '有人搭了把手',
+        description: s => HELP_SCENES[s.relationshipProfileId ?? ''] ?? HELP_SCENES.profile_shenzhiyao,
+        type: 'positive',
+        triggerType: 'CONDITIONAL',
+        once: true,
+        allowChallengeSleep: false,
+        condition: s => canPursueRomance(s) && s.flags.romance_met === true
+            && !s.flags.romance_interest && !s.flags.ready_for_confession,
+        choices: [{
+            text: '跟TA说声谢谢',
+            tags: ['social'],
+            resultDescription: '你跟TA道了谢。第二天在走廊遇到时，你先打了个招呼。',
+            action: s => ({
+                flags: { ...s.flags, ...relationshipCheckpoint(s, 'romance_help'), ta_favorability: Number(s.flags.ta_favorability || 0) + 8 },
+                general: { ...s.general, mindset: s.general.mindset + 4 }
+            })
+        }]
+    },
+    {
+        id: 'romance_interest_choice',
+        title: '下课后再聊一会儿',
+        description: '那次帮忙以后，你和TA在课间说过几次话。今天聊到一半打了预备铃，你回座位时还在想下课要不要接着聊。',
+        type: 'neutral',
+        triggerType: 'CONDITIONAL',
+        once: true,
+        allowChallengeSleep: false,
+        condition: s => canPursueRomance(s) && !!s.flags.romance_help_phase && !s.flags.romance_interest
+            && !s.flags.ready_for_confession && afterRelationshipWeek(s, 'romance_help'),
+        choices: [
+            {
+                text: '我好像开始喜欢TA了',
+                resultDescription: '你想起TA那天特意留下来帮你。今天下课，你想听TA把刚才的事讲完。',
+                action: s => ({
+                    flags: { ...s.flags, romance_interest: 'interested', ta_favorability: Math.max(24, Number(s.flags.ta_favorability || 0)) },
+                    activeStatuses: [...s.activeStatuses.filter(status => status.id !== 'crush'), { ...STATUSES.crush, duration: 4 }]
                 })
             },
             {
-                text: '把书递过去，问问是不是隔壁班的',
-                condition: (s) => s.general.romance > 20,
-                resultDescription: 'TA指了指隔壁教室的门。你们站在走廊里聊到预备铃响。',
-                action: (s) => ({
-                    general: { ...s.general, mindset: s.general.mindset + 5, romance: s.general.romance + 5 },
-                    flags: { ...s.flags, ta_favorability: (s.flags.ta_favorability || 0) + 15 }
-                })
+                text: '我想和TA做朋友',
+                resultDescription: '你记得TA帮过你的忙。下次TA有哪道题卡住，你也可以帮着看看。',
+                action: s => ({ flags: { ...s.flags, romance_interest: 'platonic', ...relationshipCheckpoint(s, 'romance_interest') } })
             }
         ]
     },
@@ -98,7 +150,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
         ]
     },
 
-    // --- 阶段2：暧昧与日常 (好感度 20 - 70) ---
+    // 玩家选择继续发展之后的相处。
     {
         id: 'romance_study_together',
         title: '图书馆的偶遇',
@@ -106,7 +158,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
         type: 'positive',
         triggerType: 'RANDOM',
         once: true,
-        condition: (s) => canPursueRomance(s) && (s.flags.ta_favorability || 0) >= 20 && (s.flags.ta_favorability || 0) < 70 && Math.random() < (0.30 + s.general.romance * 0.006),
+        condition: (s) => hasRomanticInterest(s) && (s.flags.ta_favorability || 0) < 70 && Math.random() < (0.30 + s.general.romance * 0.006),
         choices: [
             {
                 text: '走过去坐在TA旁边',
@@ -131,23 +183,23 @@ export const ROMANCE_EVENTS: GameEvent[] = [
     {
         id: 'romance_sports_meet',
         title: '运动会送水',
-        description: '秋季运动会，你刚跑完1000米，气喘吁吁。TA拿着一瓶矿泉水在终点等你。',
+        description: '运动会下午，你在看台上帮班里记了几轮成绩。TA回来看比赛，顺手给你带了一瓶水。',
         type: 'positive',
         triggerType: 'RANDOM',
         once: true,
-        condition: (s) => canPursueRomance(s) && (s.flags.ta_favorability || 0) >= 20 && (s.flags.ta_favorability || 0) < 70 && s.phase === Phase.SEMESTER_1 && s.week > 4 && s.week < 8,
+        condition: (s) => hasRomanticInterest(s) && (s.flags.ta_favorability || 0) < 70 && s.phase === Phase.SEMESTER_1 && s.week > 4 && s.week < 8,
         choices: [
             {
                 text: '接过水，说声谢谢',
-                resultDescription: '你喝了几口水。TA递来一张纸巾，和你一起走回看台。',
+                resultDescription: '你接过水，给TA挪了个位子。下一轮检录时，你们一起看着跑道。',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 20, health: s.general.health + 10, romance: s.general.romance + 5 },
                     flags: { ...s.flags, ta_favorability: (s.flags.ta_favorability || 0) + 10 }
                 })
             },
             {
-                text: '先在终点旁站一会儿',
-                resultDescription: 'TA帮你拧松瓶盖，把水递了过来。',
+                text: '请TA也坐下歇会儿',
+                resultDescription: 'TA坐下来问刚才是谁拿了第一。你翻了翻手里的记录表。',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 10, health: s.general.health + 5, romance: s.general.romance + 2 },
                     flags: { ...s.flags, ta_favorability: (s.flags.ta_favorability || 0) + 8 }
@@ -162,7 +214,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
         type: 'neutral',
         triggerType: 'RANDOM',
         once: true,
-        condition: (s) => canPursueRomance(s) && (s.flags.ta_favorability || 0) >= 35 && (s.flags.ta_favorability || 0) < 70 && Math.random() < (0.25 + s.general.romance * 0.006),
+        condition: (s) => hasRomanticInterest(s) && (s.flags.ta_favorability || 0) >= 35 && (s.flags.ta_favorability || 0) < 70 && Math.random() < (0.25 + s.general.romance * 0.006),
         choices: [
             {
                 text: '陪TA聊天直到深夜',
@@ -185,7 +237,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
 
     {
         id: 'romance_personal_moment', title: '放学后碰面', type: 'positive', triggerType: 'CONDITIONAL', once: true,
-        condition: s => (canPursueRomance(s) && Number(s.flags.ta_favorability || 0) >= 20) || !!s.romancePartner,
+        condition: s => hasRomanticInterest(s) || !!s.romancePartner,
         description: s => {
             const name = restoreRelationshipName(s.flags.relationship_name, s.relationshipProfileId);
             const scene = {
@@ -205,13 +257,13 @@ export const ROMANCE_EVENTS: GameEvent[] = [
     },
     {
         id:'romance_confession_prep', title:'放学一起走吗',type:'positive',triggerType:'CONDITIONAL',once:true,
-        condition:s=>canPursueRomance(s)&&!s.flags.ready_for_confession&&Number(s.flags.ta_favorability||0)>=50,
+        condition:s=>hasRomanticInterest(s)&&!s.flags.ready_for_confession&&Number(s.flags.ta_favorability||0)>=50,
         description:'快到天桥时，TA问你下次放学能不能单独走一段。',
         choices:[
             {text:'约个放学后都有空的日子',resultDescription:'你们约好，下次有空时在校门口等一下。',
              action:s=>({flags:{...s.flags,ready_for_confession:true,...relationshipCheckpoint(s,'romance_invite')},general:{...s.general,mindset:s.general.mindset+5}})},
             {text:'我更想做朋友，先说清楚',resultDescription:'TA愣了一下，随即点点头：“谢谢你跟我直说。那明天课间问作业还是照旧。”',
-             action:s=>({flags:{...s.flags,romance_resolution:'friends',ready_for_confession:false,...relationshipCheckpoint(s,'romance_rejected')}})}
+             action:s=>({flags:{...s.flags,romance_resolution:'friends',ready_for_confession:false,...relationshipCheckpoint(s,'romance_rejected')},activeStatuses:s.activeStatuses.filter(status=>status.id!=='crush')})}
         ]
     },
     {
@@ -225,7 +277,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
             {text:'今天先一起走回家',resultDescription:'你们沿着街道走到下一个路口，聊了几页周末要写的讲义。',
              action:s=>({flags:{...s.flags,ready_for_confession:false},general:{...s.general,mindset:s.general.mindset+5}})},
             {text:'告诉对方，我想继续做朋友',resultDescription:'TA点点头，问你明天早读要背哪一篇。',
-             action:s=>({flags:{...s.flags,ready_for_confession:false,romance_resolution:'friends',...relationshipCheckpoint(s,'romance_rejected')}})}
+             action:s=>({flags:{...s.flags,ready_for_confession:false,romance_resolution:'friends',...relationshipCheckpoint(s,'romance_rejected')},activeStatuses:s.activeStatuses.filter(status=>status.id!=='crush')})}
         ]
     },
     {
@@ -241,8 +293,10 @@ export const ROMANCE_EVENTS: GameEvent[] = [
     },
     {
         id:'romance_friend_callback',title:'课间对答案',type:'positive',triggerType:'CONDITIONAL',once:true,
-        condition:s=>!s.romancePartner&&s.flags.romance_resolution==='friends'&&afterRelationshipWeek(s,'romance_rejected'),
-        description:'课间，TA拿着数学周测卷走过来。“你上次问过最后一题吧？我刚看懂一种解法。”',
+        condition: s => !s.romancePartner && (s.flags.romance_resolution === 'friends'
+            ? afterRelationshipWeek(s, 'romance_rejected')
+            : s.flags.romance_interest === 'platonic' && afterRelationshipWeek(s, 'romance_interest')),
+        description:'课间，TA拿着数学周测卷走过来。“最后一题你写了吗？我刚看懂一种解法。”',
         choices:[
             {text:'接过卷子，一起看解法',tags:['study'],resultDescription:'你们在草稿纸上补了条辅助线。预备铃响时，最后两步正好算完。',action:s=>({subjects:modifySub(s,['math'],1),flags:{...s.flags,romance_friend_memory:true}})},
             {text:'先借一下卷子，回头再看',resultDescription:'你说了声谢谢，把卷子夹进笔记本。',action:s=>({general:{...s.general,mindset:s.general.mindset+4},flags:{...s.flags,romance_friend_memory:true}})}

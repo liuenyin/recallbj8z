@@ -84,15 +84,11 @@ export const SCIENCE_FESTIVAL_EVENTS: GameEvent[] = [
         choices: [
             {
                 text: '加入展台，负责把演示做出来',
-                hint: `第 9 周和${FESTIVAL_PARTNER_NICKNAME}试做，活动当天负责处理演示故障。`,
-                hintKind: 'rule',
                 resultDescription: `${FESTIVAL_PARTNER_NICKNAME}在报名表里给你留出了材料栏。下次课间先带一个能试起来的方案过来。`,
                 action: state => ({ flags: { ...state.flags, science_festival_role: 'build' } })
             },
             {
                 text: '加入展台，负责讲解和排班',
-                hint: '第 9 周分配讲解班次，活动当天负责接待观众。',
-                hintKind: 'rule',
                 resultDescription: `你接过讲解人员名单。${FESTIVAL_PARTNER_NICKNAME}问能不能把午饭那一档错开，你在名字旁画了个小圈。`,
                 action: state => ({ flags: { ...state.flags, science_festival_role: 'guide' } })
             },

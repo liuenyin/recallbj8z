@@ -85,7 +85,6 @@ test('campus scope, event shortcuts, reduced motion and ending catalog are wired
   assert.match(modalSource, /keydown/);
   assert.match(modalSource, /getInnerWhisper/);
   assert.match(modalSource, /getResultTone/);
-  assert.match(modalSource, /hideHints/);
   assert.match(appSource, /PHASE_TRANSITION_NOTES/);
   assert.match(appSource, /pointer-events-none/);
   assert.match(appSource, /getMilestoneCountdown/);
@@ -100,12 +99,11 @@ test('campus codenames migrate legacy saves and harder difficulties hide outcome
   assert.equal(restoreRelationshipName('林夏'), 'L同学');
   assert.equal(restoreRelationshipName('哈基米'), 'L同学');
   assert.equal(restoreRelationshipName('记事本'), 'S同学');
-  assert.equal(formatCampusText('周竞和陈禾借走了哈基米的笔记本'), 'Z同学和H同学借走了L同学的笔记本');
+  assert.equal(formatCampusText('周竞和陈禾借走了哈基米的笔记本'), 'Z同学和H同学借走了TA的笔记本');
   assert.equal(formatCampusText('把记事本、小键盘和胶带卷装进书包'), '把记事本、小键盘和胶带卷装进书包');
-  assert.equal(formatCampusText('记事本在等你', 'S同学', '记事本'), 'S同学在等你');
-  assert.equal(formatCampusText('记事本在等你时，你把记事本放回书包', 'S同学', '记事本'), 'S同学在等你时，你把记事本放回书包');
-  assert.match(modalSource, /hideHints\s*=\s*state\.difficulty\s*===\s*'HARD'\s*\|\|\s*state\.difficulty\s*===\s*'REALITY'\s*\|\|\s*state\.difficulty\s*===\s*'HELL'/);
-  assert.match(modalSource, /hintKind\s*===\s*'rule'/);
+  assert.equal(formatCampusText('记事本在等你', 'S同学', '记事本'), 'TA在等你');
+  assert.equal(formatCampusText('记事本在等你时，你把记事本放回书包', 'S同学', '记事本'), 'TA在等你时，你把记事本放回书包');
+  assert.doesNotMatch(modalSource, /formatStoryText\(c\.hint\)/);
   assert.match(logicSource, /\[choice\.resultDescription,\s*logSummary\]/);
   assert.match(statsSource, /自我认知/);
   assert.match(statsSource, /getFuzzyDesc/);

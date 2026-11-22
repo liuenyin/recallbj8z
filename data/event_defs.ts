@@ -1,10 +1,14 @@
+import { MO_CHAINED_EVENTS } from './events_mo';
 import { GameEvent } from '../types';
 import { startRelationship, relationshipCheckpoint } from './relationships';
 import { modifySub } from './utils';
 import { STATUSES } from './mechanics';
 import { Phase } from '../types';
+import { SATURDAY_COURSE_SECOND } from './saturday_courses';
 
 export const CHAINED_EVENTS: Record<string, GameEvent> = {
+    ...MO_CHAINED_EVENTS,
+    [SATURDAY_COURSE_SECOND.id]: SATURDAY_COURSE_SECOND,
     'sum_confess_success': {
         id: 'sum_confess_success',
         title: '表白成功',
@@ -13,7 +17,7 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
         choices: [{ text: '好，明天见', action: (s) => ({
             general: { ...s.general, mindset: s.general.mindset + 20, romance: s.general.romance + 20 }, 
             ...startRelationship(s),
-            activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 10 }] 
+            activeStatuses: [...s.activeStatuses.filter(status => status.id !== 'crush'), { ...STATUSES['in_love'], duration: 10 }]
         }) }]
     },
     'sum_confess_fail': {

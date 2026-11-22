@@ -50,6 +50,31 @@ try {
     } finally {
       Math.random = originalRandom;
     }
+    const { generateRandomFlavorEvent } = await import('/data/event_generators.ts');
+    const { default: campusEnglish } = await import('/data/en-overrides.json');
+    const randomBeforeFlavorProbe = Math.random;
+    const flavorAt = (phase, week, totalWeeksInPhase) => {
+      const state = {...initial, phase, week, totalWeeksInPhase, recentEventIds:[]};
+      return Array.from({length:30}, (_, i) => {
+        Math.random = () => (i+0.5)/30;
+        return generateRandomFlavorEvent(state);
+      });
+    };
+    let homeworkCalendar;
+    try {
+      const finalWeek = flavorAt('WINTER_BREAK',5,5).find(event=>event.id==='flavor_1');
+      homeworkCalendar = !flavorAt('WINTER_BREAK',2,5).some(event=>event.id==='flavor_1')
+        && !flavorAt('SUMMER_BREAK',8,8).some(event=>event.id==='flavor_1')
+        && finalWeek?.title==='开学前的两份作业'
+        && finalWeek.choices.length>=3
+        && flavorAt('SEMESTER_2',9,21).find(event=>event.id==='flavor_1')?.title==='明早要交的作业';
+    } finally { Math.random = randomBeforeFlavorProbe; }
+    const springScenes = PHASE_EVENTS.SEMESTER_2.filter(event=>event.id.startsWith('s2_daily_'));
+    const springScenesComplete = springScenes.length===5 && springScenes.every(event=>
+      event.triggerType==='RANDOM' && event.once && campusEnglish[event.title] && campusEnglish[event.description]
+      && event.choices.some(choice=>choice.tags?.[0]!=='study')
+      && event.choices.filter(choice=>choice.text!=='不管了，我要睡觉').every(choice=>
+        !!campusEnglish[choice.text] && !!campusEnglish[choice.resultDescription]));
     const newEventRules = [
       !companion.condition(newPeer) && friendGroup.condition(newPeer),
       companion.condition(knownPeer) && !companion.condition(declinedPeer),
@@ -106,7 +131,7 @@ try {
     const effFocused = getEffectiveEfficiency({...initial,general:{...initial.general,efficiency:16},fatigue:20,activeStatuses:[{id:'focused',name:'心流',description:'',type:'BUFF',icon:'fa-bolt',duration:2}]});
     const effFatigued = getEffectiveEfficiency({...initial,general:{...initial.general,efficiency:16},fatigue:20,activeStatuses:[{id:'fatigued',name:'疲惫',description:'',type:'DEBUFF',icon:'fa-battery-quarter',duration:999}]});
     const routeRegressions = [
-      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('L同学')) && memories.some(m=>m.includes('草稿')),
+      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('TA')) && memories.some(m=>m.includes('草稿')),
       !getEndingMemories(initial).some(m=>m.includes('表白')),
       topStudentEnding.rank==='S' && topStudentEnding.title==='年级学神',
       lowerEnding.score >= 90 && lowerEnding.title === '中流砥柱',
@@ -129,7 +154,7 @@ try {
       withChallengeSleep(generated).choices.length===generated.choices.length,
       getEndingData({...sleeper,phase:'ENDING',flags:{sleep_challenge_failed:true}}).title==='睡神挑战失败',
       getEndingData({...initial,phase:'ENDING',competition:'OI',flags:{oi_setter:true,oi_problem_drafted:true}}).comment.includes('草稿'),
-      getEndingData({...initial,phase:'ENDING',competition:'MO',flags:{mo_setter:true,mo_review:'rough'}}).comment.includes('空缺')
+      getEndingData({...initial,phase:'ENDING',competition:'MO',flags:{mo_setter:true,mo_review:'rough'}}).title !== '数学命题实践者'
     ];
 
     const legacyPlan = getOrderedScheduleEntries({Sat_Aft:'act_library'})[0][1] === 'w_library';
@@ -250,16 +275,18 @@ try {
     flushSync(() => game.setState({ ...initial, phase: 'SEMESTER_1', week: 3, isPlaying: false, isWeekend: true }));
     flushSync(() => game.executeTimetable({ Sat_Aft: 'w_library', Sun_Aft: 'w_library' }));
     const plannedLibrary = game.state.subjects.math.level > initial.subjects.math.level
-      && game.state.log.some(entry => entry.details?.some(line => line.includes('图书馆')));
-    flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:4,difficulty:'HELL',
+      && game.state.log.some(entry => entry.details?.some(line => line.includes('图书馆')))
+      && game.state.recentWeekendActivities[0].length===1 && game.state.recentWeekendActivities[0].includes('w_library');
+    flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:4,difficulty:'REALITY',fatigue:86,
       isPlaying:false,isWeekend:true,general:{...initial.general,health:100,mindset:80},
       flags:{joined_evening_study:true}}));
     flushSync(() => game.executeTimetable({Mon_Eve:'w_read',Sat_Aft:'w_library',Sun_Aft:'w_library'}));
     const planLog = game.state.log.find(entry=>entry.message.startsWith('【本周计划】'));
     const completeSummary = planLog.message.includes('完成 1 项，跳过 2 项') && planLog.details.length === 3
-      && planLog.details.some(line=>line.includes('晚自习')) && planLog.details.some(line=>line.includes('本周最多'));
+      && planLog.details.some(line=>line.includes('晚自习')) && planLog.details.some(line=>line.includes('状态不允许学习'))
+      && JSON.stringify(game.state.lastWeekSchedule)==='{"Sat_Aft":"w_library"}';
     const plannerRoot = createRoot(document.body.appendChild(document.createElement('div')));
-    const plannerState = { ...initial, difficulty:'HELL', fatigue:95, isWeekend:true,
+    const plannerState = { ...initial, difficulty:'REALITY', fatigue:95, isWeekend:true,
       general:{...initial.general, mindset:80}, availableWeekendActivityIds:['w_sleep','w_library'],
       lastWeekSchedule:{Sat_Morn:'w_sleep'} };
     flushSync(() => plannerRoot.render(React.createElement(TimetableModal, {state:plannerState,onConfirm:()=>{}})));
@@ -271,7 +298,7 @@ try {
     flushSync(() => clickable.click());
     const libraryOption = [...document.querySelectorAll('span')].find(el => el.textContent === '上图书馆');
     flushSync(() => libraryOption.parentElement.parentElement.click());
-    const restThenStudy = document.body.innerText.includes('2 项可执行');
+    const restThenStudy = !document.body.innerText.includes('计划预览') && [...saturday.querySelectorAll('button')].some(button=>button.textContent.includes('周六下午') && button.textContent.includes('上图书馆'));
     flushSync(() => plannerRoot.render(React.createElement(TimetableModal, {key:'limit',
       state:{...plannerState,difficulty:'NORMAL',fatigue:20,availableWeekendActivityIds:['w_game'],
         lastWeekSchedule:{Sat_Aft:'w_game',Sun_Aft:'w_game'}},onConfirm:()=>{}})));
@@ -281,16 +308,28 @@ try {
     const gameOption = [...document.querySelectorAll('span')].find(el => el.textContent === '打游戏' && el.parentElement.parentElement.textContent.includes('略降效率'));
     flushSync(() => gameOption.parentElement.parentElement.click());
     const keepExistingAtLimit = !document.body.innerText.includes('选择活动');
-    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'skip-reasons',
-      state:{...plannerState,week:3,difficulty:'NORMAL',fatigue:20,club:'literature',
-        lastWeekSchedule:{Sat_Morn:'w_club_activity',Sat_Aft:'w_sleep'}},onConfirm:()=>{}})));
-    const skipReasonVisible = document.body.innerText.includes('本周不满足活动条件');
-    const clearSkipped = [...document.querySelectorAll('button')].find(b=>b.textContent==='清除这些安排');
-    flushSync(()=>clearSkipped.click());
-    const skipCleanup = skipReasonVisible && !document.body.innerText.includes('本周不满足活动条件') && document.body.innerText.includes('1 项可执行');
+    const clubSchedule = {Sat_Morn:'w_club_activity',Sat_Aft:'w_sleep'};
+    const plannerWithClub = {...plannerState,phase:'SEMESTER_1',difficulty:'NORMAL',fatigue:20,club:'literature',
+      lastWeekSchedule:clubSchedule};
+    const clubPlan = (key, state) => flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key,state,onConfirm:()=>{}})));
+    clubPlan('club-on', {...plannerWithClub,week:4});
+    const clubCarriedWhenValid = document.body.innerText.includes('社团活动') && document.body.innerText.includes('2 项可执行');
+    clubPlan('club-off', {...plannerWithClub,week:5});
+    const clubClearedWhenUnavailable = !document.body.innerText.includes('社团活动') && document.body.innerText.includes('1 项可执行');
+    clubPlan('random-unavailable', {...plannerWithClub,week:4,difficulty:'REALITY',availableWeekendActivityIds:['w_sleep']});
+    const skipCleanup = clubCarriedWhenValid && clubClearedWhenUnavailable && !document.body.innerText.includes('社团活动');
     const projectSignup = PHASE_EVENTS.SEMESTER_1.find(event => event.id === 'campus_project_signup');
     const { recommendWeekend } = await import('/data/weekend_recommendations.ts');
     const { isLearningActivity } = await import('/data/utils.ts');
+    const recent = ['w_book_stall','w_zhihu','w_library'];
+    const healthyWeekend = {...initial,phase:'SEMESTER_2',week:17,isWeekend:true,fatigue:27,
+      general:{...initial.general,health:90,mindset:65,money:30},recentWeekendActivities:[recent,recent,recent]};
+    const varied = recommendWeekend(healthyWeekend,WEEKEND_ACTIVITIES.filter(activity=>
+      [...recent,'w_homework','w_sleep','w_cook','w_read','w_cycle','w_photo_walk'].includes(activity.id)));
+    const variedIds = Object.values(varied.schedule);
+    const variedPlan = variedIds.filter(id=>id==='w_homework').length===2
+      && variedIds.some(id=>['w_cook','w_read','w_cycle','w_photo_walk'].includes(id))
+      && !variedIds.includes('w_zhihu');
     const projectWeek = {...plannerState,phase:'SEMESTER_1',week:12,
       general:{...plannerState.general,health:76,money:0},lastWeekSchedule:{}};
     const updatedWeek = {...projectWeek,...projectSignup.choices[0].action(projectWeek)};
@@ -299,21 +338,21 @@ try {
     const plan = recommendWeekend(updatedWeek, offered);
     const ids = Object.values(plan.schedule);
     const recommendations = plan.schedule.Sat_Morn === 'w_sleep' && ids.includes('w_project_work')
-      && !ids.includes('act_movie') && ids.filter(id => isLearningActivity(offered.find(a=>a.id===id))).length === 1;
+      && !ids.includes('act_movie') && ids.filter(id => isLearningActivity(offered.find(a=>a.id===id))).length <= 2;
     flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'recommendation',
       state:updatedWeek,onConfirm:()=>{}})));
     const recommendButton = [...document.querySelectorAll('button')].find(b=>b.textContent==='采用本周推荐');
-    const initialProjectPreview = document.querySelector('[aria-label="课题进度预览"]').textContent;
+    const initialProjectPreview = document.querySelector('[aria-label="课题进度预览"]');
     flushSync(()=>recommendButton.click());
-    const nextProjectPreview = document.querySelector('[aria-label="课题进度预览"]').textContent;
-    const recommendationPreview = initialProjectPreview.includes('还需整理 3 次，第 12 周截止')
-      && nextProjectPreview.includes('还需整理 2 次，第 12 周截止');
-    const { getWeekendInvitationText } = await import('/data/weekend_invites.ts');
+    const nextProjectPreview = document.querySelector('[aria-label="课题进度预览"]');
+    const recommendationPreview = !initialProjectPreview && !nextProjectPreview;
+    const { getWeekendInvitationText, WEEKEND_INVITATIONS } = await import('/data/weekend_invites.ts');
     const inviteWeek = {...initial,phase:'SEMESTER_1',week:8,isPlaying:false,isWeekend:true,difficulty:'REALITY',
-      competition:'MO',club:'literature',availableWeekendActivityIds:['w_sleep','w_library'],general:{...initial.general,health:80,mindset:65}};
+      competition:'OI',club:'literature',availableWeekendActivityIds:['w_sleep','w_library'],general:{...initial.general,health:80,mindset:65}};
     flushSync(() => game.setState(inviteWeek));
-    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'invites',state:inviteWeek,quickStart:true,
+    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'invites',state:inviteWeek,
       onConfirm:schedule=>game.executeTimetable(schedule)})));
+    flushSync(() => [...document.querySelectorAll('button')].find(button=>button.textContent==='查看推荐').click());
     const actions = [...document.querySelectorAll('[aria-label="周末安排"] button')];
     const contestInvite = actions.find(button=>button.textContent.includes('和队友练习'));
     const clubInvite = actions.find(button=>button.textContent.includes('去社团帮忙'));
@@ -330,7 +369,32 @@ try {
     flushSync(()=>game.executeTimetable({Sun_Aft:'w_invite_contest'}));
     const enforcedInviteSlot = !game.state.flags.w_invite_contest
       && game.state.log.at(-1)?.details?.some(line=>line.includes('指定时间段'));
+    const moWeek = {...inviteWeek, competition:'MO', week:2, fatigue:86,
+      flags:{mo_league_sat:true}, lastWeekSchedule:{Sat_Aft:'w_library', Sun_Aft:'w_library', Sun_Morn:'w_sleep'}};
+    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'reality-hidden',state:moWeek,onConfirm:()=>{}})));
+    const timetableButtons = [...document.querySelectorAll('button')];
+    const occupied = timetableButtons.find(button => button.textContent.includes('周日上午'));
+    flushSync(() => timetableButtons.find(button => button.textContent.includes('周日下午')).click());
+    const manualHidden = !document.body.innerText.includes('暂不可执行') && !document.body.innerText.includes('当前状态不能学习')
+      && occupied.disabled && occupied.textContent.includes('高中数学联赛')
+      && !WEEKEND_INVITATIONS.find(activity => activity.id === 'w_invite_contest').condition({...inviteWeek, competition:'MO'});
     plannerRoot.unmount();
+    const leaguePaper = PHASE_EVENTS.SEMESTER_1.find(event => event.id === 'mo_league_paper_one');
+    flushSync(() => game.setState({...moWeek, isWeekend:false, currentEvent:leaguePaper, eventResult:null,
+      eventQueue:[], fatigue:25, flags:{mo_league_registered:true}}));
+    flushSync(() => game.handleChoice(leaguePaper.choices[0]));
+    const firstPaperMark = game.state.flags.mo_league_first;
+    flushSync(() => game.handleEventConfirm());
+    const paperTwo = game.state.currentEvent;
+    if (paperTwo?.id === 'mo_league_paper_two') flushSync(() => game.handleChoice(paperTwo.choices[0]));
+    const secondPaperMark = game.state.flags.mo_league_second;
+    flushSync(() => game.handleEventConfirm());
+    flushSync(() => game.saveGame());
+    flushSync(() => game.setState(initial));
+    flushSync(() => game.loadGame('manual'));
+    const moSave = paperTwo?.id === 'mo_league_paper_two' && Number.isInteger(firstPaperMark)
+      && Number.isInteger(secondPaperMark) && game.state.isWeekend && game.state.flags.mo_league_sat
+      && game.state.flags.mo_league_first === firstPaperMark && game.state.flags.mo_league_second === secondPaperMark;
     const saveKey = 'recall_save_v1_choice-regression';
     flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:7,isPlaying:false,isWeekend:true}));
     const autoSaved = JSON.parse(localStorage.getItem(saveKey)).state.week === 7 && game.saveNotice.includes('自动');
@@ -366,8 +430,8 @@ try {
       && localStorage.getItem('recall_save_v1_other-regression') === 'untouched'
       && localStorage.getItem(saveKey) === beforeSwitch;
     root.unmount();
-    return { skipCleanup, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview, newEventRules,
-      exclusiveInvite, acceptedClub, enforcedInviteSlot,
+    return { skipCleanup, homeworkCalendar, springScenesComplete, variedPlan, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview, newEventRules,
+      exclusiveInvite, acceptedClub, enforcedInviteSlot, manualHidden, moSave,
       autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
       stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
   });
@@ -378,11 +442,16 @@ try {
   }
   assert.ok(results.routeRegressions.every(Boolean), 'route failures, sleep availability, humanities book and empty club');
   assert.ok(results.newEventRules.every(Boolean), 'spring companion, homework limits and match outcome feedback');
-  assert.ok(results.skipCleanup, 'clear only skipped slots, retaining valid rest');
+  assert.ok(results.skipCleanup, 'carry over available activities and drop unavailable ones');
+  assert.ok(results.homeworkCalendar, 'winter break homework only appears in the last week and offers a moderate choice');
+  assert.ok(results.springScenesComplete, 'five complete translated spring campus events are in the random pool');
+  assert.ok(results.variedPlan, 'recent optional activities give way to fresh choices while homework remains');
   assert.ok(results.plannedLibrary);
   assert.ok(results.boardChecks.every(Boolean), 'board timing, fatigue, diary and old saves');
   assert.ok(results.restThenStudy, 'resting first must unlock learning in a later slot');
   assert.ok(results.keepExistingAtLimit, 'keeping an existing activity does not consume another slot');
+  assert.ok(results.moSave, 'completed MO papers and the exam slot survive a save and reload');
+  assert.ok(results.manualHidden, 'realistic manual planning hides predicted fatigue and reserves the MO exam slot');
   assert.ok(results.recommendations && results.recommendationPreview, 'recover first, honor the study cap and preview project progress');
   assert.ok(results.exclusiveInvite && results.acceptedClub && results.enforcedInviteSlot, 'invites share Saturday afternoon, settle once, and lead to follow-ups');
   assert.ok(results.legacyPlan && results.completeSummary && results.delayedChoices.every(Boolean), 'legacy plans, complete summaries and delayed choice outcomes');

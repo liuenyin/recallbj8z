@@ -11,7 +11,7 @@ const ContestHistoryModal: React.FC<Props> = ({ state, onClose }) => {
     const { t: tr } = useLanguage();
     const history = state.oiStats?.history || [];
     const rating = state.oiStats?.rating ?? 1200;
-    const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+    const hideDetails = state.difficulty === 'REALITY';
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose} role="dialog" aria-modal="true" aria-label={tr("OI 竞赛履历")}>

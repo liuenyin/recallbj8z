@@ -266,7 +266,7 @@ const buildPrompt = (state: GameState): string => {
   const recentHistory = state.history.slice(-5).map(entry => `[第${entry.week}周] ${entry.eventTitle}: ${entry.resultSummary}`).join('\n');
   const relationshipName = state.flags.relationship_name || '重要同学';
   const statuses = state.activeStatuses.map(status => status.name).join('、') || '无';
-  const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+    const hideDetails = state.difficulty === 'REALITY';
   const describe = (value: number, max: number) => {
     const ratio = value / max;
     return ratio >= 0.8 ? '高' : ratio >= 0.6 ? '较高' : ratio >= 0.4 ? '一般' : ratio >= 0.2 ? '较低' : '低';
@@ -279,6 +279,7 @@ const buildPrompt = (state: GameState): string => {
     : subjects;
   return `你是一个高中生活模拟游戏的事件编剧。玩家是北京八中高中部高一学生。
 校园设定：校内有信息学竞赛教练，外校课程用于补充训练；本局采用地下场馆设科技节展台的设定。没有交代的校规、场馆用途和活动日期不得当成全校统一规定。用同桌、社员、教练等称呼。恋爱和冲突角色沿用已有别称，新角色用代词或明显虚构的别称。
+路线要求：数竞写个人训练，正式联赛在 9 月。TA 的暗恋、表白和关系变化由游戏剧情处理，生成事件只写日常往来。
 日历要求：事件要符合下面的阶段。寒暑假不要把日常上课和放学当成正在发生的事。当前周${isWintryWeek(state) ? '可以写下雪' : '不要写下雪'}。
 当前阶段：${state.phase}，第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : state.competition === 'MO' ? '数学竞赛（MO）' : '课内综合'}。
 当前属性：${generalLine}。
@@ -290,8 +291,8 @@ const buildPrompt = (state: GameState): string => {
 
 请生成 2-3 个彼此主题不同、贴近北京重点高中日常的事件。事件要让玩家在学习、健康、关系、金钱、社团或竞赛之间做取舍。
 文风要求：用简短的主谓宾句子，写清谁做了什么、说了什么、事情有什么变化。选项用动作开头。写完事情经过就结束，省略感想、流行语、比喻和总结。避开最近已经发生的剧情。
-每个事件必须有 2-4 个有效选项，其中至少一个选项风险较低但收益也较小。每个选项必须有 resultDescription、effect 和 tags。tags 只能从 sleep、study、sport、rest、social、risky 中选择。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、excitement、romancePartner、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 和 excitement 在 -15 到 +15。不要让单个选项直接造成死亡、满值或不可逆的大幅惩罚。
-只在确实确立恋爱关系时填写 romancePartner；不要返回 flags、代码、Markdown 或解释文字。
+每个事件必须有 2-4 个有效选项，其中至少一个选项风险较低但收益也较小。每个选项必须有 resultDescription、effect 和 tags。tags 只能从 sleep、study、sport、rest、social、risky 中选择。effect 只能使用 mindset、health、money、efficiency、romance、experience、luck、fatigue、excitement、subjects、oiStats；数值应克制，单个普通属性变化通常在 -10 到 +10，efficiency 在 -2 到 +2，fatigue 和 excitement 在 -15 到 +15。不要让单个选项直接造成死亡、满值或不可逆的大幅惩罚。
+不要返回 flags、代码、Markdown 或解释文字。
 
 严格返回 JSON 数组，格式：
 [{"title":"事件标题","description":"事件描述","type":"positive|negative|neutral","choices":[{"text":"选项文本","resultDescription":"选择后的结果反馈","tags":["study"],"effect":{"mindset":0,"health":0,"fatigue":0}}]}]`;

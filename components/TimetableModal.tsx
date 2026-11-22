@@ -2,30 +2,36 @@ import { useLanguage } from '../lib/i18n';
 import React, { useState } from 'react';
 import { GameState, WeekendActivity } from '../types';
 import { WEEKEND_ACTIVITIES } from '../data/mechanics';
-import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries, getActivityMaxSlots } from '../data/timetable';
+import { SCHEDULE_SLOTS, TimeSlotId, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearEveningStudySchedule, getEveningStudySlots, getHomeworkSlotsNeeded, getMoExamSlots, getOrderedScheduleEntries, getActivityMaxSlots, HOMEWORK_ACTIVITY_ID } from '../data/timetable';
 import { getDifficultyPreset } from '../data/constants';
 import { clampGameStateMetrics, isStudyBlocked, isLearningActivity, getActivityBlockReason, isHealthFatal, getWeekendActivityUpdates } from '../data/utils';
 import { recommendWeekend } from '../data/weekend_recommendations';
 import { getProjectSessionsLeft } from '../data/project_effects';
 import { getWeekendInvitationText, isWeekendInvitationId } from '../data/weekend_invites';
+import { getSaturdayCourses } from '../data/saturday_courses';
+import { getMoExamScheduleTitle, getMoPracticeTopic, MO_PRACTICE_TITLES } from '../data/mo_competition';
 
 interface Props {
     state: GameState;
     onConfirm: (schedule: Record<string, string>) => void;
     onClose?: () => void;
-    quickStart?: boolean;
 }
 
-const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart = false }) => {
+const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose }) => {
     const { t: tr } = useLanguage();
     // Evaluate activity conditions in a weekend context. The random pool is
     // only restrictive while planning; a weekday schedule view should still
     // be able to show activities that were planned last weekend.
     const activityState = state.isWeekend ? state : { ...state, isWeekend: true };
+    const fixedCourses = getSaturdayCourses(state);
+    const eveningStudy = getEveningStudySlots(state);
+    const examSlots = getMoExamSlots(state);
+    const examTitle = getMoExamScheduleTitle(state);
     const useRandomWeekendPool = state.isWeekend && state.difficulty === 'REALITY'
         && state.availableWeekendActivityIds !== undefined;
     const offeredActivities = WEEKEND_ACTIVITIES.filter(a => {
-        if (isWeekendInvitationId(a.id)) return state.isWeekend && !!a.condition?.(activityState) && !getActivityBlockReason(state, a);
+        if (isWeekendInvitationId(a.id)) return state.isWeekend && !fixedCourses.Sat_Aft && !!a.condition?.(activityState) && !getActivityBlockReason(state, a);
+        if (a.id === HOMEWORK_ACTIVITY_ID) return getHomeworkSlotsNeeded(state) > 0;
         if (useRandomWeekendPool) {
             return state.availableWeekendActivityIds!.includes(a.id)
                 && (!a.condition || a.condition(activityState))
@@ -34,52 +40,46 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
         return !a.condition || a.condition(activityState);
     });
     const activityById = new Map(WEEKEND_ACTIVITIES.map(activity => [activity.id, activity]));
-    // A reusable plan is a commitment, not a snapshot of this week's random
-    // menu. Keep valid previously scheduled activities visible even when they
-    // are not offered this week; the executor will still re-check conditions
-    // and report any activity that can no longer run.
-    const lastSchedule = state.flags.joined_evening_study
-        ? clearWeekdaySchedule(state.lastWeekSchedule || {})
-        : (state.lastWeekSchedule || {});
-    const retainedActivityIds = new Set(getOrderedScheduleEntries(lastSchedule).map(([, id]) => id));
-    const availableActivities = WEEKEND_ACTIVITIES.filter(activity =>
-        offeredActivities.includes(activity) || retainedActivityIds.has(activity.id)
-    );
-
+    const courseEntries = Object.entries(fixedCourses).map(([slot, course]) => {
+        activityById.set(course.id, course);
+        return [slot, course.id] as const;
+    });
+    const offeredIds = new Set(offeredActivities.map(activity => activity.id));
     const [initialSchedule] = useState<Record<string, string>>(() => {
-        const last = state.flags.joined_evening_study
-            ? clearWeekdaySchedule(state.lastWeekSchedule || {})
-            : (state.lastWeekSchedule || {});
         const valid: Record<string, string> = {};
-        for (const [slot, actId] of getOrderedScheduleEntries(last)) {
-            const activityId = typeof actId === 'string' ? actId : null;
-            if (SCHEDULE_SLOTS.some(candidate => candidate.id === slot) && activityId && activityById.has(activityId) && !isWeekendInvitationId(activityId)) {
-                valid[slot] = activityId;
-            }
+        const counts = new Map<string, number>();
+        const reserved = new Set<string>([...eveningStudy, ...examSlots, ...Object.keys(fixedCourses)]);
+        const lastSchedule = clearEveningStudySchedule(state.lastWeekSchedule || {}, state);
+        for (const [slot, id] of getOrderedScheduleEntries(lastSchedule)) {
+            const activity = activityById.get(id);
+            const count = counts.get(id) ?? 0;
+            const allowed = ALLOWED_SLOTS_MAP[id];
+            if (!activity || !SCHEDULE_SLOTS.some(candidate => candidate.id === slot) || reserved.has(slot)) continue;
+            if (isWeekendInvitationId(id) || count >= getActivityMaxSlots(id, state) || (allowed && !allowed.includes(slot as TimeSlotId))) continue;
+            if (state.isWeekend && (!offeredIds.has(id) || getActivityBlockReason(activityState, activity))) continue;
+            valid[slot] = id;
+            counts.set(id, count + 1);
         }
         return valid;
     });
 
     const [schedule, setSchedule] = useState(initialSchedule);
+    const plannedSchedule = { ...schedule, ...Object.fromEntries(courseEntries) };
+    const homeworkNeeded = getHomeworkSlotsNeeded(state);
+    const scheduledHomework = Object.values(schedule).filter(id => id === HOMEWORK_ACTIVITY_ID).length;
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-    const [showGrid, setShowGrid] = useState(!quickStart);
+    const [showGrid, setShowGrid] = useState(true);
     const [invitationId, setInvitationId] = useState<string>();
     const difficultyPreset = getDifficultyPreset(state.difficulty);
-    const hideDetails = state.difficulty === 'REALITY' || state.difficulty === 'HELL';
+    const hideDetails = state.difficulty === 'REALITY';
     const weekendStudyLimit = difficultyPreset.weekendStudyLimit;
 
     // Simulate the same sequential blocking rules used by the executor. A
     // blocked slot is created only by an activity that is itself executable;
     // invalid or unavailable activities must not reserve time for others.
-    const previewBlockedSlots = new Set<string>();
-    const previewBlockers = new Map<string, string>();
-    if (state.flags.joined_evening_study) {
-        SCHEDULE_SLOTS.filter(slot => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(slot.day))
-            .forEach(slot => {
-                previewBlockedSlots.add(slot.id);
-                previewBlockers.set(slot.id, '晚自习');
-            });
-    }
+    const previewBlockedSlots = new Set<string>([...eveningStudy, ...examSlots]);
+    const previewBlockers = new Map<string, string>(eveningStudy.map(slot => [slot, '晚自习']));
+    if (examTitle) examSlots.forEach(slot => previewBlockers.set(slot, examTitle));
     let previewStudyCount = 0;
     let previewState = activityState;
     let selectedSlotState = activityState;
@@ -88,23 +88,24 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
     const skippedReasons = new Map<string, string>();
     for (const { id: slotId } of SCHEDULE_SLOTS) {
         if (slotId === selectedSlot) selectedSlotState = previewState;
-        const actId = schedule[slotId];
+        const course = fixedCourses[slotId];
+        const actId = plannedSchedule[slotId];
         if (!actId) continue;
-        const activity = availableActivities.find(a => a.id === actId);
+        const activity = course ?? activityById.get(actId);
         const allowedSlots = activity && ALLOWED_SLOTS_MAP[activity.id];
         const learningActivity = !!activity && isLearningActivity(activity);
-        const notOfferedThisWeek = !!activity && useRandomWeekendPool && !isWeekendInvitationId(activity.id) && !offeredActivities.includes(activity);
+        const notOfferedThisWeek = !course && !!activity && useRandomWeekendPool && !isWeekendInvitationId(activity.id) && !offeredIds.has(activity.id);
         const repeatCountBefore = activity ? (previewRepeatCounts.get(activity.id) || 0) : 0;
         const reason = previewBlockedSlots.has(slotId) ? `被${previewBlockers.get(slotId)}占用`
             : !activity ? '活动已不再提供'
-            : repeatCountBefore >= getActivityMaxSlots(activity.id) ? `每周最多安排 ${getActivityMaxSlots(activity.id)} 次`
+            : repeatCountBefore >= getActivityMaxSlots(activity.id, state) ? `每周最多安排 ${getActivityMaxSlots(activity.id, state)} 次`
             : allowedSlots && !allowedSlots.includes(slotId as TimeSlotId) ? '这个时间不适合该活动'
             : activity.condition && !activity.condition(previewState) ? '本周不满足活动条件'
             : notOfferedThisWeek ? '本周未刷出该活动'
             : getActivityBlockReason(previewState, activity)
-            || (learningActivity && isStudyBlocked(previewState) ? '状态不适合学习，试试先休息' : '')
+            || (!hideDetails && learningActivity && isStudyBlocked(previewState) ? '状态不适合学习，试试先休息' : '')
             || (learningActivity && weekendStudyLimit !== undefined && previewStudyCount >= weekendStudyLimit ? '本周学习安排已达上限' : '');
-        if (reason) { skippedReasons.set(slotId, reason); continue; }
+        if (reason) { if (!course) skippedReasons.set(slotId, reason); continue; }
         if (!activity) continue;
         executableSlotIds.add(slotId);
         if (learningActivity) previewStudyCount += 1;
@@ -115,6 +116,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
 
         const repeatCount = repeatCountBefore + 1;
         previewRepeatCounts.set(activity.id, repeatCount);
+        if (hideDetails) continue;
         previewState = clampGameStateMetrics({
             ...previewState,
             ...getWeekendActivityUpdates(previewState, activity, repeatCount, true)
@@ -152,16 +154,14 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
     }
 
     const isSlotBlocked = (slotId: string) => {
-        return previewBlockedSlots.has(slotId);
+        return !!fixedCourses[slotId as TimeSlotId] || previewBlockedSlots.has(slotId);
     };
 
     const getBlocker = (slotId: string) => {
         return previewBlockers.get(slotId) || null;
     };
 
-    // Mirror the execution rules so the preview never counts blocked slots or
-    // study slots rejected by the HELL weekly limit.
-    const executableEntries = getOrderedScheduleEntries(schedule)
+    const executableEntries = getOrderedScheduleEntries(plannedSchedule)
         .filter(([slotId]) => executableSlotIds.has(slotId));
     const executableActivities = executableEntries
         .map(([, actId]) => activityById.get(actId))
@@ -184,7 +184,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
 
     if (state.isWeekend && !showGrid && recommendation) {
         const invitations = offeredActivities.filter(activity => isWeekendInvitationId(activity.id));
-        const recommendedEntries = getOrderedScheduleEntries(recommendation.schedule);
+        const recommendedEntries = getOrderedScheduleEntries({ ...recommendation.schedule, ...Object.fromEntries(courseEntries) });
         const invitationBlocked = !!invitationId && recommendation.schedule.Sat_Aft !== invitationId;
         const cost = Math.round(state.general.money - recommendation.projected.general.money);
         const projectedProject = currentProject && recommendation.projected.activeProjects.find(project => project.id === currentProject.id);
@@ -206,7 +206,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                             </fieldset>
                         )}
                         {invitationBlocked && <p role="status" className="mt-3 text-sm text-rose-700">{tr("当前状态无法安排这项邀约。可以另选一项或手动调整。")}</p>}
-                        {recommendation.note && <p className="mt-3 text-sm text-slate-600">{tr(recommendation.note)}</p>}
+                        {!hideDetails && recommendation.note && <p className="mt-3 text-sm text-slate-600">{tr(recommendation.note)}</p>}
                         <ul className="mt-4 divide-y divide-slate-200 rounded-xl bg-slate-50 px-3 text-sm" aria-label={tr("推荐安排")}>
                             {recommendedEntries.map(([slot, id]) => (
                                 <li key={slot} className="grid grid-cols-[6rem_1fr] gap-2 py-2.5">
@@ -221,7 +221,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                                 <span>{tr("疲劳 ")}{Math.round(state.fatigue)} → {Math.round(recommendation.projected.fatigue)}</span>
                             )}
                             {cost > 0 && <span>{tr("预计花费 ")}{cost} {tr("元")}</span>}
-                            {currentProject && (
+                            {!hideDetails && currentProject && (
                                 <span className="text-indigo-800">《{tr(currentProject.title)}》{tr(projectedProject
                                     ? `执行后剩 ${getProjectSessionsLeft(projectedProject)} 次，第 ${currentProject.deadlineWeek} 周截止。`
                                     : '本周可完成。')}</span>
@@ -244,7 +244,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                 <div className={`${selectedSlot ? 'hidden md:flex' : 'flex'} flex-1 p-4 md:p-6 flex-col min-h-0 overflow-y-auto custom-scroll md:border-r border-b md:border-b-0 border-slate-200 bg-white`}>
                     <div className="flex justify-between items-start gap-2 mb-1 md:mb-2">
                         <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{tr("周计划时间表")}</h2>
-                        {quickStart && <button type="button" onClick={() => { setShowGrid(false); setSelectedSlot(null); }} className="rounded-lg px-2 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-50">{tr("返回周末安排")}</button>}
+                        {recommendation && <button type="button" onClick={() => { setShowGrid(false); setSelectedSlot(null); }} className="rounded-lg px-2 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-50">{tr("查看推荐")}</button>}
                         {!state.isWeekend && onClose && (
                             <button type="button" onClick={onClose} aria-label={tr("关闭")} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors shrink-0">
                                 <i className="fas fa-times"></i>
@@ -260,7 +260,11 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                         <button type="button" onClick={() => { setSchedule({}); setSelectedSlot(null); }} disabled={!Object.keys(schedule).length} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40">{tr("清空安排")}</button>
                         <button type="button" onClick={() => { setSchedule({ ...initialSchedule }); setSelectedSlot(null); }} disabled={!Object.keys(initialSchedule).length} className="px-3 py-1.5 rounded-lg border border-indigo-100 text-xs font-bold text-indigo-600 hover:bg-indigo-50 disabled:opacity-40">{tr("恢复上次")}</button>
                     </div>
-                    {recommendation?.note && <p className="mb-3 text-xs text-slate-600">{tr(recommendation.note)}</p>}
+                    {homeworkNeeded > 0 && <p className="mb-3 text-sm font-semibold text-indigo-800">{tr(`作业安排 ${scheduledHomework} / ${homeworkNeeded} 段`)}</p>}
+                    {state.activeChallengeId === 'c_sleep_king' && !state.hasSleptThisWeek && (
+                        <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">{tr("嗜睡挑战：每周必须完成一次补觉或睡觉事件。")}</p>
+                    )}
+                    {!hideDetails && recommendation?.note && <p className="mb-3 text-xs text-slate-600">{tr(recommendation.note)}</p>}
                     {skippedReasons.size > 0 && (
                         <div className="mb-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900" role="status">
                             <p className="font-bold mb-2">{tr("有 ")}{skippedReasons.size} {tr("项安排无法执行。")}</p>
@@ -275,17 +279,22 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                             }}>{tr("清除这些安排")}</button>
                         </div>
                     )}
+                    {eveningStudy.length > 0 && <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">
+                        {tr(eveningStudy.includes('Fri_Eve') ? '周一至周五晚固定晚自习' : '周一至周四晚固定晚自习')}
+                    </p>}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 md:gap-3">
-                        {['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
+                        {['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+                            .filter(day => !SCHEDULE_SLOTS.some(slot => slot.day === day && eveningStudy.includes(slot.id)))
+                            .map(day => (
                             <div key={day} className={`flex flex-col gap-2 p-2 md:p-3 rounded-xl border ${day === 'Sat' || day === 'Sun' ? 'col-span-full bg-indigo-50/40 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
                                 <h3 className="font-bold text-slate-700 text-sm md:text-base">{tr({ Mon: '周一', Tue: '周二', Wed: '周三', Thu: '周四', Fri: '周五', Sat: '周六', Sun: '周日' }[day])}</h3>
                                 <div className={`grid gap-2 ${day === 'Sat' ? 'grid-cols-2 sm:grid-cols-4' : day === 'Sun' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'}`}>
                                     {SCHEDULE_SLOTS.filter(s => s.day === day).map(slot => {
+                                        const course = fixedCourses[slot.id];
                                         const isBlocked = isSlotBlocked(slot.id);
                                         const blocker = getBlocker(slot.id);
                                         const actId = schedule[slot.id];
                                         const act = activityById.get(actId);
-                                        const isRetained = !!act && useRandomWeekendPool && !offeredActivities.some(activity => activity.id === act.id);
                                         const isSelected = selectedSlot === slot.id;
                                         const willSkip = !!act && !isBlocked && !executableSlotIds.has(slot.id);
                                         
@@ -305,10 +314,12 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                                                     }`}
                                                 >
                                                     <span className="text-xs font-bold text-slate-500 mb-1">{tr(slot.label)}</span>
-                                                    {isBlocked ? (
+                                                    {course ? (
+                                                        <span className="text-xs font-bold leading-tight text-indigo-800">{tr(course.name)}{!executableSlotIds.has(slot.id) && <span className="block text-amber-700">{tr("暂不可执行")}</span>}</span>
+                                                    ) : isBlocked ? (
                                                         <span className="text-xs text-slate-600 font-bold leading-tight">{tr("被占用 (")}{tr(blocker)})</span>
                                                     ) : act ? (
-                                                        <span className="text-xs font-bold text-blue-800 leading-tight">{tr(act.name)}{willSkip && <span className="block text-amber-700 font-medium">{tr("暂不可执行")}</span>}{isRetained && <span className="block text-slate-500 font-medium">{tr("计划保留")}</span>}</span>
+                                                        <span className="text-xs font-bold text-blue-800 leading-tight">{tr(act.name)}{willSkip && <span className="block text-amber-700 font-medium">{tr("暂不可执行")}</span>}</span>
                                                     ) : (
                                                         <span className="text-xs text-slate-500">{tr("＋ 安排活动")}</span>
                                                     )}
@@ -332,7 +343,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
 
                 {/* Right: Activity Selection */}
                 <div className={`w-full md:w-80 bg-slate-100 p-4 md:p-6 flex flex-col md:h-full ${selectedSlot ? 'flex-1 min-h-0 md:flex-none' : 'shrink-0'}`}>
-                    <div className={`${selectedSlot ? 'hidden md:block' : ''} md:mb-4 rounded-xl border border-slate-200 bg-white px-3 py-2.5`} aria-live="polite">
+                    {!hideDetails && <div className={`${selectedSlot ? 'hidden md:block' : ''} md:mb-4 rounded-xl border border-slate-200 bg-white px-3 py-2.5`} aria-live="polite">
                         <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-black uppercase tracking-wider text-slate-500">{tr("计划预览")}</span>
                             <span className="text-xs font-bold text-slate-600">{executableActivities.length} {tr("项可执行")}</span>
@@ -380,7 +391,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                         {repeatedActivities.length > 0 && (
                             <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{tr(repeatedActivities.join('、'))}{tr("重复安排后，正向收益会逐次减少。")}</p>
                         )}
-                    </div>
+                    </div>}
                     {selectedSlot ? (
                         <>
                             <div className="flex items-center gap-3 mb-3 md:mb-4">
@@ -400,7 +411,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                                 >
                                     {tr("清空此时间段")}</button>
                                  {offeredActivities.map(act => {
-                                    const maxSlots = getActivityMaxSlots(act.id);
+                                    const maxSlots = getActivityMaxSlots(act.id, state);
                                     const currentCount = Object.values(schedule).filter(v => v === act.id).length;
                                         const allowedSlots = ALLOWED_SLOTS_MAP[act.id];
                                     const isAllowedSlot = !allowedSlots || allowedSlots.includes(selectedSlot as TimeSlotId);
@@ -412,7 +423,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                                     // activity must not consume the HELL weekly limit.
                                     const studyCountAfterReplacingSlot = previewStudyCount - (currentSlotIsExecutableStudy ? 1 : 0);
                                     const isStudyLimit = isLearningActivity(act) && weekendStudyLimit !== undefined && studyCountAfterReplacingSlot >= weekendStudyLimit;
-                                    const isActivityStudyBlocked = isLearningActivity(act) && isStudyBlocked(selectedSlotState);
+                                    const isActivityStudyBlocked = !hideDetails && isLearningActivity(act) && isStudyBlocked(selectedSlotState);
                                     const activityBlockReason = getActivityBlockReason(selectedSlotState, act);
                                     const countOutsideSelectedSlot = currentCount - (schedule[selectedSlot] === act.id ? 1 : 0);
                                     const isAtLimit = countOutsideSelectedSlot >= maxSlots || !isAllowedSlot || isStudyLimit || isActivityStudyBlocked || !!activityBlockReason;
@@ -431,7 +442,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose, quickStart
                                     >
                                         <div className="flex items-center gap-2 md:gap-3 mb-1">
                                             <i className={`fas ${act.icon} text-indigo-500 group-hover:scale-110 transition-transform`}></i>
-                                            <span className="font-bold text-slate-800 text-sm md:text-base">{tr(act.name)}</span>
+                                            <span className="font-bold text-slate-800 text-sm md:text-base">{tr(act.id === 'w_mo_proof' ? MO_PRACTICE_TITLES[getMoPracticeTopic(state)] : act.name)}</span>
                                             {currentCount > 0 && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{currentCount}/{maxSlots}</span>}
                                             {!isAllowedSlot && <span className="text-[10px] bg-red-100 text-red-500 px-1.5 py-0.5 rounded-full">{tr("时间不符")}</span>}
                                             {isStudyLimit && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full">{tr("本周已达学习上限")}</span>}

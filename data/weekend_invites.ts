@@ -1,6 +1,5 @@
 import { Phase, type GameState, type WeekendActivity } from '../types';
-import { restoreRelationshipName } from './campus_names';
-import { modifyOI, modifySub } from './utils';
+import { modifyOI } from './utils';
 
 const inviteWeeks = {
     [Phase.SEMESTER_1]: [8, 16],
@@ -18,9 +17,7 @@ const timesAttended = (state: GameState, id: string) => Number(state.flags[id] |
 const attended = (state: GameState, id: string) => ({ ...state.flags, [id]: timesAttended(state, id) + 1 });
 
 const knowsPeer = (state: GameState) => Number(state.flags.ta_favorability || 0) >= 8;
-const peerName = (state: GameState) => state.romancePartner || knowsPeer(state)
-    ? restoreRelationshipName(state.romancePartner || state.flags.relationship_name, state.relationshipProfileId)
-    : '同桌';
+const peerName = (state: GameState) => state.romancePartner || knowsPeer(state) ? 'TA' : '同桌';
 
 export const getWeekendInvitationText = (state: GameState, id: string) => {
     const returning = timesAttended(state, id) > 0;
@@ -39,16 +36,14 @@ export const getWeekendInvitationText = (state: GameState, id: string) => {
 export const WEEKEND_INVITATIONS: WeekendActivity[] = [
     {
         id: 'w_invite_contest', name: '和队友练习', icon: 'fa-pen-to-square', type: 'STUDY',
-        condition: state => onInviteWeek(state) && state.competition !== 'None',
+        condition: state => onInviteWeek(state) && state.competition === 'OI',
         resultText: state => timesAttended(state, 'w_invite_contest')
             ? '你把上次没讲清的题重新讲了一遍。队友核对了你的例子。'
             : '你们交了练习卷，把一道没做完的题留给下次。',
         action: state => ({
             flags: attended(state, 'w_invite_contest'),
             general: { ...state.general, experience: state.general.experience + (timesAttended(state, 'w_invite_contest') ? 4 : 2) },
-            ...(state.competition === 'OI'
-                ? { oiStats: modifyOI(state, { dp: 0.45, misc: 0.35 }) }
-                : { subjects: modifySub(state, ['math'], 0.8) })
+            oiStats: modifyOI(state, { dp: 0.45, misc: 0.35 })
         })
     },
     {
