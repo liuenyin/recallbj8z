@@ -24,7 +24,7 @@ export const CHANGELOG_DATA = [
     { version: 'v1.8/bugfix', date: '2026-09-05', content: ['统一文化课考试总分为750分：语数英各150分，三门选考各100分。', '修复熬夜打游戏错误恢复疲劳、社团选择期间主循环继续推进的问题。', '修复时间表预览与执行不一致、损坏存档反复显示可继续，以及AI事件绕过恋爱路线直接确立关系的问题。'] },
     { version: 'v1.7/stability', date: '2026-09-01', content: ['修复事件队列在条件变化后卡住或丢失的问题，周计划阻塞规则与预览保持一致。', '修复多账号切换、AI 旧字段兼容、OI 正式比赛履历重复记录和地狱难度数值显示问题。', '清理未接通的小游戏/竞赛弹窗状态，并补充流程与数据回归测试。'] },
     { version: 'v1.6/accounts-and-hell', date: '2026-08-30', content: ['新增极限难度：健康低于10立即结束，心态低于20或疲劳超过90不能学习，学习收益为2/3，同学更强，小卖部价格翻倍，开局天赋点为-1。', '新增本地账号与多存档管理；旧版游客存档仍可继续读取。', '本轮暂缓背景图和事件配图，继续优先打磨玩法内容与可读性。'] },
-    { version: 'v1.5/oi-route', date: '2026-08-29', content: ['完善 OI 路线：加入外校集训、训练组模拟赛、公开赛出题、验题上线和赛后游记。', '按八中校内竞赛资源有限的背景调整省选/APIO 门槛，持续训练和跨校交流比一次高分更重要。'] },
+    { version: 'v1.5/oi-route', date: '2026-08-29', content: ['完善 OI 路线：加入外校集训、训练组模拟赛、公开赛出题、验题上线和赛后游记。', '省选/APIO 会参考竞赛成绩和持续训练记录。'] },
     { version: 'v1.4/gameplay', date: '2026-08-29', content: ['新增兴奋值：影响学习、体育和休息收益。', '新增【地狱】难度，加入课堂效率、疲劳和周末学习限制。', '调整同学平均水平与考试排名，兴奋剂售价调整为150。'] },
     { version: 'v1.3/beta', date: '2026-1-22', content: ['新增【无限重开 AI版】，接入 Gemini API 实现动态事件。', '优化了负债逻辑，现在负债会有分级 Debuff。'] },
     { version: 'v1.2/testing', date: '2026-1-21', content: ['实装了每日挑战','修复了已知问题'] },
@@ -88,7 +88,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
     },
     'REALITY': {
         label: '现实',
-        desc: '这就是真实的人生。只有在此模式下可解锁成就。',
+        desc: '这就是真实的人生。现实与地狱模式下均可解锁成就。',
         color: 'bg-rose-600',
         stats: {
             mindset: 30,
@@ -110,7 +110,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
     },
     'HELL': {
         label: '地狱',
-        desc: '极限生存：健康低于10会结束，心态低于20或疲劳超过90不能学习；同学更强、学习收益为2/3、商品价格翻倍，开局天赋点为-1。',
+        desc: '极限生存：健康低于10会结束，心态低于20或疲劳超过90不能学习；每周最多安排1次学习、学习收益为2/3、同学更强、商店价格翻倍，开局天赋点为-1。',
         color: 'bg-slate-900',
         stats: {
             mindset: 25,
@@ -128,7 +128,7 @@ export const DIFFICULTY_PRESETS: Record<Exclude<Difficulty, 'CUSTOM'>, Difficult
         learningRewardMultiplier: 2 / 3,
         fatigueGainMultiplier: 1.5,
         restRecoveryMultiplier: 0.65,
-        peerAverage: 0.82,
+        peerAverage: 0.74,
         weekendStudyLimit: 1,
         healthDeathThreshold: 10,
         studyMindsetThreshold: 20,

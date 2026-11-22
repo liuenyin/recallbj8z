@@ -1,5 +1,4 @@
 import { SEMESTER_2_EVENTS, WINTER_BREAK_EVENTS } from "./events_semester2";
-import { STUDY_TOUR_EVENTS } from "./events_study_tour";
 import { OI_ROUTE_EVENTS } from './events_oi_route';
 import { MO_EVENTS } from './events_mo';
 import { OI_EVENTS } from "./events_oi";
@@ -10,7 +9,10 @@ import { RIVAL_EVENTS } from "./events_character";
 import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats, EventChoice, Phase } from '../types';
 import { modifySub, modifyOI, mapAiEventToGameEvent } from './utils';
 import { STATUSES } from './mechanics';
-import { CHAINED_EVENTS, SCIENCE_FESTIVAL_EVENT, NEW_YEAR_GALA_EVENT } from './event_defs';
+import { CHAINED_EVENTS, NEW_YEAR_GALA_EVENT } from './event_defs';
+import { SCIENCE_FESTIVAL_EVENTS } from './events_science_festival';
+import { CAMPUS_PROJECT_EVENTS } from './events_campus_project';
+import { COMPETITION_SUMMER_WEEKS, MILITARY_TRAINING_WEEKS } from './game_flow';
 import { clearWeekdaySchedule } from './timetable';
 import AI_EVENTS from './ai_generated_events.json';
 
@@ -40,7 +42,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_goal_selection',
         title: '暑假的抉择',
-        description: '在正式开始高中生活前，你需要决定这漫长八周的主攻方向。',
+        description: '录取通知书到了。军训前这段时间，你准备怎么过？',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',
@@ -48,53 +50,60 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         choices: [
             { 
                 text: '信息竞赛(OI)', 
+                hint: '暑假 8 周，提前练算法。学年中会有额外竞赛，周末自由时间更少。',
+                resultDescription: '你把暑假留给算法入门。开学后还要给线上赛和机房训练留时间。',
                 action: (s) => ({
                 competition: 'OI', 
-                log: [...s.log, { message: "你选择了信息竞赛(OI)。注意：这条线会丧失很多普通事件，且周末自由时间减少", type: 'warning', timestamp: Date.now() }],
+                totalWeeksInPhase: COMPETITION_SUMMER_WEEKS,
                 general: { ...s.general, experience: s.general.experience + 10 },
                 oiStats: { ...s.oiStats, misc: 5 }
                 }) 
             },
             {
                 text: '数学竞赛(MO)',
+                hint: '暑假 8 周，提前练数学。入学后有组队、竞赛和审稿。',
+                resultDescription: '你给自己留了一个完整暑假做数学准备。开学后可以试着找人一起训练。',
                 action: (s) => ({
                     competition: 'MO',
-                    log: [...s.log, { message: '你选择了数学竞赛(MO)。接下来会遇到训练、组队和命题的取舍。', type: 'info', timestamp: Date.now() }],
+                    totalWeeksInPhase: COMPETITION_SUMMER_WEEKS,
                     general: { ...s.general, experience: s.general.experience + 8 },
                     subjects: modifySub(s, ['math'], 3)
                 })
             },
             {
                 text: '专注课内综合', 
+                hint: '较快入校。正常参加分班、社团招新和校园活动。',
+                resultDescription: '你简单理了理课本和行李，把更多精力留给开学后的班级生活。',
                 action: (s) => ({ 
                 competition: 'None', 
                 general: { ...s.general, efficiency: s.general.efficiency + 2 }
                 }) 
             },
             {
-                text: '什么玩意，先睡一觉再说',
+                text: '先补觉',
+                hint: '较快入校。先恢复体力，适合嗜睡挑战。',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 5, health: s.general.health + 5  }, sleepCount: (s.sleepCount || 0) + 1,
-                    log: [...s.log, { message: "磨刀不误砍柴工，睡饱了才有力气学习。", type: 'success', timestamp: Date.now()}]
+                    log: [...s.log, { message: '你关掉闹钟，补了个觉。', type: 'success', timestamp: Date.now()}]
                 })
             }
         ]
     },
     {
         id: 'sum_city_walk',
-        title: '出去走走吧！',
-        description: '去学校周边转转，顺便干点啥？',
+        title: '去学校周边看看',
+        description: '你坐车到了学校附近。离回家吃饭还有一小时。',
         type: 'positive',
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { 
-                text: '花几块钱买点吃的？', 
+                text: '买点吃的',
                 action: (s) => ({ 
                     general: { ...s.general, money: s.general.money - 2, experience: s.general.experience + 2, romance: s.general.romance + 1 } 
                 }) 
             },
                 { 
-                text: 'Citywalk', 
+                text: '沿街走一圈',
                 action: (s) => {
                     const rand = Math.random();
                     if (rand < 0.2) return { general: { ...s.general, romance: s.general.romance + 1, experience: s.general.experience + 2, mindset: s.general.mindset + 1 } };
@@ -102,10 +111,10 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
                 }
             },
             {
-                text: '找个草坪睡大觉',
+                text: '在长椅上睡一会儿',
                 action: (s) => ({
                     general: { ...s.general, health: s.general.health + 2, mindset: s.general.mindset + 3 } , sleepCount: (s.sleepCount || 0) + 1,
-                    log: [...s.log, { message: "阳光，草地，还有一个做白日梦的你。", type: 'success', timestamp: Date.now() }]
+                    log: [...s.log, { message: '你在长椅上睡了一会儿，醒来刚好赶上回家的车。', type: 'success', timestamp: Date.now() }]
                 })
             }
         ]
@@ -113,13 +122,13 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_water_group',
         title: '新生群潜水',
-        description: '你加入了本届八中新生群。群里消息99+，有人在爆照，有人在装弱，似乎还有学长学姐。',
+        description: '你加入了八中新生群。有人问军训要带什么，有位高二学生发了去操场的路线。',
         type: 'neutral',
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
-            { text: '膜拜大佬', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 0.5, experience: s.general.experience + 2, mindset: s.general.mindset - 2 } }) },
-            { text: '龙王喷水', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 2, mindset: s.general.mindset + 3, experience: s.general.experience - 1 } }) },
-            { text: '潜水观察', action: (s) => ({ general: { ...s.general, experience: s.general.experience + 1 } }) },
+            { text: '问问高二学生还要带什么', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 0.5, experience: s.general.experience + 2, mindset: s.general.mindset - 2 } }) },
+            { text: '和其他新生聊几句', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 2, mindset: s.general.mindset + 3, experience: s.general.experience - 1 } }) },
+            { text: '把路线存到手机里', action: (s) => ({ general: { ...s.general, experience: s.general.experience + 1 } }) },
             { text: '看着群消息睡着了', action: (s) => ({ general: { ...s.general, health: s.general.health + 1  }, sleepCount: (s.sleepCount || 0) + 1 }) }
         ]
     },
@@ -208,18 +217,15 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_reunion',
         title: '初中聚会',
-        description: '曾经的同学们聚在一起，有人欢喜有人愁。你看到了那个熟悉的身影。',
+        description: '曾经的同学们聚在一起，有人欢喜有人愁。你也注意到了同样将去高中的同龄人。',
         type: 'neutral',
         once: true,
         triggerType: 'RANDOM',
         choices: [
             { 
-                text: '趁机表白！',
-                condition: canPursueRomance,
-                action: (s) => {
-                    const success = Math.random() < Math.min(0.8, 0.2 + Number(s.flags.ta_favorability || 0) / 125);
-                    return { chainedEvent: success ? CHAINED_EVENTS['sum_confess_success'] : CHAINED_EVENTS['sum_confess_fail'] };
-                }
+                text: '主动打招呼，约好开学见',
+                resultDescription: '你们简单聊了几句近况，彼此约好九月开学再慢慢熟悉。',
+                action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, romance: s.general.romance + 3 } })
             },
             { text: '畅谈理想', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 10 } }) },
             { text: '默默干饭', action: (s) => ({ general: { ...s.general, health: s.general.health + 5 } }) }
@@ -312,7 +318,7 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
         choices: [
             { text: '大声吼出来', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 2, romance: s.general.romance + 2 } }) },
             { text: '默默鼓掌', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 2 } }) },
-            { text: '靠着旁边同学肩膀睡着了喵', action: (s) => ({ general: { ...s.general, health: s.general.health + 1 }, sleepCount: (s.sleepCount || 0) + 1  }) }
+            { text: '靠着椅背睡一会儿', action: (s) => ({ general: { ...s.general, health: s.general.health + 1 }, sleepCount: (s.sleepCount || 0) + 1  }) }
         ]
     },
     {
@@ -325,6 +331,28 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
             { text: '聊八卦', action: (s) => ({ general: { ...s.general, romance: s.general.romance + 5 } }) },
             { text: '聊理想', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, experience: s.general.experience + 5 } }) },
             { text: '赶紧睡觉', action: (s) => ({ general: { ...s.general, health: s.general.health + 5 }, sleepCount: (s.sleepCount || 0) + 1 }) }
+        ]
+    },
+    {
+        id: 'mil_closing',
+        title: '军训最后一天',
+        description: '会操结束，队伍散开，大家准备把行李搬上车。排在你前面的同学回头喊你，问要不要一起拍张照。',
+        type: 'positive',
+        triggerType: 'FIXED',
+        fixedWeek: 1,
+        condition: state => state.totalWeeksInPhase === MILITARY_TRAINING_WEEKS,
+        choices: [
+            {
+                text: '过去站一排，拍完再搬行李',
+                resultDescription: '拍照时大家都在笑。后来上车才发现，你已经能叫出旁边好几个人的名字了。',
+                action: state => ({ general: { ...state.general, mindset: state.general.mindset + 3, experience: state.general.experience + 1 } })
+            },
+            {
+                text: '先把行李放好，上车歇一会儿',
+                tags: ['rest'],
+                resultDescription: '车窗外有人还在挥手。你把帽子收进包里，靠着座椅慢慢缓过劲来。',
+                action: state => ({ fatigue: state.fatigue - 5 })
+            }
         ]
     }
 ];
@@ -352,25 +380,6 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
                 text: '我不上，我要自由！', 
                 action: (s) => ({ 
                     general: { ...s.general, mindset: s.general.mindset + 5 }
-                }) 
-            }
-        ]
-    },
-    {
-        id: 'evt_daoist_dream',
-        title: '庄周梦蝶',
-        description: '你睡得太久了... 突然间，你感到天地灵气汇聚，耳边传来了缥缈的大道梵音：“骨骼惊奇，实乃修仙奇才……” 你穿越了？！',
-        triggerType: 'CONDITIONAL',
-        condition: (s) => (s.sleepCount || 0) >= 10,
-        once: true,
-        type: 'positive',
-        choices: [
-            { 
-                text: '以《五年高考三年模拟》入道！', 
-                action: (s) => ({ 
-                    flags: { ...s.flags, daoist_cultivation: 1 },
-                    general: { ...s.general, mindset: s.general.mindset + 30, health: s.general.health + 20, experience: s.general.experience + 50 },
-                    log: [...s.log, { message: '你踏上了荒诞的修仙之路！', type: 'success', timestamp: Date.now() }]
                 }) 
             }
         ]
@@ -421,7 +430,7 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
             }
         ]
     },
-    SCIENCE_FESTIVAL_EVENT,
+    ...SCIENCE_FESTIVAL_EVENTS,
     NEW_YEAR_GALA_EVENT,
     {
         id: 'evt_crush_encounter',
@@ -441,32 +450,6 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
                 }) 
             },
             { text: '无视', action: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 1 } }) }
-        ]
-    },
-    {
-        id: 'evt_confession_generic',
-        title: '心动的信号',
-        description: '在校园的走廊里，你又遇到了那个让你心动的人。今天的阳光正好，氛围也不错。',
-        condition: (s) => canPursueRomance(s) && !s.flags.ready_for_confession && s.general.romance >= 20,
-        triggerType: 'RANDOM',
-        type: 'positive',
-        choices: [
-            { 
-                text: '勇敢表白！', 
-                action: (s) => {
-                    const success = Math.random() < Math.min(0.9, 0.15 + Number(s.flags.ta_favorability || 0) / 100);
-                    return { chainedEvent: success ? CHAINED_EVENTS['sum_confess_success'] : CHAINED_EVENTS['sum_confess_fail'] };
-                }
-            },
-            { 
-                text: '就，再多看一眼嘛…… 真好看', 
-                action: (s) => ({ 
-                    general: { ...s.general, mindset: s.general.mindset + 1, romance: s.general.romance + 2 },
-                    activeStatuses: !s.activeStatuses.find(st => st.id === 'crush') ? [...s.activeStatuses, { ...STATUSES['crush'], duration: 2 }] : s.activeStatuses,
-                    log: [...s.log, { message: "你选择默默暗恋，这种感觉也不错。", type: 'info', timestamp: Date.now() }]
-                }) 
-            },
-            { text: '回班睡觉', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 0 }, sleepCount: (s.sleepCount || 0) + 1 }) }
         ]
     },
     {
@@ -649,14 +632,14 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     {
         id: 's1_class_board_finish',
         title: '板报交稿前夜',
-        description: (s) => s.flags.class_board_role === 'research' ? '你找来的素材已经贴上板报，同学想请你帮忙检查最后几段文字。放学了，黑板前还剩你们两个人。' : '板报的截止时间到了。你画的标题已经写好，剩下的空白却像在等你做最后决定。',
+        description: (s) => s.flags.class_board_role === 'research' ? '你找来的素材已经剪好贴上黑板，负责画板的同学站在梯凳旁叫住你，想请你帮忙核对最后几行文字的落款。' : '板报评选截止就在明早。标题和边框已经画齐，右下角留出来的一块空白还得今晚收个尾。',
         condition: (s) => s.phase === Phase.SEMESTER_1 && s.flags.class_board_started === true && s.week >= Math.max(6, Number(s.flags.class_board_start_week ?? 5) + 1) && !s.flags.class_board_finished,
         triggerType: 'CONDITIONAL',
         once: true,
         type: 'positive',
         choices: [
-            { text: '熬一会儿，把细节补完', action: (s) => ({ flags: { ...s.flags, class_board_finished: true, class_board_finish_week: s.week }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 6, mindset: s.general.mindset + 2 }, fatigue: s.fatigue + 5, log: [...s.log, { message: '板报赶在早读前完成，路过的同学都停下来多看了一眼。', type: 'success', timestamp: Date.now() }] }) },
-            { text: '保留空白，交一份清爽的', action: (s) => ({ flags: { ...s.flags, class_board_finished: true, class_board_finish_week: s.week }, general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 4 } }) }
+            { text: '晚走一会儿，把细节补完', action: (s) => ({ flags: { ...s.flags, class_board_finished: true, class_board_finish_week: s.week }, subjects: modifySub(s, ['chinese'], 2), general: { ...s.general, experience: s.general.experience + 6, mindset: s.general.mindset + 2 }, fatigue: s.fatigue + 5, log: [...s.log, { message: '板报赶在早读前完成，路过的同学都停下来多看了一眼。', type: 'success', timestamp: Date.now() }] }) },
+            { text: '留白即可，按现在的版面定稿', action: (s) => ({ flags: { ...s.flags, class_board_finished: true, class_board_finish_week: s.week }, general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 4 } }) }
         ]
     },
 ];
@@ -665,18 +648,18 @@ SEMESTER_1_EVENTS_RAW.push({
     id: 's1_class_board_reunion',
     title: '有人记得那块板报',
     description: (s) => s.flags.class_board_role === 'research'
-        ? '整理复习资料时，一起做板报的同学把笔记递给你：“上次你找素材帮了大忙，这次换我。周末要不要一起看看？”'
-        : '一起画板报的同学在走廊叫住你：“那次你忙到最后，我一直记着。周末一起看错题吧，我整理了一份。”',
+        ? '月考前整理讲义时，一起出板报的同学把一份手抄笔记放到了你桌角：“上次找素材多亏你了，这门选修我笔记记全了，给你借走看看。”'
+        : '一起忙完黑板报的同学在走廊叫住你：“前阵子你画完最后半块才走，我一直记着。周末有空吗？我把这周错题理了一份，一起看看。”',
     triggerType: 'CONDITIONAL', once: true, type: 'positive',
     condition: s => s.phase === Phase.SEMESTER_1 && s.flags.class_board_finished === true
         && s.week >= Number(s.flags.class_board_finish_week ?? 6) + 2 && !s.flags.class_board_reunited,
     choices: [
-        { text: '一起看看，互相讲讲', tags: ['social'],
-          resultDescription: '你们各自讲明白了一道题。临走时约好，有不懂的地方还可以来找对方。',
+        { text: '好，放学一起看看错题', tags: ['social'],
+          resultDescription: '你们各自讲明白了一道题，临走约好后面不懂的随时问。',
           action: s => ({ flags: { ...s.flags, class_board_reunited: true },
             subjects: modifySub(s, ['math'], 2), general: { ...s.general, mindset: s.general.mindset + 3 } }) },
-        { text: '收下笔记，改天请你喝饮料', tags: ['social'],
-          resultDescription: '你先记下这份好意。板报早已擦掉，一起忙过的人却没有就此变成陌生人。',
+        { text: '收下笔记，顺手买两瓶饮料', tags: ['social'],
+          resultDescription: '黑板报在月底就会擦掉重写，一起在空教室里站到天黑的那晚还挺难忘的。',
           action: s => ({ flags: { ...s.flags, class_board_reunited: true },
             general: { ...s.general, mindset: s.general.mindset + 4, romance: s.general.romance + 2 } }) }
     ]
@@ -716,34 +699,46 @@ const PARSED_AI_EVENTS = (AI_EVENTS as any[]).reduce((acc: GameEvent[], e: any, 
 
 const CAMPUS_FOLLOWUPS: GameEvent[] = [
     {
-        id:'campus_pen_return',title:'笔债笔偿',type:'positive',triggerType:'CONDITIONAL',once:true,
+        id:'campus_pen_return',title:'借笔记顺便还个情',type:'positive',triggerType:'CONDITIONAL',once:true,
         condition:s => s.flags.campus_pen_help === true && s.flags.campus_pen_phase === s.phase && s.week > Number(s.flags.campus_pen_week),
-        description:'上次借你笔的同桌把错题本推过来：“你上回帮我带本子，这次请你看独家错解。正确答案在下一页，别学反了。”',
+        description:'上次借你笔的同桌把整理好的数学错题本推过来：“上回谢谢你帮我交练习册，这几道容易跳坑的大题标了红色，借你对照着看。”',
         choices:[
-            {text:'来，互相展示一下知识盲区',tags:['study'],resultDescription:'你们一人讲一道题。两个不会的人凑在一起，居然凑出了一个会的。',
+            {text:'凑一起过一遍上面标出来的几道题',tags:['study'],resultDescription:'你俩一道题拆开对了一遍步骤，原来平时漏看的都是同一个角标。',
              action:s=>({subjects:modifySub(s,['math'],2),flags:{...s.flags,campus_pen_help:false}})},
-            {text:'今天先歇歇，陪我去接水',tags:['social'],resultDescription:'错题明天再说。你们在走廊聊了五分钟，脑子里那台风扇终于不转了。',
+            {text:'道谢收好本子，约好下课陪去接水',tags:['social'],resultDescription:'趁课间走去水房聊了五分钟最近几科的作业量，回来再坐下做题清醒了些。',
              action:s=>({general:{...s.general,mindset:s.general.mindset+5},flags:{...s.flags,campus_pen_help:false}})}
         ]
     },
     {
         id:'campus_card_return',title:'失主带着饮料来了',type:'positive',triggerType:'CONDITIONAL',once:true,
         condition:s => s.flags.campus_card_help === true && s.flags.campus_card_phase === s.phase && s.week > Number(s.flags.campus_card_week),
-        description:'饭卡的失主在门口探头：“终于找到你了。上次多亏你跑一趟，不然我午饭只能吃空气。”说着递来一盒饮料。',
+        description:'那天掉饭卡的同学趁大课间特意跑来你们班门口，手里拎了盒利乐包装的茶饮：“找过你两趟了，上回真的谢啦。”',
         choices:[
-            {text:'那我就不客气了',tags:['social'],resultDescription:'饮料是常温的，谢意倒挺热乎。你们交换了名字，以后在食堂又多一个能打招呼的人。',
+            {text:'顺手收下饮料道谢',tags:['social'],resultDescription:'你们隔着窗台又多聊了几句各班进度，加完联系方式各自回去上课。',
              action:s=>({general:{...s.general,mindset:s.general.mindset+4,romance:s.general.romance+2},flags:{...s.flags,campus_card_help:false}})},
-            {text:'饮料留着，下次帮我讲道物理题',tags:['study'],resultDescription:'对方答应得很爽快。饭卡没有白送，物理终于有人救。',
+            {text:'谢了饮料，顺便约好问一道物理难题',tags:['study'],resultDescription:'对方立刻记下题号，午休拿着草稿纸来给你的受力分析画了个清清楚楚的图。',
              action:s=>({subjects:modifySub(s,['physics'],2),flags:{...s.flags,campus_card_help:false}})}
         ]
     }
 ];
 
+const HOLIDAY_ROMANCE_IDS = new Set([
+    'romance_confession',
+    'romance_after_rejection',
+    'romance_friend_callback',
+    'romance_space_callback',
+    'romance_dating_park',
+    'romance_missed_message',
+    'romance_repair',
+    'romance_year_note'
+]);
+const HOLIDAY_ROMANCE_EVENTS = ROMANCE_EVENTS.filter(event => HOLIDAY_ROMANCE_IDS.has(event.id));
+
 export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.INIT]: [],
     [Phase.SUMMER]: injectSleep(SUMMER_EVENTS_RAW),
     [Phase.MILITARY]: injectSleep(MILITARY_EVENTS_RAW),
-    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.SEMESTER_1]: injectSleep([...SEMESTER_1_EVENTS_RAW, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_1), ...RIVAL_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...ROMANCE_EVENTS]),
     [Phase.SELECTION]: [],
     [Phase.PLACEMENT_EXAM]: [],
     [Phase.MIDTERM_EXAM]: [],
@@ -755,9 +750,9 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.FINAL_EXAM_2]: [],
     [Phase.ENDING]: [],
     [Phase.WITHDRAWAL]: [],
-    [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...ROMANCE_EVENTS]),
-    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...RIVAL_EVENTS, ...STUDY_TOUR_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...ROMANCE_EVENTS]),
-    [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...ROMANCE_EVENTS]),
+    [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
+    [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_2), ...RIVAL_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS, ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...ROMANCE_EVENTS]),
+    [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
     [Phase.WC_EXAM]: [],
     [Phase.PROVINCIAL_EXAM]: [],
     [Phase.APIO_EXAM]: [],

@@ -38,17 +38,14 @@ test('OI JSON effects are limited to keys supported by the parser', () => {
   assert.deepEqual([...keys].filter(key => !supported.has(key)), []);
 });
 
-test('city event data uses playable event types and choices', () => {
-  const cityDir = new URL('../public/cities/', import.meta.url);
-  const files = fs.readdirSync(cityDir).filter(file => file.endsWith('.json'));
-  assert.ok(files.length > 0);
-  files.forEach(file => {
-    const data = JSON.parse(fs.readFileSync(new URL(file, cityDir), 'utf8')) as any;
-    assert.ok(Array.isArray(data.events), file);
-    data.events.forEach((event: any) => {
-      assert.ok(['positive', 'negative', 'neutral'].includes(event.type), `${file}:${event.id}`);
-      assert.ok(Array.isArray(event.choices) && event.choices.length > 0, `${file}:${event.id}`);
-      assert.ok(event.choices.every((choice: any) => typeof choice.text === 'string' && choice.text.trim()), `${file}:${event.id}`);
-    });
+test('authored campus and OI event packs exclude regional mismatches and malformed text', () => {
+  const campusEvents = readJson('../data/ai_generated_events.json') as any[];
+  const oiEvents = readJson('../oi_events.json') as any[];
+  const disallowedPattern = /全国卷|广东高考|上海市教委|3\+3选科|回南天|\uFFFD/;
+  [...campusEvents, ...oiEvents].forEach((event: any) => {
+    assert.ok(['positive', 'negative', 'neutral'].includes(event.type), event.id || event.title);
+    assert.ok(Array.isArray(event.choices) && event.choices.length > 0, event.id || event.title);
+    assert.equal(disallowedPattern.test(JSON.stringify(event)), false, event.id || event.title);
+    assert.ok(event.choices.every((choice: any) => typeof choice.text === 'string' && choice.text.trim()), event.id || event.title);
   });
 });

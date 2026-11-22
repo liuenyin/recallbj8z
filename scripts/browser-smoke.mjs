@@ -28,22 +28,27 @@ try {
   assert.ok(await page.evaluate(() => document.fonts.check('900 16px "Font Awesome 6 Free"')));
   await page.setViewport({width:390,height:844});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  assert.ok(await page.evaluate(() => {
+    const start = [...document.querySelectorAll('button')].find(button => button.textContent.includes('开启新学期'));
+    return start.getBoundingClientRect().bottom < innerHeight;
+  }));
+  assert.ok(await page.evaluate(() => !document.body.innerText.includes('账号与存档') && !document.body.innerText.includes('特殊挑战')));
   mkdirSync('artifacts', {recursive:true});
   await page.screenshot({path:'artifacts/review-home-mobile.png',fullPage:true});
   await page.setViewport({width:1280,height:900});
   console.log('PASS: home, local styles/icons, mobile width with external network blocked');
+  await clickText('更多');
   await clickText('账号与存档');
   await page.type('input[placeholder="例如：高一重开"]', '浏览器测试');
   await clickText('创建');
   assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('recall_accounts_v1')).some(a => a.name === '浏览器测试')));
   await page.reload({waitUntil:'networkidle0'});
   await clickText('开启新学期');
-  await clickText('入学吧');
   await clickText('专注课内综合');
   await clickText('确认结果');
   await page.waitForFunction(() => !document.body.innerText.includes('暑假的抉择'));
   assert.deepEqual(errors, []);
-  console.log('PASS: fresh game, talent confirmation and first event settlement');
+  console.log('PASS: fresh game opens at the first event without talent setup');
   // Corrupt optional fields must not take down an otherwise recoverable save.
   await page.evaluate(() => {
     const id = localStorage.getItem('recall_active_account_v1');
@@ -64,12 +69,17 @@ try {
   await page.screenshot({path:'artifacts/review-game.png',fullPage:true});
   assert.deepEqual(errors, []);
   console.log('PASS: account creation and malformed optional save recovery without render errors');
+  await clickText('手动安排');
   await clickText('清空安排');
   assert.ok(await page.evaluate(() => document.body.innerText.includes('0 项可执行')));
   await clickText('恢复上次');
   assert.ok(await page.evaluate(() => document.body.innerText.includes('2 项可执行')));
   await page.setViewport({width:390,height:844});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  await clickText('周六下午');
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('选择活动') && !document.body.innerText.includes('执行本周计划')));
+  await clickText('返回计划');
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('2 项可执行')));
   await page.screenshot({path:'artifacts/planner-mobile.png',fullPage:true});
   await page.setViewport({width:1280,height:900});
   console.log('PASS: planner clear/restore and mobile layout');
@@ -96,6 +106,7 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('summary')].find(el => el.textContent.includes('展开安排')).click());
   assert.ok(await page.evaluate(() => document.body.innerText.includes('[周六下午]')));
   console.log('PASS: executing the restored plan advances the week and records its activities');
+  await clickText('更多');
   await clickText('保存');
   const manualBefore = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}_manual`)).state);
@@ -152,20 +163,21 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('recall_auto_continue_v1')), 'false');
   await clickText('恢复自动继续');
   await page.waitForFunction(() => document.body.innerText.includes('片刻后自动继续'));
-  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  await page.waitForFunction(() => document.body.innerText.includes('周末安排'));
   const automaticSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
   assert.equal(automaticSave.history.filter(entry => entry.eventTitle === '借一支笔').length, 1);
   assert.equal(automaticSave.currentEvent, null);
   await page.reload({waitUntil:'networkidle0'});
   await clickText('继续');
-  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  await page.waitForFunction(() => document.body.innerText.includes('周末安排'));
   const resumedSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
   assert.deepEqual(resumedSave.history, automaticSave.history);
   assert.deepEqual(resumedSave.general, automaticSave.general);
   console.log('PASS: daily scene auto-continues, autosaves, and reloads without repeating its reward');
   await page.reload({waitUntil:'networkidle0'});
+  await clickText('更多');
   await clickText('读取手动存档');
   await page.waitForFunction(() => document.body.innerText.includes('高一上学期'));
   const manualAfter = await page.evaluate(() => JSON.parse(localStorage.getItem(
@@ -186,4 +198,63 @@ try {
   }));
   assert.deepEqual(errors, []);
   console.log('PASS: unreadable save is backed up before removal');
+
+  await page.setViewport({width:390,height:844});
+  await page.goto(new URL('?lang=en', base).href);
+  await page.waitForFunction(() => document.documentElement.lang === 'en');
+  await clickText('Start a new game');
+  await clickText('Focus on school and campus life');
+  await page.waitForFunction(() => document.body.innerText.includes('You sort through your books'));
+  await page.waitForFunction(() => document.body.innerText.includes('Efficiency +2'));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({path:'artifacts/english-first-event.png',fullPage:true});
+  await clickText('Continue');
+
+  const originalSave = await page.evaluate(() => {
+    const storageKey = 'recall_save_v1_' + localStorage.getItem('recall_active_account_v1');
+    const state = {
+      phase:'SEMESTER_1',week:6,totalWeeksInPhase:21,general:{health:80,mindset:67},subjects:{},className:'高一(7)班',
+      isPlaying:false,isWeekend:false,hasSelectedClub:true,competition:'None',
+      history:[{phase:'SUMMER',week:1,eventTitle:'暑假的抉择',choiceText:'专注课内综合',
+        resultSummary:'你简单理了理课本和行李，把更多精力留给开学后的班级生活。',timestamp:1}]
+    };
+    localStorage.setItem(storageKey, JSON.stringify({version:3,state}));
+    return {week:state.week,choice:state.history[0].choiceText};
+  });
+  await page.reload({waitUntil:'networkidle0'});
+  await clickText('Continue');
+  await clickText('Journal');
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('Plans for the summer')
+    && document.body.innerText.includes('Focus on school and campus life')));
+  await page.keyboard.press('Escape');
+  await clickText('More');
+  await clickText('简体中文');
+  assert.ok(await page.evaluate(() => document.documentElement.lang==='zh-CN' && document.body.innerText.includes('高一上学期')));
+  await clickText('历程');
+  assert.ok(await page.evaluate(() => document.body.innerText.includes('暑假的抉择') && document.body.innerText.includes('专注课内综合')));
+  const actualSave = await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('recall_save_v1_' + localStorage.getItem('recall_active_account_v1'))).state;
+    return {week:saved.week,choice:saved.history[0].choiceText};
+  });
+  assert.deepEqual(actualSave,originalSave);
+  await page.evaluate(() => {
+    const storageKey = 'recall_save_v1_' + localStorage.getItem('recall_active_account_v1');
+    const saved = JSON.parse(localStorage.getItem(storageKey));
+    Object.assign(saved.state, {week:8,isWeekend:true,club:'literature',competition:'OI'});
+    localStorage.setItem(storageKey,JSON.stringify(saved));
+  });
+  await page.goto(new URL('?lang=en', base).href);
+  await page.waitForFunction(() => document.documentElement.lang === 'en');
+  await clickText('Continue');
+  await page.waitForSelector('[aria-label="Weekend plans"]');
+  await clickText('Help at the club');
+  assert.ok(await page.evaluate(() => {
+    const planner = document.querySelector('[aria-label="Weekend plans"]');
+    return planner.innerText.includes('Saturday afternoon invitations') && !/\p{Script=Han}/u.test(planner.innerText);
+  }));
+  await clickText('Run schedule');
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem(
+    'recall_save_v1_' + localStorage.getItem('recall_active_account_v1'))).state.flags.w_invite_club === 1);
+  assert.deepEqual(errors, []);
+  console.log('PASS: English opens the original year, and switching language keeps the same save and journal');
 } finally { await browser.close(); }

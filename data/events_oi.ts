@@ -35,7 +35,7 @@ export const OI_EVENTS: GameEvent[] = [
     {
         id: 'oi_provincial_invite',
         title: '联合省选集结令',
-        description: 'NOIP 成绩出来后，你在报名名单里看到了自己的名字。八中没有一支成熟的校队，能不能走到省队，更多取决于你这一学期自己刷题、参加线上赛和跨校训练留下的积累。',
+        description: 'NOIP 出成绩后，信息学教练把省选报名的时间发到了训练群。你翻开这一学期的错题，把校内集训、线上赛和自己加练时还没弄懂的几道题圈了出来。',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',

@@ -29,18 +29,75 @@ try {
     const initial = game.state;
     const { SHOP_ITEMS, WEEKEND_ACTIVITIES } = await import('/data/mechanics.ts');
     const { getEndingData, getEndingMemories } = await import('/data/ending.ts');
+    const { modifyOI, getEffectiveEfficiency } = await import('/data/utils.ts');
     const book = SHOP_ITEMS.find(item=>item.id==='five_three').effect(initial);
     const club = WEEKEND_ACTIVITIES.find(activity=>activity.id==='w_club_activity');
+    const schoolWeek = {...initial,phase:'SEMESTER_1',week:4,club:'literature'};
+    const proficiency = PHASE_EVENTS.SEMESTER_2.find(event => event.id === 's2_academic_exam');
+    const unevenSubjects = {...initial.subjects, chemistry:{...initial.subjects.chemistry,level:80},
+      biology:{...initial.subjects.biology,level:13}, history:{...initial.subjects.history,level:2},
+      geography:{...initial.subjects.geography,level:15}};
+    const usualResults = proficiency.choices[1].action({...initial,subjects:unevenSubjects}).log.at(-1).message;
+    const intensiveResults = proficiency.choices[0].action({...initial,subjects:unevenSubjects}).log.at(-1).message;
+    const performance = PHASE_EVENTS.SEMESTER_2.find(event => event.id === 's2_drama_performance');
+    const backstage = {...initial,flags:{drama_role:'prop',drama_progress:2}};
+    const backstageChoice = performance.choices.find(choice => choice.condition?.(backstage));
+    const performedBackstage = {...backstage,...backstageChoice.action(backstage)};
     const generated = withChallengeSleep({id:'historical-test',title:'历史事件',description:'test',type:'neutral',choices:[{text:'继续',action:()=>({})}]});
     const sleeper = {...initial,activeChallengeId:'c_sleep_king'};
     const sleepChoice = generated.choices.find(c=>c.text==='不管了，我要睡觉');
     const memories = getEndingMemories({...initial,club:'literature',romancePartner:'林夏',flags:{oi_problem_drafted:true}});
+    const finalExam = {title:'FINAL_EXAM_2', type:'ACADEMIC', scores:{chinese:140,math:145,english:140,physics:85,chemistry:85,biology:85}, totalScore:680, rank:14, totalStudents:633, comment:''};
+    const topStudentState = {
+      ...initial,
+      phase:'ENDING',
+      selectedSubjects:['physics','chemistry','biology'],
+      romancePartner:'林夏',
+      club:'literature',
+      flags:{rival_resolved:true},
+      general:{...initial.general,health:80,experience:50,efficiency:18},
+      fatigue:20,
+      subjects:{
+        ...initial.subjects,
+        chinese:{aptitude:85,level:45},
+        math:{aptitude:90,level:48},
+        english:{aptitude:85,level:45},
+        physics:{aptitude:85,level:45},
+        chemistry:{aptitude:85,level:42},
+        biology:{aptitude:85,level:40}
+      },
+      examResult:finalExam,
+      academicExamHistory:[finalExam]
+    };
+    const topStudentEnding = getEndingData(topStudentState);
+    const lowerExam = {...finalExam, scores:{chinese:102,math:103,english:100,physics:45,chemistry:45,biology:50}, totalScore:445, rank:290};
+    const lowerResult = {...topStudentState, romancePartner:null, examResult:lowerExam, academicExamHistory:[lowerExam]};
+    const lowerEnding = getEndingData(lowerResult);
+    const organizerEnding = getEndingData({...lowerResult, flags:{science_festival_club_organizer:true}});
+    const provParticipantEnding = getEndingData({...topStudentState,competition:'OI',flags:{provincial_team:true,noi_medal:'PARTICIPANT'}});
+    const dimOI = modifyOI({...initial,oiStats:{dp:65,ds:90,math:10,string:0,graph:0,misc:0}},{dp:4,ds:4,math:4});
+    const effFocused = getEffectiveEfficiency({...initial,general:{...initial.general,efficiency:16},fatigue:20,activeStatuses:[{id:'focused',name:'心流',description:'',type:'BUFF',icon:'fa-bolt',duration:2}]});
+    const effFatigued = getEffectiveEfficiency({...initial,general:{...initial.general,efficiency:16},fatigue:20,activeStatuses:[{id:'fatigued',name:'疲惫',description:'',type:'DEBUFF',icon:'fa-battery-quarter',duration:999}]});
     const routeRegressions = [
-      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('林夏')) && memories.some(m=>m.includes('草稿')),
+      memories.length===3 && memories.some(m=>m.includes('文学社')) && memories.some(m=>m.includes('哈基米')) && memories.some(m=>m.includes('草稿')),
       !getEndingMemories(initial).some(m=>m.includes('表白')),
+      topStudentEnding.rank==='S' && topStudentEnding.title==='年级学神',
+      lowerEnding.score >= 90 && lowerEnding.title === '中流砥柱',
+      organizerEnding.title === '社团组织者',
+      !getEndingMemories({...initial,club:'literature'}).some(memory=>memory.includes('参加过')),
+      getEndingMemories({...initial,club:'literature',flags:{attended_club_activity:true}}).some(memory=>memory.includes('参加过')),
+      provParticipantEnding.rank==='S' && provParticipantEnding.title==='省队巨佬',
+      dimOI.dp===67 && dimOI.ds===91 && dimOI.math===14,
+      effFocused===18 && effFatigued===15,
+      !PHASE_EVENTS.WINTER_BREAK.some(e=>e.id==='romance_first_encounter') && PHASE_EVENTS.WINTER_BREAK.some(e=>e.id==='romance_after_rejection'),
+      !PHASE_EVENTS.SUMMER_BREAK.some(e=>e.id==='romance_borrow_notes') && PHASE_EVENTS.SUMMER_BREAK.some(e=>e.id==='romance_confession'),
 
       ['history','geography','politics'].every(key=>book.subjects[key].level>initial.subjects[key].level),
-      !club.condition({...initial,club:'none',week:4}) && club.condition({...initial,club:'literature',week:4}),
+      !club.condition({...schoolWeek,club:'none'}) && club.condition(schoolWeek) && !club.condition({...schoolWeek,phase:'SUMMER_BREAK'}),
+      usualResults.includes('化学合格，生物不合格，历史不合格，地理合格'),
+      intensiveResults.includes('化学合格，生物合格，历史不合格，地理合格'),
+      !getEndingMemories(backstage).some(memory=>memory.includes('戏剧节')),
+      backstageChoice.text.includes('递道具') && getEndingMemories(performedBackstage).some(memory=>memory.includes('幕边')),
       sleepChoice.condition(sleeper) && !sleepChoice.condition(initial) && sleepChoice.action(sleeper).hasSleptThisWeek,
       withChallengeSleep(generated).choices.length===generated.choices.length,
       getEndingData({...sleeper,phase:'ENDING',flags:{sleep_challenge_failed:true}}).title==='睡神挑战失败',
@@ -70,7 +127,7 @@ try {
     const feedback = { choice:daily.choices[0],diff:[] };
     try {
       window.setTimeout = (callback, delay, ...args) => {
-        if (delay !== 3000) return nativeSetTimeout(callback,delay,...args);
+        if (delay !== 2000) return nativeSetTimeout(callback,delay,...args);
         const id = -(++createdTimers);
         timers.set(id, callback);
         return id;
@@ -194,7 +251,7 @@ try {
     const saturdayAgain = [...document.querySelectorAll('h3')].find(el => el.textContent === '周六').parentElement;
     const afternoonAgain = [...saturdayAgain.querySelectorAll('[class]')].find(el => el.textContent === '周六下午');
     flushSync(() => afternoonAgain.closest('[class*="cursor-pointer"]').click());
-    const gameOption = [...document.querySelectorAll('span')].find(el => el.textContent === '打游戏' && el.parentElement.parentElement.textContent.includes('适度游戏益脑'));
+    const gameOption = [...document.querySelectorAll('span')].find(el => el.textContent === '打游戏' && el.parentElement.parentElement.textContent.includes('略降效率'));
     flushSync(() => gameOption.parentElement.parentElement.click());
     const keepExistingAtLimit = !document.body.innerText.includes('选择活动');
     flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'skip-reasons',
@@ -204,6 +261,48 @@ try {
     const clearSkipped = [...document.querySelectorAll('button')].find(b=>b.textContent==='清除这些安排');
     flushSync(()=>clearSkipped.click());
     const skipCleanup = skipReasonVisible && !document.body.innerText.includes('本周不满足活动条件') && document.body.innerText.includes('1 项可执行');
+    const projectSignup = PHASE_EVENTS.SEMESTER_1.find(event => event.id === 'campus_project_signup');
+    const { recommendWeekend } = await import('/data/weekend_recommendations.ts');
+    const { isLearningActivity } = await import('/data/utils.ts');
+    const projectWeek = {...plannerState,phase:'SEMESTER_1',week:12,
+      general:{...plannerState.general,health:76,money:0},lastWeekSchedule:{}};
+    const updatedWeek = {...projectWeek,...projectSignup.choices[0].action(projectWeek)};
+    const offered = WEEKEND_ACTIVITIES.filter(activity =>
+      ['w_sleep','w_project_work','w_library','act_movie'].includes(activity.id));
+    const plan = recommendWeekend(updatedWeek, offered);
+    const ids = Object.values(plan.schedule);
+    const recommendations = plan.schedule.Sat_Morn === 'w_sleep' && ids.includes('w_project_work')
+      && !ids.includes('act_movie') && ids.filter(id => isLearningActivity(offered.find(a=>a.id===id))).length === 1;
+    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'recommendation',
+      state:updatedWeek,onConfirm:()=>{}})));
+    const recommendButton = [...document.querySelectorAll('button')].find(b=>b.textContent==='采用本周推荐');
+    const initialProjectPreview = document.querySelector('[aria-label="课题进度预览"]').textContent;
+    flushSync(()=>recommendButton.click());
+    const nextProjectPreview = document.querySelector('[aria-label="课题进度预览"]').textContent;
+    const recommendationPreview = initialProjectPreview.includes('还需整理 3 次，第 12 周截止')
+      && nextProjectPreview.includes('还需整理 2 次，第 12 周截止');
+    const { getWeekendInvitationText } = await import('/data/weekend_invites.ts');
+    const inviteWeek = {...initial,phase:'SEMESTER_1',week:8,isPlaying:false,isWeekend:true,difficulty:'REALITY',
+      competition:'MO',club:'literature',availableWeekendActivityIds:['w_sleep','w_library'],general:{...initial.general,health:80,mindset:65}};
+    flushSync(() => game.setState(inviteWeek));
+    flushSync(() => plannerRoot.render(React.createElement(TimetableModal,{key:'invites',state:inviteWeek,quickStart:true,
+      onConfirm:schedule=>game.executeTimetable(schedule)})));
+    const actions = [...document.querySelectorAll('[aria-label="周末安排"] button')];
+    const contestInvite = actions.find(button=>button.textContent.includes('和队友练习'));
+    const clubInvite = actions.find(button=>button.textContent.includes('去社团帮忙'));
+    const peerInvite = actions.find(button=>button.textContent.includes('和同学见面'));
+    flushSync(()=>contestInvite.click());
+    const acceptedContest = contestInvite.getAttribute('aria-pressed')==='true';
+    flushSync(()=>clubInvite.click());
+    const exclusiveInvite = acceptedContest && clubInvite.getAttribute('aria-pressed')==='true' && contestInvite.getAttribute('aria-pressed')==='false' && !!peerInvite;
+    flushSync(()=>actions.find(button=>button.textContent==='执行推荐').click());
+    const acceptedClub = game.state.flags.w_invite_club===1 && !game.state.flags.w_invite_contest
+      && !Object.values(game.state.lastWeekSchedule).includes('w_invite_club')
+      && getWeekendInvitationText({...game.state,week:16},'w_invite_club').includes('活动室钥匙');
+    flushSync(()=>game.setState({...inviteWeek}));
+    flushSync(()=>game.executeTimetable({Sun_Aft:'w_invite_contest'}));
+    const enforcedInviteSlot = !game.state.flags.w_invite_contest
+      && game.state.log.at(-1)?.details?.some(line=>line.includes('指定时间段'));
     plannerRoot.unmount();
     const saveKey = 'recall_save_v1_choice-regression';
     flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:7,isPlaying:false,isWeekend:true}));
@@ -240,7 +339,8 @@ try {
       && localStorage.getItem('recall_save_v1_other-regression') === 'untouched'
       && localStorage.getItem(saveKey) === beforeSwitch;
     root.unmount();
-    return { skipCleanup, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures,
+    return { skipCleanup, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview,
+      exclusiveInvite, acceptedClub, enforcedInviteSlot,
       autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
       stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
   });
@@ -255,6 +355,8 @@ try {
   assert.ok(results.boardChecks.every(Boolean), 'board timing, fatigue, diary and old saves');
   assert.ok(results.restThenStudy, 'resting first must unlock learning in a later slot');
   assert.ok(results.keepExistingAtLimit, 'keeping an existing activity does not consume another slot');
+  assert.ok(results.recommendations && results.recommendationPreview, 'recover first, honor the study cap and preview project progress');
+  assert.ok(results.exclusiveInvite && results.acceptedClub && results.enforcedInviteSlot, 'invites share Saturday afternoon, settle once, and lead to follow-ups');
   assert.ok(results.legacyPlan && results.completeSummary && results.delayedChoices.every(Boolean), 'legacy plans, complete summaries and delayed choice outcomes');
   for (const key of ['stableTimer','pausedTimer','resumedTimer','importantManual']) assert.ok(results[key],key);
   for (const key of ['autoSaved','pendingNotSaved','restored','failureReported','isolated','manualIndependent','manualRestored']) assert.ok(results[key],key);

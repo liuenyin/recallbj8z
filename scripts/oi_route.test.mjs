@@ -20,9 +20,11 @@ test('APIO entry keeps a separate sustained-practice threshold', () => {
   assert.match(eventsSource, /oi_apio_invite[\s\S]*?oi_practice_sessions \|\| 0\) >= 5/);
 });
 
-test('the route text acknowledges limited school-side OI support', () => {
-  assert.match(routeSource, /没有固定的竞赛教练/);
-  assert.match(eventsSource, /没有一支成熟的校队/);
+test('the route gives school coaching and cross-school practice distinct roles', () => {
+  assert.match(routeSource, /校内信息学教练/);
+  assert.match(routeSource, /外校周末课/);
+  assert.match(routeSource, /留校跟教练复盘/);
+  assert.match(eventsSource, /信息学教练把省选报名的时间发到了训练群/);
 });
 
 test('the winter recap follow-up is mounted in the winter event pool', () => {

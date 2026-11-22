@@ -3,18 +3,14 @@ import { startRelationship, relationshipCheckpoint } from './relationships';
 import { modifySub } from './utils';
 import { STATUSES } from './mechanics';
 import { Phase } from '../types';
-import { STUDY_TOUR_EVENTS } from './events_study_tour';
-
-const studyTourDict = STUDY_TOUR_EVENTS.reduce((acc, e) => { acc[e.id] = e; return acc; }, {} as Record<string, GameEvent>);
 
 export const CHAINED_EVENTS: Record<string, GameEvent> = {
-    ...studyTourDict,
     'sum_confess_success': {
         id: 'sum_confess_success',
         title: '表白成功',
-        description: '对方竟然答应了！你们约定在高中互相鼓励，共同进步。',
+        description: 'TA停下脚步，想了一会儿。“好啊。明天放学我等你。”',
         type: 'positive',
-        choices: [{ text: '太棒了', action: (s) => ({ 
+        choices: [{ text: '好，明天见', action: (s) => ({
             general: { ...s.general, mindset: s.general.mindset + 20, romance: s.general.romance + 20 }, 
             ...startRelationship(s),
             activeStatuses: [...s.activeStatuses, { ...STATUSES['in_love'], duration: 10 }] 
@@ -22,18 +18,17 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
     },
     'sum_confess_fail': {
         id: 'sum_confess_fail',
-        title: '被发好人卡',
-        description: '“你是个好人，但我现在只想好好学习。”空气安静了两秒。你脑内的小剧场突然弹出一行字：告白任务失败，当前身份——杂鱼（临时）。行，怎么连自己的脑子都在补刀。',
+        title: '对方的回答',
+        description: 'TA听完后说：“我想继续做同学。”两个人在路口停了下来。',
         type: 'negative',
         choices: [{ 
-            text: '杂鱼也是要吃晚饭的',
-            resultDescription: '你说了句“没事”，转身走出同手同脚的三步。好人卡已到账，喜欢一个人不丢人；今晚先吃点好的，明天再和世界讲道理。',
+            text: '点点头，各自回家',
+            resultDescription: '你点了点头。绿灯亮起时，你们朝不同的方向走了。',
             action: (s) => ({ 
                 general: { ...s.general, mindset: s.general.mindset - 20 },
                 rejectionCount: (s.rejectionCount || 0) + 1,
                 flags: { ...s.flags, ready_for_confession: false, romance_resolution: 'rejected', ...relationshipCheckpoint(s, 'romance_rejected') },
-                activeStatuses: s.activeStatuses.filter(st => st.id !== 'crush'),
-                log: [...s.log, { message: '好人卡 +1。杂鱼称号仅在脑内生效，吃完饭可自行卸载。', type: 'warning', timestamp: Date.now() }]
+                activeStatuses: s.activeStatuses.filter(st => st.id !== 'crush')
             }) 
         }]   
     },
@@ -68,32 +63,6 @@ export const CHAINED_EVENTS: Record<string, GameEvent> = {
             }
         }]
     }
-};
-
-export const SCIENCE_FESTIVAL_EVENT: GameEvent = {
-    id: 'evt_sci_fest',
-    title: '科技节',
-    description: '一年一度的科技节开始了，地下场馆摆满了各个社团和班级的展台。',
-    type: 'positive',
-    triggerType: 'FIXED',
-    fixedPhase: Phase.SEMESTER_1,
-    fixedWeek: 15, // Fixed at Week 15
-    choices: [
-        { 
-            text: '参观展览', 
-            action: (s) => ({ 
-                general: { ...s.general, experience: s.general.experience + 10, mindset: s.general.mindset + 5 },
-                log: [...s.log, { message: "你参观了科技节展览，大开眼界。", type: 'success', timestamp: Date.now() }]
-            }) 
-        },
-        { 
-            text: '在教室自习', 
-            action: (s) => ({ 
-                subjects: modifySub(s, ['math', 'physics'], 3),
-                general: { ...s.general, mindset: s.general.mindset - 5 }
-            }) 
-        }
-    ]
 };
 
 export const NEW_YEAR_GALA_EVENT: GameEvent = {
@@ -143,58 +112,6 @@ export const BASE_EVENTS: Record<string, GameEvent> = {
                 action: (s) => ({ 
                     general: { ...s.general, health: s.general.health - 20, mindset: s.general.mindset - 10 },
                     log: [...s.log, { message: "你没跑掉，被揍了一顿。", type: 'error', timestamp: Date.now() }]
-                }) 
-            }
-        ]
-    },
-    'exam_fail_talk': {
-        id: 'exam_fail_talk',
-        title: '考后谈话',
-        description: '因为考试成绩太差，班主任找你谈话。',
-        type: 'negative',
-        choices: [
-            { 
-                text: '虚心接受', 
-                action: (s) => ({ 
-                    general: { ...s.general, mindset: s.general.mindset + 5 } 
-                }) 
-            },
-            { 
-                text: '左耳进右耳出', 
-                action: (s) => ({ 
-                    general: { ...s.general, mindset: s.general.mindset - 2 } 
-                }) 
-            }
-        ]
-    },
-    'evt_april_fools': {
-        id: 'evt_april_fools',
-        title: '愚人节的玩笑',
-        description: '今天是4月1日。班长在黑板上写下：“今天下午放假半天”，但你总觉得哪里不对劲...',
-        type: 'neutral',
-        choices: [
-            { 
-                text: '不管了，收拾书包！', 
-                action: (s) => {
-                    const fooled = Math.random() < 0.8;
-                    if (fooled) {
-                        return {
-                            general: { ...s.general, mindset: s.general.mindset - 15, health: s.general.health + 2 },
-                            log: [...s.log, { message: "你真的背着书包走出了校门，结果被保安拦住，还被班主任叫去办公室喝茶... 愚人节快乐！", type: 'warning', timestamp: Date.now() }]
-                        };
-                    } else {
-                        return {
-                            general: { ...s.general, mindset: s.general.mindset + 10, luck: s.general.luck + 5 },
-                            log: [...s.log, { message: "你刚走到门口就发现年级主任在巡视，果断折返！躲过一劫。", type: 'success', timestamp: Date.now() }]
-                        };
-                    }
-                }
-            },
-            { 
-                text: '哼，这种小把戏骗不了我', 
-                action: (s) => ({ 
-                    general: { ...s.general, efficiency: s.general.efficiency + 2 },
-                    log: [...s.log, { message: "你安静地坐在座位上刷题，看着其他被骗的同学哈哈大笑。", type: 'info', timestamp: Date.now() }]
                 }) 
             }
         ]

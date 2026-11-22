@@ -28,7 +28,22 @@ export const BLOCKED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
 /** Activities that are only meaningful in a specific time slot. */
 export const ALLOWED_SLOTS_MAP: Record<string, TimeSlotId[]> = {
     'act_cf': ['Sat_Night'],
+    w_invite_contest: ['Sat_Aft'],
+    w_invite_club: ['Sat_Aft'],
+    w_invite_peer: ['Sat_Aft'],
 };
+
+/** Weekly slot caps shared between the planner preview and timetable executor. */
+export const ACTIVITY_MAX_SLOTS: Record<string, number> = {
+    'act_cf': 1,
+    'w_cf': 1,
+    'w_atc': 1,
+    'w_game_late': 1,
+    'w_game': 2,
+    'w_club_activity': 1,
+};
+
+export const getActivityMaxSlots = (activityId: string): number => ACTIVITY_MAX_SLOTS[activityId] || 3;
 
 const WEEKDAY_DAYS = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
 

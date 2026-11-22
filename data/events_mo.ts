@@ -6,7 +6,7 @@ export const MO_EVENTS: GameEvent[] = [
     {
         id: 'mo_first_training',
         title: '数学竞赛训练课',
-        description: '数学老师在放学后开了一次竞赛训练课。黑板上的几何题看起来不像平时的作业，更像是一扇需要自己推开的门。',
+        description: '数学老师在放学后开了一次竞赛训练课。黑板上的平面几何构型和平日课本套路不太一样，得自己画几条辅助线才能看出方向。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
@@ -64,7 +64,7 @@ export const MO_EVENTS: GameEvent[] = [
     {
         id: 'mo_setter_invite',
         title: '命题组的邀请',
-        description: '老师准备给校内数学竞赛出一套压轴题，邀请解题小组一起讨论难度和解法。你第一次发现，命题本身也是一种数学表达。',
+        description: '老师准备给校内数学竞赛出一套压轴题，邀请解题小组一起讨论梯度和标答写法。换到命题人视角看题，细节和常规做题完全两样。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,

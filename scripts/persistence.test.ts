@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getAccounts, createLocalAccount, deleteLocalAccount, setActiveAccountId, getActiveAccountId, getAccountSaveKey, getAccountManualSaveKey } from '../lib/accounts.ts';
-import { restoreExamResult, restoreWorldContext, restoreFlags } from '../lib/save_validation.ts';
+import { restoreAcademicExamHistory, restoreExamResult, restoreFlags } from '../lib/save_validation.ts';
 
 const storage = () => {
   const entries = new Map<string, string>();
@@ -43,11 +43,17 @@ test('exam restoration rejects crash-causing shapes and recomputes totals', () =
   assert.equal(restoreExamResult({title:'考试',comment:'',scores:{math:151},totalScore:0}), null);
   assert.equal(restoreExamResult({title:'考试',comment:'',scores:{math:120,physics:80},totalScore:999})?.totalScore, 200);
 });
-test('world restoration validates city paths and corrects derived metadata', () => {
-  const regions = [{code:'bj',name:'北京'}];
-  assert.equal(restoreWorldContext({code:'../private',yearStart:2020}, regions, []), undefined);
-  assert.deepEqual(restoreWorldContext({code:'bj',region:{},yearStart:2020,yearEnd:9999}, regions, []),
-    {code:'bj',region:'北京',yearStart:2020,yearEnd:2023,characterTemplateId:'t_ordinary'});
+test('academic history restores legacy results and keeps culture exams in calendar order', () => {
+  const midterm = {title:'MIDTERM_EXAM', comment:'', scores:{math:112}, totalScore:112, rank:64};
+  const legacyFinal = {title:'高一下 · 期末考试', comment:'', scores:{math:128}, totalScore:128, rank:30};
+  const contest = {title:'NOI_EXAM', type:'COMPETITION' as const, comment:'', scores:{oi_prob_1:80}, totalScore:80};
+  assert.deepEqual(restoreAcademicExamHistory(undefined, legacyFinal).map(exam => exam.title), ['FINAL_EXAM_2']);
+  const restored = restoreAcademicExamHistory([legacyFinal, contest, {scores:null}, midterm, midterm], contest);
+  assert.deepEqual(restored.map(exam => [exam.title, exam.totalScore]), [
+    ['MIDTERM_EXAM', 112], ['FINAL_EXAM_2', 128]
+  ]);
+});
+test('flag restoration strips unsafe or malformed entries', () => {
   assert.deepEqual(restoreFlags({relationship_name:{bad:true},mo_team:true,score:5}), {mo_team:true,score:5});
 });
 

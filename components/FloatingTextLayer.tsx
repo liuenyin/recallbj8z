@@ -1,4 +1,4 @@
-
+import { useLanguage } from '../lib/i18n';
 import React from 'react';
 
 export interface FloatingTextItem {
@@ -10,27 +10,27 @@ export interface FloatingTextItem {
 }
 
 const FloatingTextLayer: React.FC<{ items: FloatingTextItem[] }> = ({ items }) => {
+    const { t: tr } = useLanguage();
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
       {items.map(item => (
         <div
           key={item.id}
-          className="absolute font-black text-xl md:text-2xl drop-shadow-md animate-floatUp select-none whitespace-nowrap"
-          style={{ 
-            left: item.x, 
-            top: item.y, 
-            color: item.color,
-            textShadow: '2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff' 
+          className="absolute font-black text-sm md:text-base animate-floatUp select-none whitespace-nowrap px-3 py-1 rounded-full bg-white/95 backdrop-blur-sm border border-slate-200/90 shadow-lg"
+          style={{
+            left: item.x,
+            top: item.y,
+            color: item.color
           }}
         >
-          {item.text}
+          {tr(item.text)}
         </div>
       ))}
       <style>{`
         @keyframes floatUp {
-          0% { transform: translateY(0) scale(0.5); opacity: 0; }
-          20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
-          100% { transform: translateY(-80px) scale(1); opacity: 0; }
+          0% { transform: translate(-50%, 0) scale(0.85); opacity: 0; }
+          18% { transform: translate(-50%, -18px) scale(1.06); opacity: 1; }
+          100% { transform: translate(-50%, -72px) scale(1); opacity: 0; }
         }
         .animate-floatUp {
           animation: floatUp 1.2s ease-out forwards;

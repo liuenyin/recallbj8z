@@ -8,7 +8,7 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
     {
         id: 'oi_training_group',
         title: '训练群里的小组',
-        description: '训练群里几个人约着每周讲题，谁碰到卡住的地方就拿出来一起看。你进群时，他们把讨论文档的链接发给了你。',
+        description: '校内信息学教练留了一张训练题单。群里几个人约着每周轮流讲题，谁碰到卡住的地方就拿出来一起看。你进群时，他们把讨论文档发给了你。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
@@ -37,7 +37,7 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
     {
         id: 'oi_external_training',
         title: '去外校听一场课',
-        description: '八中没有固定的竞赛教练。训练群里转来一场外校周末课的通知，地点、费用和讲什么都写在报名表里。',
+        description: '校内的信息学训练照常进行，群里也转来了一场外校周末课的通知。外校有个专题正好是你不熟悉的，校内教练这周也约了大家复盘各自卡住的题。',
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
@@ -46,6 +46,7 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
             {
                 text: '买票去听课',
                 tags: ['study'],
+                hint: '花 20 元，听一个新专题，也能认识外校同学。',
                 resultDescription: '坐地铁去听了一天课，讲义比你手上的旧资料新一些。课后还有人留下来讨论，你顺手加了几个联系方式。',
                 action: (s) => ({
                     flags: { ...s.flags, oi_external_training: true },
@@ -54,9 +55,10 @@ export const OI_ROUTE_EVENTS: GameEvent[] = [
                 })
             },
             {
-                text: '留在学校自己练',
+                text: '留校跟教练复盘',
                 tags: ['study'],
-                resultDescription: '你把题单下载下来，在学校把能找到的资料先过了一遍。不会的地方先记在本子上，等群里有人开讲。',
+                hint: '带上自己的错题，先补这周训练里没弄懂的地方。',
+                resultDescription: '你把那道卡了一晚上的题带到机房。教练让你手推一组边界数据，同组同学顺手补了个反例，你才看清原来的写法错在哪。',
                 action: (s) => ({
                     flags: { ...s.flags, oi_external_training: false },
                     general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 1 },

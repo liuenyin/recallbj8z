@@ -1,4 +1,5 @@
-import type { ExamResult, WorldContext } from '../types';
+import type { ExamResult } from '../types';
+import { ACADEMIC_EXAM_PHASES, getAcademicExamPhase } from '../data/game_flow.ts';
 
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
@@ -21,19 +22,14 @@ export const restoreExamResult = (value: unknown): ExamResult | null => {
   };
 };
 
-export const restoreWorldContext = (
-  value: unknown,
-  regions: readonly { code: string; name: string }[],
-  templates: readonly { id: string }[]
-): WorldContext | undefined => {
-  if (!record(value)) return undefined;
-  const region = regions.find(region => region.code === value.code);
-  if (!region || typeof value.yearStart !== 'number' || !Number.isInteger(value.yearStart)
-      || value.yearStart < 2016 || value.yearStart > 2024) return undefined;
-  return {
-    code: region.code, region: region.name, yearStart: value.yearStart, yearEnd: value.yearStart + 3,
-    characterTemplateId: templates.find(template => template.id === value.characterTemplateId)?.id ?? 't_ordinary'
-  };
+export const restoreAcademicExamHistory = (value: unknown, latest: ExamResult | null): ExamResult[] => {
+  const records = new Map<string, ExamResult>();
+  for (const result of [...(Array.isArray(value) ? value.map(restoreExamResult) : []), latest]) {
+    if (!result || result.type === 'COMPETITION') continue;
+    const phase = getAcademicExamPhase(result.title);
+    if (phase) records.set(phase, { ...result, title: phase });
+  }
+  return ACADEMIC_EXAM_PHASES.flatMap(phase => records.get(phase) ?? []);
 };
 
 export const restoreFlags = (value: unknown): Record<string, string | number | boolean | null> =>

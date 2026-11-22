@@ -1,5 +1,30 @@
 
-import { GameEvent, Phase } from '../types';
+import { GameEvent, GameState, Phase, SUBJECT_NAMES } from '../types';
+
+const PROFICIENCY_SUBJECTS = ['chemistry', 'biology', 'history', 'geography'] as const;
+
+const finishProficiencyExam = (state: GameState, intensivePrep: boolean): Partial<GameState> => {
+    const prepBonus = intensivePrep ? 3 : 0;
+    const results = PROFICIENCY_SUBJECTS.map(subject => ({
+        subject,
+        passed: state.subjects[subject].level + prepBonus >= 15
+    }));
+    const allPassed = results.every(result => result.passed);
+    const summary = results.map(({ subject, passed }) => `${SUBJECT_NAMES[subject]}${passed ? '合格' : '不合格'}`).join('，');
+    return {
+        general: {
+            ...state.general,
+            health: state.general.health - (intensivePrep ? 10 : 5),
+            mindset: state.general.mindset + (allPassed ? (intensivePrep ? 18 : 8) : (intensivePrep ? -10 : -5)),
+            efficiency: state.general.efficiency + (intensivePrep ? 0 : 1)
+        },
+        log: [...state.log, {
+            message: `合格考成绩出来了。${summary}。${allPassed ? '这一轮报考的科目都通过了。' : '没通过的科目还可以参加以后学期的合格考。'}`,
+            type: allPassed ? 'success' : 'warning',
+            timestamp: Date.now()
+        }]
+    };
+};
 
 export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
@@ -12,8 +37,9 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         choices: [
             {
                 text: '给同桌的水杯里加点“料”（柠檬汁）',
+                resultDescription: '趁同桌不注意，你把备好的柠檬汁倒进了水杯。',
                 action: (s) => {
-                    if (s.general.luck > 50) {
+                    if (Math.random() < Math.min(0.85, 0.35 + s.general.luck / 200)) {
                         return {
                             general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset + 10 },
                             log: [...s.log, { message: '整蛊大成功！同桌被酸得五官扭曲，随后你们笑作一团。', type: 'success', timestamp: Date.now() }]
@@ -157,7 +183,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.debate_joined && s.week === 12,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.debate_joined && s.week >= 12 && s.week <= 13,
         choices: [
             { 
                 text: '逻辑碾压', 
@@ -179,7 +205,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'neutral',
         triggerType: 'CONDITIONAL',
         once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.basketball_joined && s.week === 6,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.basketball_joined && s.week >= 6 && s.week <= 7,
         choices: [
             { text: '挥洒汗水', action: (s) => ({ general: { ...s.general, health: s.general.health + 5, experience: s.general.experience + 5 } }) }
         ]
@@ -191,7 +217,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.basketball_joined && s.week === 7,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.basketball_joined && s.week >= 7 && s.week <= 8,
         choices: [
             { 
                 text: '全力拼搏！', 
@@ -202,6 +228,39 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
                         general: { ...s.general, health: s.general.health - 5, mindset: s.general.mindset + (win ? 20 : -10) },
                         log: [...s.log, { message: win ? '你投进了关键球，球队晋级8强！' : '体能不支，球队遗憾被淘汰。', type: win ? 'success' : 'error', timestamp: Date.now() }]
                     }
+                }
+            }
+        ]
+    },
+    {
+        id: 's2_basketball_final',
+        title: '篮球联赛争冠战',
+        description: '经过前面几轮拼杀，你们班杀进了四强后的决赛舞台，操场边站满了来加油的同学。',
+        type: 'positive',
+        triggerType: 'CONDITIONAL',
+        once: true,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.basketball_stage === 8 && s.week >= 10 && s.week <= 11,
+        choices: [
+            {
+                text: '拼到最后一秒',
+                action: (s) => {
+                    const win = Math.random() < 0.45 + (s.general.health - 50) / 200;
+                    return {
+                        flags: { ...s.flags, basketball_stage: win ? 1 : 0 },
+                        general: { ...s.general, health: s.general.health - 6, mindset: s.general.mindset + (win ? 30 : 5), romance: s.general.romance + (win ? 6 : 2) },
+                        log: [...s.log, { message: win ? '终场哨响，你们班捧起了年级篮球冠军！' : '惜败夺亚，全场依然为你们的拼劲鼓掌。', type: win ? 'success' : 'info', timestamp: Date.now() }]
+                    };
+                }
+            },
+            {
+                text: '稳扎稳打打团队配合',
+                action: (s) => {
+                    const win = Math.random() < 0.4 + s.general.experience / 250;
+                    return {
+                        flags: { ...s.flags, basketball_stage: win ? 1 : 0 },
+                        general: { ...s.general, experience: s.general.experience + 8, mindset: s.general.mindset + (win ? 25 : 8) },
+                        log: [...s.log, { message: win ? '默契传切打穿防线，你们拿下了冠军！' : '虽然遗憾错失冠军，但这次配合默契十足。', type: win ? 'success' : 'info', timestamp: Date.now() }]
+                    };
                 }
             }
         ]
@@ -236,7 +295,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         title: '辩论赛 8进4',
         description: '你们队成功杀入八强！这场的辩题非常刁钻，比赛十分焦灼。',
         type: 'positive', triggerType: 'CONDITIONAL', once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.debate_stage === 8 && s.week === 13,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.debate_stage === 8 && s.week >= 13 && s.week <= 14,
         choices: [
             { 
                 text: '背水一战', 
@@ -259,12 +318,12 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.debate_stage === 4 && s.week === 15,
         choices: [
             { 
-                text: '愤怒抗议但被迫弃赛', 
+                text: '当场声明并留存经验，不打不公平的局', 
                 action: (s) => {
                     return {
                         flags: { ...s.flags, debate_stage: 0 },
-                        general: { ...s.general, experience: s.general.experience + 5, mindset: s.general.mindset - 30 },
-                        log: [...s.log, { message: '面对无法改变的做局，你们带着不甘心遗憾退赛。', type: 'error', timestamp: Date.now() }]
+                        general: { ...s.general, experience: s.general.experience + 12, romance: s.general.romance + 4, mindset: s.general.mindset - 8 },
+                        log: [...s.log, { message: '你们体面申诉后退赛，在场同学都认可你们坚持原则的态度。', type: 'warning', timestamp: Date.now() }]
                     }
                 }
             },
@@ -309,57 +368,89 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'neutral', triggerType: 'CONDITIONAL', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.drama_joined && s.week === 14,
         choices: [
-            { text: '竞选主角 (要求口语好)', action: (s) => ({ flags: { ...s.flags, drama_progress: 1, drama_role: 'main' }, general: { ...s.general, mindset: s.general.mindset - 5 } }) },
+            { text: '竞选主角 (英语水平≥15 或 天赋≥75)', condition: (s) => s.subjects.english.level >= 15 || s.subjects.english.aptitude >= 75, action: (s) => ({ flags: { ...s.flags, drama_progress: 1, drama_role: 'main' }, general: { ...s.general, mindset: s.general.mindset - 5 } }) },
             { text: '当个配角/旁白', action: (s) => ({ flags: { ...s.flags, drama_progress: 1, drama_role: 'sub' } }) },
-            { text: '负责幕后道具', action: (s) => ({ flags: { ...s.flags, drama_progress: 1, drama_role: 'prop' } }) }
+            { text: '负责幕后道具与统筹', action: (s) => ({ flags: { ...s.flags, drama_progress: 1, drama_role: 'prop' } }) }
         ]
     },
     {
         id: 's2_drama_rehearsal',
         title: '戏剧节 排练',
-        description: '放学后，剧组在空教室里紧张地彩排。大家都为了期末的演出拼尽全力。',
+        description: state => state.flags.drama_role === 'prop'
+            ? '放学后，剧组借了间空教室走一遍。两件道具看起来差不多，上场顺序却刚好相反。'
+            : '放学后，剧组借了间空教室走一遍。台词背熟了，换场时还是有人走错边。',
         type: 'neutral', triggerType: 'CONDITIONAL', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.drama_progress === 1 && s.week === 16,
         choices: [
-            { text: '认真排练', action: (s) => ({ flags: { ...s.flags, drama_progress: 2 }, general: { ...s.general, health: s.general.health - 5, experience: s.general.experience + 10 } }) }
+            {
+                text: '把换场和接台词再过一遍',
+                condition: state => state.flags.drama_role !== 'prop',
+                resultDescription: '你们把走错的一段重来了一遍，约好听见上一句台词再从幕边往前走。',
+                action: state => ({ flags: { ...state.flags, drama_progress: 2 }, general: { ...state.general, health: state.general.health - 5, experience: state.general.experience + 10 } })
+            },
+            {
+                text: '给道具贴上出场顺序',
+                condition: state => state.flags.drama_role === 'prop',
+                resultDescription: '你把两件道具分开摆，又写了张能在昏暗里看清的清单，让接手的人也能马上找到。',
+                action: state => ({ flags: { ...state.flags, drama_progress: 2 }, general: { ...state.general, health: state.general.health - 5, experience: state.general.experience + 10 } })
+            }
         ]
     },
     {
         id: 's2_drama_performance',
         title: '英语戏剧节 正式演出！',
-        description: '期末考完的放松时刻，戏剧节大汇演正式开始。轮到你们班上场了！',
+        description: state => state.flags.drama_role === 'prop'
+            ? '轮到你们班了。灯一暗，前台有人伸手催下一件道具。你认出了彩排时贴的标记。'
+            : '轮到你们班了。台下渐渐安静下来，幕边的同学正等你接上第一句。',
         type: 'positive', triggerType: 'CONDITIONAL', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.drama_progress === 2 && s.week === 18,
         choices: [
-            { 
-                text: '倾情演绎', 
-                action: (s) => {
-                    const isMain = s.flags.drama_role === 'main';
-                    return {
-                        general: { ...s.general, mindset: s.general.mindset + (isMain ? 30 : 15), romance: s.general.romance + (isMain ? 10 : 0) },
-                        log: [...s.log, { message: '演出非常成功！台下响起了热烈的掌声。', type: 'success', timestamp: Date.now() }]
+            {
+                text: '听准提示，把自己的戏接上',
+                condition: state => state.flags.drama_role !== 'prop',
+                resultDescription: '短短几分钟比彩排过得快。最后一幕走完，你才听见台下开始鼓掌。',
+                action: state => ({
+                    flags: { ...state.flags, drama_performed: true },
+                    general: {
+                        ...state.general,
+                        mindset: state.general.mindset + (state.flags.drama_role === 'main' ? 28 : 18),
+                        romance: state.general.romance + (state.flags.drama_role === 'main' ? 8 : 4),
+                        experience: state.general.experience + 8
                     }
-                }
+                })
+            },
+            {
+                text: '照清单递道具，确认下一幕也摆好了',
+                condition: state => state.flags.drama_role === 'prop',
+                resultDescription: '幕布合上前，台上同学回头跟你比了个手势。你这才发现手里还攥着那张被揉皱的清单。',
+                action: state => ({
+                    flags: { ...state.flags, drama_performed: true },
+                    general: {
+                        ...state.general,
+                        mindset: state.general.mindset + 12,
+                        romance: state.general.romance + 2,
+                        experience: state.general.experience + 14,
+                        efficiency: state.general.efficiency + 1
+                    }
+                })
             }
         ]
     },
     // --- ACADEMIC PROFICIENCY EXAM (学考) ---
     {
         id: 's2_academic_exam',
-        title: '学业水平测试 (学考)',
-        description: '高一下半学期期末前的重头戏：化学、生物、历史、地理四门学考。考A才是硬道理！',
+        title: '高中学业水平合格考',
+        description: '这次报名表上是化学、生物、历史和地理。每门各判一次合格，你准备用多少时间过一遍没弄懂的内容？',
         type: 'negative', triggerType: 'FIXED', once: true, fixedWeek: 19,
         choices: [
             { 
-                text: '全力以赴', 
-                action: (s) => {
-                    // Simple check based on subject levels
-                    const passed = (s.subjects.chemistry.level + s.subjects.biology.level + s.subjects.history.level + s.subjects.geography.level) > 160;
-                    return {
-                        general: { ...s.general, health: s.general.health - 15, mindset: s.general.mindset + (passed ? 20 : -20) },
-                        log: [...s.log, { message: passed ? '学考全A拿捏！心里的石头落地了。' : '有些科目考得有点悬，希望能混个B...', type: passed ? 'success' : 'warning', timestamp: Date.now() }]
-                    }
-                }
+                text: '集中补一补薄弱的科目',
+                hint: '各科过关更稳，会多消耗一些体力。',
+                action: state => finishProficiencyExam(state, true)
+            },
+            {
+                text: '按平常的节奏准备，给期末留点精力',
+                action: state => finishProficiencyExam(state, false)
             }
         ]
     },
@@ -368,7 +459,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         id: 's2_spring_fatigue',
         title: '春困秋乏',
         description: '外面的阳光暖洋洋的，微风吹过，你坐在教室里上物理课，眼皮疯狂打架。',
-        type: 'negative', triggerType: 'RANDOM',
+        type: 'negative', triggerType: 'RANDOM', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.week >= 6 && s.week <= 14,
         choices: [
             { text: '死撑着听课', action: (s) => ({ general: { ...s.general, health: s.general.health - 5, efficiency: s.general.efficiency - 2 } }) },
@@ -379,7 +470,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         id: 's2_seat_change',
         title: '换座位的悸动',
         description: '班主任宣布本周重新排座位，你暗暗祈祷能和心仪的那个TA坐得近一点。',
-        type: 'neutral', triggerType: 'RANDOM',
+        type: 'neutral', triggerType: 'RANDOM', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && s.general.romance > 10,
         choices: [
             { text: '期待', action: (s) => {
@@ -403,7 +494,11 @@ export const WINTER_BREAK_EVENTS: GameEvent[] = [
         triggerType: 'FIXED',
         fixedWeek: 3,
         choices: [
-            { text: '吃年夜饭，收压岁钱！', action: (s) => ({ general: { ...s.general, money: s.general.money + 1000, mindset: s.general.mindset + 20 } }) }
+            {
+                text: '吃年夜饭，收压岁钱！',
+                resultDescription: '一家人热热闹闹吃过年夜饭，你把长辈塞来的压岁钱收进小金库。',
+                action: (s) => ({ general: { ...s.general, money: s.general.money + 200, mindset: s.general.mindset + 20 } })
+            }
         ]
     }
 ];

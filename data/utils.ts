@@ -1,6 +1,7 @@
 
 import { GameState, GameStatus, SubjectKey, OIStats, SerializableEffect, GameEvent, GeneralStats, EventChoice, WeekendActivity, Difficulty, SUBJECT_NAMES } from '../types';
 import { getDifficultyPreset } from './constants';
+import { restoreRelationshipName } from './campus_names';
 import { getActivityRepeatMultiplier, getWeekendActivityFatigueDelta } from './balance';
 
 export const modifySub = (s: GameState, keys: SubjectKey[], val: number) => {
@@ -19,10 +20,25 @@ export const modifyOI = (s: GameState, changes: Partial<OIStats>) => {
     const newOI = { ...s.oiStats };
     (Object.keys(changes) as (keyof OIStats)[]).forEach(k => {
         if (k !== 'history') {
-             (newOI as any)[k] = Math.max(0, ((newOI as any)[k] || 0) + ((changes as any)[k] || 0));
+             const current = (newOI as any)[k] || 0;
+             let delta = (changes as any)[k] || 0;
+             if (delta > 0 && k !== 'rating') {
+                 if (current >= 85) delta *= 0.25;
+                 else if (current >= 60) delta *= 0.5;
+             }
+             (newOI as any)[k] = Math.max(0, current + delta);
         }
     });
     return newOI;
+};
+
+const STATUS_EFFICIENCY_MODIFIERS: Record<string, number> = {
+    focused: 2,
+    crush: -2,
+    heartbroken: -1,
+    fatigued: -1,
+    overstimulated: -1,
+    low_morale: -1
 };
 
 export const getEffectiveEfficiency = (state: GameState): number => {
@@ -33,6 +49,12 @@ export const getEffectiveEfficiency = (state: GameState): number => {
         const debt = Math.abs(state.general.money);
         eff += Math.floor(debt / 15);
     }
+
+    // Temporary status modifiers are computed dynamically so expiry restores efficiency cleanly.
+    (state.activeStatuses || []).forEach(status => {
+        const mod = STATUS_EFFICIENCY_MODIFIERS[status.id];
+        if (mod) eff += mod;
+    });
 
     const difficulty = getDifficultyPreset(state.difficulty);
     const fatiguePenalty = state.fatigue >= 90 ? 6 : state.fatigue >= 75 ? 3 : state.fatigue >= 50 ? 1 : 0;
@@ -311,8 +333,9 @@ export const applyAiEffect = (s: GameState, effect: SerializableEffect): Partial
         && s.flags.ready_for_confession === true
         && favorability >= 70;
     if (effect.romancePartner && canEstablishRelationship) {
-        updates.romancePartner = effect.romancePartner;
-        updates.flags = { ...s.flags, relationship_name: effect.romancePartner };
+        const nickname = restoreRelationshipName(s.flags.relationship_name, s.relationshipProfileId);
+        updates.romancePartner = nickname;
+        updates.flags = { ...s.flags, relationship_name: nickname };
     }
 
     if (effect.subjects) {

@@ -3,6 +3,7 @@ import { GameState, GameEvent, SubjectKey, SUBJECT_NAMES, OIStats, Phase } from 
 import { modifySub, modifyOI, getEffectiveEfficiency } from './utils';
 import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS } from './event_defs';
+import { isWintryWeek } from './game_flow';
 import oiEventsData from '../oi_events.json';
 
 const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
@@ -104,24 +105,44 @@ export const hasOIRandomEventsForPhase = (phase: Phase): boolean => {
 
 
 
-export const generateStudyEvent = (state: GameState): GameEvent => {
+const CLASSROOM_SCENES: Record<SubjectKey, string> = {
+    chinese: '老师收上来几份作文，挑了一段让全班一起改开头。你认出那一段是后桌写的。',
+    math: '黑板上留下两种解法，老师擦掉了中间一行，回头问谁能补上。',
+    english: '听力放完一遍，后排还在对第二题的答案。老师准备带大家再听一次。',
+    physics: '物理老师把小车推上斜面，前排的同学忙着抢一把长尺量它滑了多远。',
+    chemistry: '桌上那支试管的颜色比书上的浅。老师让每组先写下看到的现象，再翻讲义。',
+    biology: '显微镜轮到你这一组，玻片总对不上焦。同桌盯着记录纸，等你说看到了什么。',
+    history: '投影上两段材料在讲同一件事，老师让大家先圈出它们各自站在哪一边。',
+    geography: '地理老师拿出一张没有标注的地形图，让大家猜雨会先落在哪一侧。',
+    politics: '老师把最近的新闻剪在讲义上，让大家先找材料里的依据，再说自己的看法。'
+};
+
+export const generateStudyEvent = (state: GameState, queuedIds: readonly string[] = []): GameEvent => {
     const pool: SubjectKey[] = state.selectedSubjects.length > 0 
         ? ['chinese', 'math', 'english', ...state.selectedSubjects]
         : (Object.keys(SUBJECT_NAMES) as SubjectKey[]);
 
-    const subject = pool[Math.floor(Math.random() * pool.length)];
+    const unqueuedSubjects = pool.filter(subject => !queuedIds.includes(`study_weekly_${subject}`));
+    const availableSubjects = unqueuedSubjects.length ? unqueuedSubjects : pool;
+    const freshSubjects = availableSubjects.filter(subject => !state.recentEventIds.includes(`study_weekly_${subject}`));
+    const subjectPool = freshSubjects.length ? freshSubjects : availableSubjects;
+    const subject = subjectPool[Math.floor(Math.random() * subjectPool.length)];
     const subName = SUBJECT_NAMES[subject];
     const efficiency = getEffectiveEfficiency(state);
+    const isHoliday = state.phase === Phase.WINTER_BREAK || state.phase === Phase.SUMMER_BREAK;
 
     return {
         id: `study_weekly_${subject}`,
-        title: `${subName}课的抉择`,
-        description: `这节是${subName}课，老师讲的内容似乎有点催眠，或者...有点太难了？`,
+        title: isHoliday ? `假期${subName}自习` : `${subName}课的抉择`,
+        description: isHoliday
+            ? `假期的${subName}专项计划摆在桌前，你是打算沉下心推进一章，还是先喘口气？`
+            : CLASSROOM_SCENES[subject],
         type: 'neutral',
         triggerType: 'RANDOM',
         choices: [
             { 
-                text: '认真听讲',
+                text: isHoliday ? '系统整理一轮重点' : '认真听讲',
+                resultDescription: isHoliday ? '整理到最后，至少知道下一页该从哪里复习起。' : '你把老师补充的那一步标在笔记边上，下次遇到类似的题可以翻回来。',
                 tags: ['study'],
                 action: (s) => ({ 
                     subjects: modifySub(s, [subject], 1 + efficiency * 0.05),
@@ -129,7 +150,8 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
                 }) 
             },
             { 
-                text: '偷偷刷题',
+                text: isHoliday ? '集中刷套卷' : '偷偷刷题',
+                resultDescription: isHoliday ? '做完一套卷子，纸角上攒了几道还值得回看的题。' : '你多做了两页自己的题，抬头时老师已经讲到下一处了。',
                 tags: ['study', 'risky'],
                 action: (s) => ({ 
                     subjects: modifySub(s, [subject], 2 + efficiency * 0.05),
@@ -137,11 +159,10 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
                 }) 
             },
             { 
-                text: '睡觉',
+                text: isHoliday ? '先睡个回笼觉' : '睡觉',
                 tags: ['sleep', 'rest'],
                 action: (s) => {
-                    // Luck affects if you get caught sleeping
-                    const caughtChance = Math.max(0, 0.4 - s.general.luck / 200); 
+                    const caughtChance = isHoliday ? 0 : Math.max(0, 0.4 - s.general.luck / 200); 
                     if (Math.random() < caughtChance) {
                         return {
                             general: { ...s.general, mindset: s.general.mindset - 5, romance: s.general.romance - 2 },
@@ -150,9 +171,9 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
                     }
                     return { 
                         general: { ...s.general, health: s.general.health + 5, mindset: s.general.mindset + 2, efficiency: s.general.efficiency + 1 },
-                        subjects: modifySub(s, [subject], -1), 
+                        subjects: modifySub(s, [subject], isHoliday ? 0 : -1), 
                         sleepCount: (s.sleepCount || 0) + 1,
-                        log: [...s.log, { message: "运气不错，老师没发现你睡着了。", type: 'success', timestamp: Date.now() }]
+                        log: [...s.log, { message: isHoliday ? "假期的回笼觉格外香甜。" : "运气不错，老师没发现你睡着了。", type: 'success', timestamp: Date.now() }]
                     };
                 } 
             }
@@ -161,9 +182,11 @@ export const generateStudyEvent = (state: GameState): GameEvent => {
 };
 
 export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
+    const isHoliday = state.phase === Phase.WINTER_BREAK || state.phase === Phase.SUMMER_BREAK;
+
     // --- High Luck Event (Req Luck >= 80, 5% Chance) ---
     // Reduced probability from 10% to 5% to balance event distribution
-    if (state.general.luck >= 80 && !state.recentEventIds.includes('evt_lucky_moment') && Math.random() < 0.05) {
+    if (!isHoliday && state.general.luck >= 80 && !state.recentEventIds.includes('evt_lucky_moment') && Math.random() < 0.05) {
         return {
             id: 'evt_lucky_moment',
             title: '欧皇时刻',
@@ -197,7 +220,7 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
     }
 
     // --- Low Luck Event (Req Luck <= 20, 5% Chance) ---
-    if (state.general.luck <= 20 && !state.recentEventIds.includes('evt_bad_luck') && Math.random() < 0.05) {
+    if (!isHoliday && state.general.luck <= 20 && !state.recentEventIds.includes('evt_bad_luck') && Math.random() < 0.05) {
         return {
             id: 'evt_bad_luck',
             title: '水逆时刻',
@@ -209,7 +232,7 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                     text: '平地摔', 
                     action: (s) => ({ 
                         general: { ...s.general, health: s.general.health - 5, mindset: s.general.mindset - 5 },
-                        log: [...s.log, { message: "在众目睽睽之下摔了一跤，社死...", type: 'error', timestamp: Date.now() }]
+                        log: [...s.log, { message: '你在楼梯口摔了一跤，后面的同学停下来扶你。', type: 'error', timestamp: Date.now() }]
                     }) 
                 },
                 { 
@@ -223,38 +246,11 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
         };
     }
 
-    if (state.romancePartner && Math.random() < 0.25) { 
-        const dateLocations = ['西单', '北海公园', '电影院', '图书馆', '什刹海'];
-        const loc = dateLocations[Math.floor(Math.random() * dateLocations.length)];
-        return {
-            id: 'evt_date',
-            title: '甜蜜约会',
-            description: `周末到了，${state.romancePartner}约你去${loc}逛逛。`,
-            type: 'positive',
-            triggerType: 'RANDOM',
-            choices: [
-                { 
-                    text: '欣然前往', 
-                    action: (st) => ({ 
-                        general: { ...st.general, money: st.general.money - 30, romance: st.general.romance + 3, mindset: st.general.mindset + 5 },
-                        activeStatuses: [...st.activeStatuses, { ...STATUSES['in_love'], duration: 2 }]
-                    }) 
-                },
-                { 
-                    text: '我要学习', 
-                    action: (st) => ({ 
-                        general: { ...st.general, mindset: st.general.mindset - 5, romance: st.general.romance - 5 } 
-                    }) 
-                }
-            ]
-        };
-    }
-
-    const events: ((s: GameState) => GameEvent)[] = [
-        (s) => ({
+    const events: Record<string, (s: GameState) => GameEvent> = {
+        flavor_0: (s) => ({
             id: 'evt_rain',
             title: '突如其来的雨',
-            description: '放学时，天空突然下起了倾盆大雨。',
+            description: isHoliday ? '刚准备出门，天空突然下起了大雨。' : '放学时，天空突然下起了倾盆大雨。',
             type: 'neutral',
             choices: [
                 ...(s.romancePartner ? [{
@@ -268,10 +264,10 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                 { text: '在便利店买把伞', action: (st) => ({ general: { ...st.general, money: st.general.money - 20 } }) }
             ]
         }),
-        (s) => ({
+        flavor_1: () => ({
             id: 'evt_homework',
-            title: '作业如山',
-            description: '今天的作业量异常的大，各科老师仿佛商量好了一样。',
+            title: '明早要交的作业',
+            description: isHoliday ? '离开学还有两天，桌上还剩一张数学卷和一篇英语作文。' : '数学卷和英语作文都要明早交，你刚写完第一道大题。',
             type: 'negative',
             choices: [
                 {
@@ -291,22 +287,22 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                         if (Math.random() < caughtChance) {
                              return { 
                                  general: { ...st.general, mindset: st.general.mindset - 10, luck: st.general.luck - 2 },
-                                 log: [...st.log, { message: "抄作业被发现了！这运气也是没谁了。", type: 'error', timestamp: Date.now() }]
+                                 log: [...st.log, { message: '老师看见两份作业空了同一道题，让你们下课后留下。', type: 'error', timestamp: Date.now() }]
                              };
                         }
                         return {
                             general: { ...st.general, experience: st.general.experience + 5, luck: st.general.luck - 2 },
                             flags: { ...st.flags, copied_homework: true, copied_homework_week: st.week },
-                            log: [...st.log, { message: "侥幸过关。", type: 'info', timestamp: Date.now() }]
+                            log: [...st.log, { message: '课代表收走了两份作业。', type: 'info', timestamp: Date.now() }]
                         };
                     } 
                 }
             ]
         }),
-        (s) => ({
+        flavor_2: (s) => ({
             id: 'evt_snow',
-            title: '瑞雪兆丰年',
-            description: '外面下雪了，操场上一片白茫茫。',
+            title: '下雪了',
+            description: isHoliday ? '外面下雪了，楼下的空地白了一片。' : '外面下雪了，操场上一片白茫茫。',
             type: 'positive',
             choices: [
                  ...(s.romancePartner ? [{
@@ -316,14 +312,14 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                         activeStatuses: [...st.activeStatuses, { ...STATUSES['in_love'], duration: 3 }]
                     })
                 }] : []),
-                { text: '打雪仗！', action: (st) => ({ general: { ...st.general, health: st.general.health + 5, mindset: st.general.mindset + 10 } }) },
-                { text: '太冷了，回班', action: (st) => ({ general: { ...st.general, health: st.general.health - 2 } }) }
+                 { text: '出去打雪仗', action: (st) => ({ general: { ...st.general, health: st.general.health + 5, mindset: st.general.mindset + 10 } }) },
+                { text: isHoliday ? '太冷了，回屋' : '太冷了，回班', action: (st) => ({ general: { ...st.general, health: st.general.health - 2 } }) }
             ]
         }),
-        (s) => ({
+        flavor_3: () => ({
             id: 'evt_break_time',
             title: '难得的休息',
-            description: '有一节自习课，老师还没来。你打算怎么打发时间？',
+            description: isHoliday ? '午饭后，你看了一眼日历，下午没有别的安排。' : '自习课刚打铃，老师还没来。',
             type: 'neutral',
             choices: [
                 { 
@@ -333,64 +329,41 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                     }) 
                 },
                 { 
-                    text: '趴着休息', 
+                    text: isHoliday ? '踏踏实实睡个午觉' : '趴着休息', 
                     action: (st) => ({ 
                         general: { ...st.general, health: st.general.health + 3 }, 
                         sleepCount: (st.sleepCount || 0) + 1 
                     }) 
                 },
                 { 
-                    text: '和周围同学聊天', 
+                    text: isHoliday ? '和同学线上连麦聊天' : '和周围同学聊天', 
                     action: (st) => ({ 
                         general: { ...st.general, romance: st.general.romance + 3, experience: st.general.experience + 2 } 
                     }) 
                 }
             ]
         }),
-        (s) => ({
+        flavor_4: () => ({
             id: 'evt_dinner',
             title: '周末聚餐',
             description: '几个要好的同学提议周末去西单聚餐。',
             type: 'positive',
             choices: [
                 { 
-                    text: 'AA制走起 (-30金钱)', 
+                    text: '一起去，平摊 30 元',
                     action: (st) => ({ 
                         general: { ...st.general, money: st.general.money - 30, mindset: st.general.mindset + 10, romance: st.general.romance + 5 } 
                     }) 
                 },
                 { 
-                    text: '囊中羞涩，不去了', 
+                    text: '这次先不去',
                     action: (st) => ({ 
                         general: { ...st.general, mindset: st.general.mindset - 2 } 
                     }) 
                 }
             ]
         }),
-        (s) => ({
-            id: 'evt_homework_service',
-            title: '代写作业',
-            description: '隔壁班的同学想花钱找人代写数学作业。',
-            type: 'neutral',
-            choices: [
-                {
-                    text: '接单 (+20金钱)',
-                    action: (st) => {
-                         // Luck affects risk
-                         const caught = Math.random() < (0.4 - st.general.luck / 300);
-                         if (caught) {
-                             return {
-                                 general: { ...st.general, mindset: st.general.mindset - 10, efficiency: st.general.efficiency - 2 },
-                                 log: [...st.log, { message: "惨！被老师发现了，钱没挣到还挨了顿骂。", type: 'error', timestamp: Date.now() }]
-                             }
-                         }
-                         return { general: { ...st.general, money: st.general.money + 20, efficiency: st.general.efficiency - 1 } }
-                    }
-                },
-                { text: '严词拒绝', action: (st) => ({ general: { ...st.general, mindset: st.general.mindset + 2 } }) }
-            ]
-        }),
-        (s) => ({
+        flavor_6: () => ({
             id: 'evt_help_card',
             title: '忘带饭卡',
             description: '排队打饭时，前面的同学发现忘带饭卡了，正尴尬地四处张望。',
@@ -400,27 +373,29 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                     text: '帮刷一下',
                     action: (st) => ({
                         general: { ...st.general, money: st.general.money + 10, romance: st.general.romance + 1 },
-                        log: [...st.log, { message: "同学非常感激，转了你红包还多给了点。", type: 'success', timestamp: Date.now() }]
+                        log: [...st.log, { message: '同学到教室后还了饭钱，多转了 10 元。', type: 'success', timestamp: Date.now() }]
                     })
                 },
                 { text: '假装没看见', action: (st) => ({ general: { ...st.general, experience: st.general.experience + 1 } }) }
             ]
         })
-    ];
+    };
 
-    const freshIndexes = events
-        .map((_, index) => index)
-        .filter(index => !state.recentEventIds.includes(`flavor_${index}`));
-    const indexes = freshIndexes.length > 0 ? freshIndexes : events.map((_, index) => index);
-    const pickedIndex = indexes[Math.floor(Math.random() * indexes.length)];
-    return { ...events[pickedIndex](state), id: `flavor_${pickedIndex}`, triggerType: 'RANDOM' };
+    const eligibleEvents = Object.entries(events)
+        .map(([id, buildEvent]) => ({ event: buildEvent(state), id }))
+        .filter(({ event }) => (event.id !== 'evt_snow' || isWintryWeek(state))
+            && (!isHoliday || event.id !== 'evt_help_card'));
+    const freshEvents = eligibleEvents.filter(({ id }) => !state.recentEventIds.includes(id));
+    const pool = freshEvents.length ? freshEvents : eligibleEvents;
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    return { ...picked.event, id: picked.id, triggerType: 'RANDOM' };
 };
 
 export const generateSummerLifeEvent = (state: GameState): GameEvent => {
     const leisureEvent: GameEvent = {
         id: 'sum_leisure',
         title: '暑期休闲时光',
-        description: '（并非）漫长的暑假，除了学习，适当的放松也是必要的。今天你打算做什么？',
+        description: '你把练习册合上了。离晚饭还有两个小时。',
         type: 'positive',
         triggerType: 'RANDOM',
         choices: [
@@ -432,7 +407,7 @@ export const generateSummerLifeEvent = (state: GameState): GameEvent => {
                 })
             },
             {
-                text: '【数据删除】，启动！',
+                text: '抽一发二次元卡池！',
                 action: (s) => {
                     // Luck heavily influences gacha
                     const baseRate = 0.05 + s.general.luck / 200; 
@@ -444,14 +419,14 @@ export const generateSummerLifeEvent = (state: GameState): GameEvent => {
                 }
             },
             {
-                text: '玩Minecraft ',
+                text: '玩 Minecraft',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 5 },
                     log: [...s.log, { message: "你还记得，曾经陪你一起玩的朋友们吗？", type: 'success', timestamp: Date.now() }]
                 })
             },
             {
-                text: '为什么玩 Minecraft ，不如Minesweeper！！！！',
+                text: '挑战高难度扫雷',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 5},
                 })
@@ -503,8 +478,8 @@ export const generateSummerLifeEvent = (state: GameState): GameEvent => {
         },
         {
             id: 'sum_online_course',
-            title: '这是啥？',
-            description: '家长给你报了一个（据说很贵）的线上衔接班，据说主讲老师是【数据删除】的名师。',
+            title: '暑期线上衔接课',
+            description: '家长给你报了一个（据说很贵）的线上衔接班，主讲老师据说很有名。',
             type: 'neutral',
             choices: [
                 {
@@ -512,7 +487,7 @@ export const generateSummerLifeEvent = (state: GameState): GameEvent => {
                     action: (s) => ({
                         general: { ...s.general,  efficiency: s.general.efficiency + 3 },
                         subjects: modifySub(s, ['math', 'physics', 'chemistry', 'english'], 4),
-                        log: [...s.log, { message: "名师果然有一套，你感觉任督二脉被打通了。", type: 'success', timestamp: Date.now() }]
+                        log: [...s.log, { message: '老师讲完第二种解法，你回去照着做出了那道题。', type: 'success', timestamp: Date.now() }]
                     })
                 },
                 {

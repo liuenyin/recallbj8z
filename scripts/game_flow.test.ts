@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PHASE_ORDER, getAcademicMaxScore, getPostEventFlow, getSubjectReselectionReturnPhase, isExamPhase, isQueuedEventStillEligible } from '../data/game_flow.ts';
+import { PHASE_ORDER, getAcademicMaxScore, getPostEventFlow, getSubjectReselectionReturnPhase, isExamPhase, isQueuedEventStillEligible, isWintryWeek } from '../data/game_flow.ts';
 
 const PHASE = {
   NOI_EXAM: 'NOI_EXAM',
@@ -23,6 +23,15 @@ test('selected academic exams use the 750-point maximum', () => {
 test('summer and military events advance directly to the next week', () => {
   assert.equal(getPostEventFlow(PHASE.SUMMER), 'ADVANCE_WITHOUT_WEEKEND');
   assert.equal(getPostEventFlow(PHASE.MILITARY), 'ADVANCE_WITHOUT_WEEKEND');
+});
+
+test('snow stays in winter break and the wintry parts of the school year', () => {
+  assert.equal(isWintryWeek({ phase: 'SUMMER_BREAK' as any, week: 1 }), false);
+  assert.equal(isWintryWeek({ phase: PHASE.SEMESTER_1, week: 5 }), false);
+  assert.equal(isWintryWeek({ phase: PHASE.SEMESTER_1, week: 18 }), true);
+  assert.equal(isWintryWeek({ phase: 'WINTER_BREAK' as any, week: 1 }), true);
+  assert.equal(isWintryWeek({ phase: PHASE.SEMESTER_2, week: 1 }), true);
+  assert.equal(isWintryWeek({ phase: PHASE.SEMESTER_2, week: 15 }), false);
 });
 
 test('subject reselection returns to the semester it came from', () => {

@@ -1,34 +1,35 @@
 import { PHASE_ORDER } from './game_flow';
 import { GameState, RelationshipProfile } from '../types';
+import { RELATIONSHIP_NICKNAMES, restoreRelationshipName } from './campus_names';
 
 export const RELATIONSHIP_PROFILES: RelationshipProfile[] = [
   {
     id: 'profile_linxia',
-    name: '林夏',
-    role: '同桌候选人',
-    personality: '外向、敏锐，喜欢音乐和热闹的校园生活。',
-    routeHint: '陪伴与表达比单纯刷属性更重要。'
+    name: RELATIONSHIP_NICKNAMES.profile_linxia,
+    role: '常分享歌单的同学',
+    personality: '喜欢听歌。课间碰面时会聊最近听到了什么。',
+    routeHint: '课间可以聊歌。'
   },
   {
     id: 'profile_shenzhiyao',
-    name: '沈知遥',
+    name: RELATIONSHIP_NICKNAMES.profile_shenzhiyao,
     role: '年级前列的同学',
-    personality: '安静、认真，对学习和未来都有清晰计划。',
-    routeHint: '一起学习能稳定提升关系，但也会消耗精力。'
+    personality: '经常拿本子记作业和周测错题。',
+    routeHint: '有不懂的题，可以一起看。'
   },
   {
     id: 'profile_chenmo',
-    name: '陈默',
+    name: RELATIONSHIP_NICKNAMES.profile_chenmo,
     role: '机房里的熟面孔',
-    personality: '话不多，擅长算法，愿意把真正的难题讲到你听懂。',
-    routeHint: 'OI 训练和真诚交流会打开这条路线。'
+    personality: '常在机房调程序，讲题时习惯先举个例子。',
+    routeHint: '下次在机房碰见，可以带一道题去问。'
   },
   {
     id: 'profile_xujiahe',
-    name: '许嘉禾',
-    role: '社团活动中心人物',
-    personality: '热心、果断，总能把一群人组织起来。',
-    routeHint: '社团和周末活动是建立关系的主要场景。'
+    name: RELATIONSHIP_NICKNAMES.profile_xujiahe,
+    role: '负责社团宣传的同学',
+    personality: '负责贴海报和借活动室，经常带着胶带。',
+    routeHint: '社团忙的时候可以搭把手。'
   }
 ];
 
@@ -64,17 +65,17 @@ export const relationshipCheckpoint = (s: GameState, key: string) => ({
 });
 
 export const startRelationship = (s: GameState): Partial<GameState> => ({
-  romancePartner: s.flags.relationship_name || 'TA',
+  romancePartner: restoreRelationshipName(s.flags.relationship_name, s.relationshipProfileId),
   flags: { ...s.flags, ready_for_confession: false, romance_resolution: 'dating',
     ...relationshipCheckpoint(s, 'romance_started') }
 });
 
 export const getRelationshipHint = (s: GameState): string => {
-  if (s.flags.romance_resolution === 'rejected') return '先吃顿饭、睡一觉。过些时候，你们还有机会把话说开。';
-  if (s.flags.romance_resolution === 'friends') return '做同学也有下文，不用把每次见面都当成下一轮表白。';
-  if (['distance', 'separated'].includes(s.flags.romance_resolution)) return '不用急着恢复原样，把自己的日子过好也算进展。';
-  if (s.flags.romance_tension === 'unresolved') return '那次没说完的话还在，找个不赶时间的时候再聊聊。';
-  if (s.flags.ready_for_confession) return '你们约了下次见面。约定会保留，不必卡着某一周等。';
-  if (s.romancePartner) return '在一起以后，也可以有各自的时间。';
-  return s.flags.relationship_route_hint || '先从好好说话开始。';
+  if (s.flags.romance_resolution === 'rejected') return '下次在学校遇见，可以打个招呼。';
+  if (s.flags.romance_resolution === 'friends') return '你们约好继续做朋友。';
+  if (['distance', 'separated'].includes(s.flags.romance_resolution)) return '你们暂时各自安排课余时间。';
+  if (s.flags.romance_tension === 'unresolved') return '找个空当说说上次那条消息。';
+  if (s.flags.ready_for_confession) return '你们约过一次放学后单独走。';
+  if (s.romancePartner) return '周末有空可以约一次活动。';
+  return s.flags.relationship_route_hint || '课间有机会时，可以聊几句。';
 };

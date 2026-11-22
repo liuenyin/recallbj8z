@@ -2,20 +2,20 @@
   {
     "id": "campus_borrow_pen",
     "title": "借一支笔",
-    "description": "随堂练习刚开始，你的笔就断墨了。同桌把笔袋推过来：“挑吧，本店暂不收利息。”",
+    "description": "随堂小测刚发卷子，你的中性笔写不出水了。同桌听见你在书包里翻找，把笔袋推了过来：“拿这支黑色 0.5 的用吧。”",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "借用备用笔，下课归还",
-        "resultDescription": "你把笔还回去，又帮同桌带了练习册。两个人的互助小队，启动资金是一支中性笔。",
+        "resultDescription": "下课你把笔还回去，顺手帮同桌把那摞练习册交到了前面讲台。",
         "effect": {
           "mindset": 2
         }
       },
       {
         "text": "用铅笔写完，再找老师说明",
-        "resultDescription": "老师点点头：“下次带备用笔。”你把这条知识点记进了脑子，含金量比刚才那道题还高。",
+        "resultDescription": "收卷时老师点点头，提醒你下次多备两根笔芯。顺带把刚讲的那道小题重看了一遍。",
         "effect": {
           "experience": 1
         }
@@ -25,20 +25,20 @@
   {
     "id": "campus_window_cat",
     "title": "窗台上的猫",
-    "description": "一只橘猫跳上窗台，挡住黑板。老师停下粉笔。全班终于迎来一位敢打断数学课的勇士。",
+    "description": "教学楼常驻的那只橘猫蹲在窗台上晒太阳，正巧挡在反光位置。前排同学憋着笑，数学老师顺着目光看过去，也停下粉笔咳了一声。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "趁这会儿伸个懒腰",
-        "resultDescription": "猫走了，你也清醒了一点。谢谢猫老师，猫老师辛苦了。",
+        "text": "趁老师擦黑板时活动一下肩颈",
+        "resultDescription": "猫跳下窗台走远了。跟着抬头活动了几秒颈椎，下半节课没那么犯困。",
         "effect": {
           "mindset": 3
         }
       },
       {
-        "text": "把刚才没抄完的笔记补齐",
-        "resultDescription": "趁大家围观，你补齐了笔记。猫负责吸引火力，你负责偷偷发育。",
+        "text": "低头把黑板左边的板书补记完",
+        "resultDescription": "老师很快把话题拉回例题，你趁刚才那十来秒刚好把漏抄的一行推导补齐了。",
         "effect": {
           "experience": 2
         }
@@ -48,21 +48,21 @@
   {
     "id": "campus_birthday",
     "title": "一块小蛋糕",
-    "description": "午休时，后排同学把切成小块的蛋糕分给大家。今天是他的生日。",
+    "description": "午休时，后排同学拿来一盒切好的小蛋糕分给周围人。今天是他十六岁生日。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
         "text": "接过蛋糕，说句生日快乐",
-        "resultDescription": "平时没怎么说过话的同学，今天和你聊了好一会儿。",
+        "resultDescription": "平时课间只点个头的同学，今天靠在桌边跟你聊了好一会儿。",
         "effect": {
           "mindset": 3,
           "romance": 1
         }
       },
       {
-        "text": "帮忙分盘子、收拾桌面",
-        "resultDescription": "你们收好桌面，留下了一张合照。",
+        "text": "帮忙递一下纸盘，顺手收拾桌面",
+        "resultDescription": "吃完大家一起把纸盘收进垃圾袋，赶在下午第一节预备铃前恢复了桌面整洁。",
         "effect": {
           "experience": 2,
           "mindset": 1
@@ -73,20 +73,20 @@
   {
     "id": "campus_rain",
     "title": "雨突然下大了",
-    "description": "放学铃刚响，窗外开始泼水。你的伞在家，你在学校。你们各自安好，互不打扰。",
+    "description": "放学铃响时外头突然下起急雨，屋檐下的台阶很快就溅起水花。你早晨出门只看了阴天，书包侧袋里没放伞。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "在门厅等一会儿",
-        "resultDescription": "雨停了，你也把今天的烦心事放空了一点。就是校门口那只猫，比你先回家。",
+        "text": "在门厅站着等几分钟",
+        "resultDescription": "过了十几分钟雨势小了下去，踩着微湿的地面往地铁站走，风凉下来不少。",
         "effect": {
           "mindset": 3
         }
       },
       {
-        "text": "和同路同学合打一把伞",
-        "resultDescription": "伞不大，你们各湿半边。友情这东西，有时就是均摊降水量。",
+        "text": "和同路同学合打一把伞去地铁站",
+        "resultDescription": "折叠伞不太宽敞，两人各淋湿半边肩膀。到站口收伞时都抖了满手雨水。",
         "effect": {
           "romance": 2,
           "mindset": 2
@@ -97,20 +97,20 @@
   {
     "id": "campus_lunch",
     "title": "食堂的新菜",
-    "description": "食堂窗口贴着手写纸：今天有新菜。前面的人尝了一口，表情有点犹豫。",
+    "description": "三层食堂窗口贴了张手写纸条，写了道今天新出的菜名。前面端盘子的同学尝了一口，顿了一下没说话。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "试一小份",
-        "resultDescription": "没有想象中奇怪。你决定下次再给它一次机会。",
+        "text": "要一小份尝尝看",
+        "resultDescription": "比看上去顺口些，只是稍微偏咸，配米饭倒还能吃完。",
         "effect": {
           "experience": 2
         }
       },
       {
-        "text": "还是选熟悉的那道菜",
-        "resultDescription": "熟悉的味道，让这个忙乱的中午安稳了一点。",
+        "text": "还是点平时常吃的窗口",
+        "resultDescription": "稳妥吃完了这顿午饭，省下时间还能回班趴十分钟。",
         "effect": {
           "mindset": 2
         }
@@ -120,20 +120,20 @@
   {
     "id": "campus_lost_card",
     "title": "捡到一张饭卡",
-    "description": "楼梯拐角躺着一张饭卡。交到招领处最省事；按班级送过去要多跑一趟，但能直接找到失主。",
+    "description": "楼梯拐角地上躺着一张校园卡。交到教学楼一层的失物招领处最省事；卡面上印着高一年级隔壁班的名字，自己送过去多爬两层楼，能直接交到本人手里。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "交到失物招领处",
-        "resultDescription": "老师收好饭卡：“交给我吧。”你按时回了教室，做好事不一定非得跑个全图。",
+        "text": "顺道交到失物招领处",
+        "resultDescription": "值班老师记下班号收好了卡。你踩着预备铃回到座位，没耽误下午第一节。",
         "effect": {
           "mindset": 2
         }
       },
       {
-        "text": "顺路送到卡上写的班级",
-        "resultDescription": "你多爬了一层楼，失主差点给你鞠躬：“救命恩人！我中午真没别的饭卡了。”",
+        "text": "按卡上写的班级直接送过去",
+        "resultDescription": "你上到四楼找到对方教室。那同学正急得翻书包，接过卡后连声道谢：“中午差点没法刷卡吃饭。”",
         "effect": {
           "romance": 2
         }
@@ -143,20 +143,20 @@
   {
     "id": "campus_wrong_answer",
     "title": "答案为什么不一样",
-    "description": "对答案时，你和同桌的结果差了一步。两个人都觉得自己没算错。",
+    "description": "刚发回的练习卷上，你和同桌最后一行算出的数值差了整整两倍。两个人都把草稿纸拉过来再算了一遍，还是没立刻看出破绽。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "把过程写出来一起看",
-        "resultDescription": "你们发现题目里有一个容易看漏的条件。",
+        "text": "各自把中间步骤摊开对一遍",
+        "resultDescription": "对到第三行时终于发现，原来有一句隐藏前提条件两个人都看岔了。",
         "effect": {
           "experience": 3
         }
       },
       {
-        "text": "圈出来，下课问老师",
-        "resultDescription": "老师让你们重新读了一遍题干。",
+        "text": "先圈出来，下课去问任课老师",
+        "resultDescription": "老师拿着红笔把题干重新画了一遍，指出那处单位换算的坑。",
         "effect": {
           "experience": 2,
           "mindset": 1
@@ -167,21 +167,21 @@
   {
     "id": "campus_pe",
     "title": "体育课自由活动",
-    "description": "体育老师宣布后半节课自由活动。篮球场很热闹，跑道另一边却很安静。",
+    "description": "跑步和拉伸结束，体育老师吹哨宣布后半节课自由活动。半场边已经围了一圈抢投篮的人，跑道外侧树荫下倒是空着。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "和朋友投几个篮",
-        "resultDescription": "没打正式比赛，只是一人投一个，笑声比进球多。",
+        "text": "凑过去和几个熟人轮流投篮",
+        "resultDescription": "没组全场对抗，就在三分线外轮流投着玩，出了一身微汗正好回教室喝水。",
         "effect": {
           "health": 2,
           "mindset": 3
         }
       },
       {
-        "text": "沿着跑道慢慢走",
-        "resultDescription": "你绕了两圈，想通了上午那件烦心事。",
+        "text": "沿着跑道外圈慢走喘口气",
+        "resultDescription": "顺着跑道走了两圈，听着风吹过看台，上午憋着的一点闷气散了不少。",
         "effect": {
           "mindset": 4
         }
@@ -191,21 +191,21 @@
   {
     "id": "campus_book",
     "title": "借来的小说",
-    "description": "朋友递来一本小说，书里夹着写了几句感想的便签。",
+    "description": "前后桌递过来一本小说，扉页里夹了张半透明便签，上面用钢笔抄了书中一句短评。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "午休读几页",
-        "resultDescription": "你在便签背面也写下一句，还书时一起交给对方。",
+        "text": "午休安静翻几十页",
+        "resultDescription": "趁午休静下来读完两章，你在便签背面也留了一句读后感夹回去。",
         "effect": {
           "experience": 2,
           "mindset": 2
         }
       },
       {
-        "text": "约好周末再借",
-        "resultDescription": "你把书名记下来，先把手里的事情做完。",
+        "text": "先把书收进书包，周末有空再看",
+        "resultDescription": "你记下借书的时间，先把白天的几科作业和改错收尾。",
         "effect": {
           "mindset": 1
         }
@@ -215,20 +215,20 @@
   {
     "id": "campus_radio",
     "title": "广播里熟悉的歌",
-    "description": "课间广播放了一首熟悉的歌。有人轻轻跟唱，走廊里的脚步也慢了下来。",
+    "description": "大课间校园广播放了一首老歌。走廊上往来倒水的人放慢了步子，窗边有人跟着哼了两句调子。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "听到副歌再回教室",
-        "resultDescription": "短短几分钟，给今天留了一小段空白。",
+        "text": "倚在走廊栏杆边听到副歌",
+        "resultDescription": "站着看了一会儿楼下院子里的银杏树，响铃前几分钟才回到座位。",
         "effect": {
           "mindset": 3
         }
       },
       {
-        "text": "问同学这首歌叫什么",
-        "resultDescription": "你们交换了最近常听的歌，聊到上课铃响。",
+        "text": "转头问隔壁同学这首歌的歌名",
+        "resultDescription": "你们顺势聊起各自歌单里常听的几张专辑，直到上课铃响才各自回去。",
         "effect": {
           "romance": 1,
           "mindset": 2
@@ -239,21 +239,21 @@
   {
     "id": "campus_cleaning",
     "title": "最后一组值日",
-    "description": "今天轮到你们值日。地已经扫完，但垃圾桶还没倒。",
+    "description": "傍晚六点多，教室里的人走得差不多了。今天轮到你们组值日，地面刚拖完，门口两个垃圾桶还满着。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "和同学一起去倒垃圾",
-        "resultDescription": "回来时桌椅已经摆好，大家一起关灯离开。",
+        "text": "和组员一起提着垃圾袋下楼",
+        "resultDescription": "拎到楼下分类站回来，剩下的同学已经摆齐桌椅，大家一起关灯锁门。",
         "effect": {
           "experience": 2,
           "mindset": 2
         }
       },
       {
-        "text": "留下来把黑板擦干净",
-        "resultDescription": "第二天早上，黑板上没有昨天的粉笔印。",
+        "text": "留下来把黑板和讲台擦干净",
+        "resultDescription": "洗了两遍黑板擦把板槽粉笔灰扫净，明天早读一进门能看着清爽些。",
         "effect": {
           "experience": 2
         }
@@ -263,20 +263,20 @@
   {
     "id": "campus_photo",
     "title": "一张没拍好的合照",
-    "description": "班级合照发到群里：有人闭眼，有人刚好在笑，你则看向了镜头外。",
+    "description": "班级活动结束后有人把大合照发到群里：快门按早了半秒，前排好几个人正转头说话，你也刚好没看镜头。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "把这张也存下来",
-        "resultDescription": "它不够整齐，却很像你们平时的样子。",
+        "text": "随手保存原图留着",
+        "resultDescription": "构图不算规整，几个抓拍到的神态倒比正经站一排自然得多。",
         "effect": {
           "mindset": 3
         }
       },
       {
-        "text": "约朋友课间再拍一张",
-        "resultDescription": "这一次没人站得特别端正，但大家都笑得很开心。",
+        "text": "叫上旁边几个人课间重拍一张",
+        "resultDescription": "几个人凑在走廊窗前又合了一张影，总算都正对着镜头笑了出来。",
         "effect": {
           "romance": 2,
           "mindset": 1
@@ -287,20 +287,20 @@
   {
     "id": "campus_forgot_homework",
     "title": "忘在家里的作业",
-    "description": "你昨晚写完了作业，但翻遍书包也找不到。它大概还在书桌上。",
+    "description": "早读课组长来收作业本，你把书包倒过来抖了两下，确定昨晚写完的那本还落在书房桌角。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "向老师说明，明天补交",
-        "resultDescription": "老师让你记好这件事，今天先用草稿纸跟着讲评。",
+        "text": "如实向任课老师说明，明天补交",
+        "resultDescription": "老师记了名字，让你今天先拿草稿纸跟着听讲评，明天早读前补齐放到办公桌。",
         "effect": {
           "experience": 2
         }
       },
       {
-        "text": "利用课间重新做一遍",
-        "resultDescription": "第二遍做得快了些，但你失去了一个课间。",
+        "text": "趁课间和午休找同学对完题重做一遍",
+        "resultDescription": "思路还有印象，写得比昨晚快些，但整个课间一直伏案没怎么歇着。",
         "effect": {
           "experience": 3,
           "mindset": -2
@@ -311,20 +311,20 @@
   {
     "id": "campus_water",
     "title": "接水的队伍",
-    "description": "水房排起了队。前面的同学正在聊今天最难的一道题。",
+    "description": "走廊尽头的直饮水机前排了五六个拿保温杯的同学。前面两位正低头讨论上午周测最后一道选填题。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "边排队边听他们讨论",
-        "resultDescription": "轮到你时，那道题的思路也清楚了。",
+        "text": "排在后面顺便听听他们的解法",
+        "resultDescription": "轮到你接完热水时，正好听明白了他们用的那个特殊值代入思路。",
         "effect": {
           "experience": 2
         }
       },
       {
-        "text": "下一节课间再来",
-        "resultDescription": "你用剩下的时间整理好桌面。",
+        "text": "人太多了，先回座下节课间再来",
+        "resultDescription": "省下几分钟排队时间，回座位把桌上摊乱的卷子按科目分类夹好。",
         "effect": {
           "mindset": 2
         }
@@ -334,20 +334,20 @@
   {
     "id": "campus_experiment",
     "title": "实验最后一步",
-    "description": "实验还差最后一次测量，组员已经摸向了书包。你们的小组精神状态：数据尚未闭环，人已准备下班。",
+    "description": "物理分组实验只差最后一组对照数据，下课铃还有三分钟就响，同组两个同学已经开始收拾仪器准备去食堂。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "再测一次，补齐记录",
-        "resultDescription": "重测结果有点偏差，你们把原因写进了报告。科学可以有误差，报告不能靠祈祷。",
+        "text": "留两分钟把最后一组读数测完",
+        "resultDescription": "复测出的误差原因一并写进了实验报告。虽然晚去食堂排了会儿队，报告页倒不用留空。",
         "effect": {
           "experience": 3
         }
       },
       {
-        "text": "负责记录，请同伴再操作一次",
-        "resultDescription": "你记数，同伴操作。原来“团队合作”不是封面上凑齐四个人的名字。",
+        "text": "你负责记数填表，请同伴再操作一遍",
+        "resultDescription": "分好工两分钟就结束了。下楼路上两个人还顺口核对了一遍有效数字位数。",
         "effect": {
           "experience": 2,
           "romance": 1
@@ -358,20 +358,20 @@
   {
     "id": "campus_eraser",
     "title": "橡皮上的字",
-    "description": "同桌在你的橡皮上写了“考试加油”。字歪歪扭扭，像刚跑完八百米，但确实有被鼓励到。",
+    "description": "月考前一晚放学前，同桌借走你的白色橡皮，还回来时侧面多了行小小的黑笔字：“明天别粗心”。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "在对方的草稿纸上回一句",
-        "resultDescription": "你回了句“都活着回来”。两个人憋笑憋得像正在进行肺活量测试。",
+        "text": "在对方草稿本边角回写一句",
+        "resultDescription": "你在边栏写了个“你也是”，两个人各自收拾书包时对视笑了一下。",
         "effect": {
           "mindset": 3
         }
       },
       {
-        "text": "把橡皮收好，认真留着",
-        "resultDescription": "你把橡皮收好。它不能保佑你全对，但至少不会嫌弃你算错。",
+        "text": "把橡皮塞回文具袋最里层",
+        "resultDescription": "你没有用掉带字的那一侧，第二天进考场前看见它时心里安稳了些。",
         "effect": {
           "mindset": 2
         }
@@ -381,20 +381,20 @@
   {
     "id": "campus_seat",
     "title": "靠窗的位置",
-    "description": "换座位后，你坐到了窗边。风会掀起试卷，但能看见操场边的树。",
+    "description": "按月调换座位后，你的桌子搬到了走廊另一侧的窗边。风一吹得用书压着卷角，但抬头就能看见操场和楼前的树。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "用水杯压住试卷",
-        "resultDescription": "树影在纸上晃了一会儿，你重新看向题目。",
+        "text": "拿水杯压住试卷角，低头继续做题",
+        "resultDescription": "外头阳光照在白纸边上有点晃眼，调了下坐姿继续看下一道题。",
         "effect": {
           "mindset": 2
         }
       },
       {
-        "text": "课间看看窗外",
-        "resultDescription": "你发现那棵树已经冒出了新的枝叶。",
+        "text": "下课铃响后撑着桌沿看会儿窗外",
+        "resultDescription": "看着操场上有班上体育课跑完两圈，吹过一阵穿堂风，眼睛酸胀好了不少。",
         "effect": {
           "mindset": 3
         }
@@ -404,21 +404,21 @@
   {
     "id": "campus_quiet_morning",
     "title": "早到的十分钟",
-    "description": "今天到校比平时早，教室里只有几个人。走廊上还有拖把留下的水痕。",
+    "description": "今天起早了一些，七点不到就进了教室。走廊刚拖过水还有些潮，教室里只有两三个早读背单词的同学。",
     "type": "neutral",
     "triggerType": "RANDOM",
     "choices": [
       {
-        "text": "整理今天要用的课本",
-        "resultDescription": "等同学陆续进来，你已经理顺了一天的事情。",
+        "text": "趁没人打扰先把当天课本和卷子排好",
+        "resultDescription": "同学陆续进班前，你已经按课表顺序把每科要交的材料理了出来。",
         "effect": {
           "experience": 2,
           "mindset": 1
         }
       },
       {
-        "text": "安静坐一会儿",
-        "resultDescription": "没有立刻开始赶作业的早晨，也挺难得。",
+        "text": "靠在椅背上安静坐几分钟",
+        "resultDescription": "趁早自习还没开始喘了口气，喝完半杯温水再摊开笔记本。",
         "effect": {
           "mindset": 3
         }

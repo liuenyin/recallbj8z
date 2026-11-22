@@ -17,12 +17,12 @@ const scenarios = [
   {name:'oi-independent',route:'OI',difficulty:'NORMAL',seed:77,alternate:true},
   {name:'mo-cooperate',route:'MO',difficulty:'NORMAL',seed:88},
   {name:'mo-risky',route:'MO',difficulty:'NORMAL',seed:99,alternate:true},
-  {name:'romance',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1}}
-  ,{name:'romance-friends',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1,romance_confession_prep:1}}
-  ,{name:'romance-separate',expectedRomance:'separated',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1,romance_missed_message:1,romance_repair:1}},
-  {name:'romance-repair',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:1,evt_confession_generic:1,romance_missed_message:1,romance_repair:0}},
-  {name:'romance-rejected',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:0,evt_confession_generic:0}},
-  {name:'romance-space',expectedRomance:'distance',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{sum_reunion:0,evt_confession_generic:0,romance_after_rejection:1}},
+  {name:'romance',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true}
+  ,{name:'romance-friends',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_confession_prep:1}}
+  ,{name:'romance-separate',expectedRomance:'separated',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_missed_message:1,romance_repair:1}},
+  {name:'romance-repair',expectedRomance:'dating',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_missed_message:1,romance_repair:0}},
+  {name:'romance-rejected',expectedRomance:'friends',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_personal_moment:1,romance_confession_prep:0,romance_confession:0}},
+  {name:'romance-space',expectedRomance:'distance',route:'None',difficulty:'NORMAL',seed:111,romance:true,choices:{romance_personal_moment:1,romance_confession_prep:0,romance_confession:0,romance_after_rejection:1}},
   {name:'sleep-challenge',route:'None',difficulty:'REALITY',seed:122,challenge:'c_sleep_king'},
   {name:'sleep-challenge-fail',route:'None',difficulty:'REALITY',seed:133,challenge:'c_sleep_king',fail:true},
   {name:'debt-challenge',route:'None',difficulty:'REALITY',seed:144,challenge:'c_debt_king'}
@@ -30,8 +30,23 @@ const scenarios = [
   {name:'oi-rough-repair',route:'OI',difficulty:'NORMAL',seed:301,choices:{oi_problem_draft:1,oi_problem_testing:1}},
   {name:'oi-rough-defend',route:'OI',difficulty:'NORMAL',seed:302,choices:{oi_problem_draft:1,oi_problem_testing:1,oi_problem_feedback:1}},
   {name:'mo-rough',route:'MO',difficulty:'NORMAL',seed:303,choices:{mo_setter_review:1}},
-  {name:'mo-medal',route:'MO',difficulty:'NORMAL',seed:304,club:'math_research',talents:['lucky_dog','healthy','optimist']}
+  {name:'mo-medal',route:'MO',difficulty:'NORMAL',seed:304,club:'math_research',talents:['lucky_dog','healthy','optimist']},
+  {name:'festival-build',route:'None',difficulty:'NORMAL',seed:401,club:'astronomy',expectedFestival:'built',
+    choices:{sci_fest_first_day:0,sci_fest_signup:0,sci_fest_rehearsal:0,evt_sci_fest:0}},
+  {name:'festival-guide',route:'None',difficulty:'NORMAL',seed:402,club:'math_research',expectedFestival:'guided',
+    choices:{sci_fest_first_day:0,sci_fest_signup:1,sci_fest_rehearsal:0,evt_sci_fest:0}},
+  {name:'festival-improvise',route:'None',difficulty:'NORMAL',seed:403,expectedFestival:'improvised',
+    choices:{sci_fest_first_day:1,sci_fest_signup:0,sci_fest_rehearsal:1,evt_sci_fest:0}},
+  {name:'festival-visit',route:'None',difficulty:'NORMAL',seed:404,expectedFestival:'visited',
+    choices:{sci_fest_first_day:1,sci_fest_signup:2,evt_sci_fest:0}},
+  {name:'festival-astronomy-notes',route:'None',difficulty:'NORMAL',seed:405,club:'astronomy',expectedFestival:'astronomy_notes',
+    choices:{sci_fest_astronomy_notes:0,sci_fest_signup:0,sci_fest_rehearsal:1,evt_sci_fest:0}},
+  {name:'project-complete',route:'None',difficulty:'REALITY',seed:501,expectedProject:'compare',
+    choices:{campus_project_signup:0,campus_project_sample:0}},
+  {name:'project-overdue',route:'None',difficulty:'NORMAL',seed:502,expectedProject:'draft',
+    choices:{campus_project_signup:1,campus_project_sample:1}}
 ].filter(s => !process.env.ROUTE || s.name === process.env.ROUTE);
+const english = process.env.GAME_LANGUAGE === 'en';
 const reports = [];
 mkdirSync('artifacts',{recursive:true});
 try {
@@ -48,22 +63,29 @@ try {
       const {default:ExamView} = await import('/components/ExamView.tsx');
       const {default:EndingScreen} = await import('/components/EndingScreen.tsx');
       const {default:EventModal} = await import('/components/EventModal.tsx');
-      const {isExamPhase,getSubjectReselectionReturnPhase} = await import('/data/game_flow.ts');
+      const {isExamPhase,getSubjectReselectionReturnPhase,isWintryWeek} = await import('/data/game_flow.ts');
       const {isStudyChoice,isStudyBlocked,getWeekendActivityUpdates,clampGameStateMetrics,getActivityBlockReason,isLearningActivity} = await import('/data/utils.ts');
-      const {SCHEDULE_SLOTS,ALLOWED_SLOTS_MAP,BLOCKED_SLOTS_MAP} = await import('/data/timetable.ts');
+      const {SCHEDULE_SLOTS,ALLOWED_SLOTS_MAP,BLOCKED_SLOTS_MAP,getActivityMaxSlots} = await import('/data/timetable.ts');
       const {IRREGULAR_CHALLENGES} = await import('/data/challenges.ts');
-      const {getEndingData} = await import('/data/ending.ts');
+      const {getEndingData,getEndingMemories} = await import('/data/ending.ts');
       const {TALENTS} = await import('/data/mechanics.ts');
+      // Use the component's module instance after a Vite hot update.
+      const eventModule = config.english ? await (await fetch('/components/EventModal.tsx')).text() : '';
+      const i18nPath = eventModule.match(/from ["'](\/lib\/i18n\.tsx[^"']*)["']/)?.[1] ?? '/lib/i18n.tsx';
+      const {LanguageProvider,useLanguage} = await import(i18nPath);
+      if (config.english) window.history.replaceState(null,'','?lang=en');
+      const localized = element => config.english ? React.createElement(LanguageProvider,null,element) : element;
       const nativeTimeout = window.setTimeout;
       const wait = () => new Promise(resolve=>nativeTimeout(resolve,5));
       window.setTimeout = (fn,delay,...args)=>nativeTimeout(fn,delay === 1000 || delay === 800 ? 5 : delay,...args);
       let seed = config.seed;
       Math.random = () => { seed = (Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296; };
-      let game;
+      let game,language;
       const host = document.body.appendChild(document.createElement('div'));
       const root = createRoot(host);
       function Harness() {
-        game = useGameLogic(undefined,config.name);
+        language = useLanguage().language;
+        game = useGameLogic(undefined,config.name,language);
         const s=game.state;
         if (s.currentEvent) return React.createElement(EventModal,{event:s.currentEvent,state:s,eventResult:s.eventResult,
           autoContinueEnabled:false,onChoice:choice=>game.handleChoice(choice),onConfirm:game.handleEventConfirm});
@@ -71,12 +93,23 @@ try {
           title:s.phase,state:s,onFinish:game.handleExamFinish});
         return null;
       }
-      flushSync(()=>root.render(React.createElement(Harness)));
+      flushSync(()=>root.render(localized(React.createElement(Harness))));
       await wait();
+      for (let attempt=0;config.english && language!=='en' && attempt<100;attempt++) await wait();
+      if (config.english && language!=='en') throw new Error('English catalog did not load');
       const talents = config.difficulty === 'HELL' ? TALENTS.filter(t=>t.id==='loner') : TALENTS.filter(t=>(config.talents||['genius']).includes(t.id));
       flushSync(()=>game.startGameState(config.difficulty,{},talents,IRREGULAR_CHALLENGES.find(c=>c.id===config.challenge)));
       const timeline=[], exams=[], failures=[], seen=new Set();
       const visitedChoices=[], activityCounts={};
+      const untranslated = new Map();
+      const checkEnglish = scene => {
+        if (!config.english) return;
+        for (const node of host.querySelectorAll('h1,h2,h3,p,button,span,li')) {
+          if (node.children.length || !node.getClientRects().length) continue;
+          const copy = node.textContent.trim();
+          if (/\p{Script=Han}/u.test(copy)) untranslated.set(copy,scene);
+        }
+      };
       let idle=0, lastSignature='', steps=0, fullYear=false;
       function score(before,update) {
         const after={...before,...update};
@@ -105,13 +138,16 @@ try {
           for (const [key,value] of Object.entries(s.general)) if (!Number.isFinite(value)) throw new Error(`Nonfinite general.${key}`);
           if (s.phase==='ENDING'||s.phase==='WITHDRAWAL') break;
           const signature=key+':'+(s.currentEvent?.id||'')+':'+Boolean(s.eventResult)+':'+s.isWeekend+':'+Boolean(s.popupExamResult);
+          if (signature !== lastSignature) checkEnglish(s.currentEvent?.id || key);
           idle=signature===lastSignature?idle+1:0;lastSignature=signature;
           if (idle>300) throw new Error('Stuck: '+signature);
           if (s.popupExamResult) {exams.push({phase:s.phase,week:s.week,total:s.popupExamResult.totalScore});flushSync(()=>game.closeExamResult());}
           else if (s.phase==='SELECTION'||s.phase==='SUBJECT_RESELECTION') {
+            const retPhase = prevPhase => prevPhase==='SELECTION'?'PLACEMENT_EXAM':getSubjectReselectionReturnPhase(s);
+            const targetPhase = retPhase(s.phase);
             flushSync(()=>game.setState(prev=>({...prev,selectedSubjects:config.humanities?['history','geography','politics']:['physics','chemistry','biology'],
-              phase:prev.phase==='SELECTION'?'PLACEMENT_EXAM':getSubjectReselectionReturnPhase(prev),
-              week:prev.phase==='SUBJECT_RESELECTION'?Math.max(12,prev.week+1):prev.week,
+              phase:targetPhase,
+              week:prev.phase==='SUBJECT_RESELECTION'?(targetPhase==='SEMESTER_1'?Math.max(12,prev.week+1):Math.min(21,prev.week+1)):prev.week,
               isPlaying:prev.phase==='SUBJECT_RESELECTION',totalWeeksInPhase:prev.phase==='SELECTION'?0:21,subjectReselectionReturnPhase:null})));
           } else if (s.currentEvent) {
             if (s.eventResult) flushSync(()=>game.handleEventConfirm());
@@ -119,9 +155,10 @@ try {
               let choices=(s.currentEvent.choices||[]).filter(c=>(!c.condition||c.condition(s))&&!(isStudyChoice(c)&&isStudyBlocked(s)));
               if (config.fail) choices=choices.filter(c=>! /睡|梦/.test(c.text));
               let choice = config.choices?.[s.currentEvent.id] === undefined ? undefined : choices[config.choices[s.currentEvent.id]];
+              if (!config.expectedProject && s.currentEvent.id === 'campus_project_signup') choice = choices.find(c=>c.text==='这次先不报名');
               if (s.currentEvent.id==='sum_goal_selection') choice=choices.find(c=>config.route==='None'?c.text==='专注课内综合':c.text.includes('('+config.route+')'));
               if (config.challenge==='c_sleep_king'&&!config.fail&&!s.hasSleptThisWeek) choice=choices.find(c=>/睡|梦/.test(c.text))||choice;
-              if (!choice && /^(oi_|mo_|rival_|romance_|s1_class_board|campus_.*return)/.test(s.currentEvent.id)) choice=choices[config.alternate?choices.length-1:0];
+              if (!choice && /^(oi_|mo_|rival_|romance_|s1_class_board|campus_project_report|campus_.*return)/.test(s.currentEvent.id)) choice=choices[config.alternate?choices.length-1:0];
               if (!choice) choice=choices.map(c=>({c,value:score(s,probe(c.action,s))+(config.romance&&/表白|约|搭话/.test(c.text)?20:0)})).sort((a,b)=>b.value-a.value)[0]?.c;
               if (choice) {
                 visitedChoices.push({phase:s.phase,week:s.week,id:s.currentEvent.id,title:s.currentEvent.title,choice:choice.text});
@@ -129,7 +166,7 @@ try {
               } else flushSync(()=>game.handleEventConfirm());
             }
           } else if (isExamPhase(s.phase)) {
-            const button=[...host.querySelectorAll('button')].find(b=>b.textContent.includes('查看排名'));
+            const button=[...host.querySelectorAll('button')].find(b=>b.textContent.includes(config.english ? 'View results' : '查看排名'));
             if (button) flushSync(()=>button.click());
           } else if (s.phase==='SEMESTER_1'&&s.week===2&&!s.hasSelectedClub) flushSync(()=>game.handleClubSelect(config.club||'none'));
           else if (s.isWeekend) {
@@ -137,8 +174,9 @@ try {
             for (const slot of SCHEDULE_SLOTS) {
               if (blocked.has(slot.id)||s.flags.joined_evening_study&&['Mon','Tue','Wed','Thu','Fri'].includes(slot.day)) continue;
               const candidates=game.weekendOptions.filter(a=> (!a.condition||a.condition(simulated))&&!getActivityBlockReason(simulated,a)
+                && (a.id !== 'w_project_work' || !config.expectedProject || config.expectedProject === 'compare' && s.week === 12)
                 && (!ALLOWED_SLOTS_MAP[a.id]||ALLOWED_SLOTS_MAP[a.id].includes(slot.id))
-                && (counts[a.id]||0)<({act_cf:1,w_cf:1,w_atc:1,w_game_late:1,w_game:2}[a.id]||3)
+                && (counts[a.id]||0)<getActivityMaxSlots(a.id)
                 && !(isLearningActivity(a)&&(isStudyBlocked(simulated)||config.difficulty==='HELL'&&studies>=1)));
               const rated=candidates.map(a=>({a,updates:probe(st=>getWeekendActivityUpdates(st,a,(counts[a.id]||0)+1,true),simulated)}))
                 .map(r=>({...r,value:score(simulated,r.updates)+(aProject(r.a)?12:0)+(config.club&&r.a.id==='w_club_activity'?12:0)+(config.route==='OI'&&r.a.id==='act_cf'?8:0)}))
@@ -162,17 +200,47 @@ try {
       if (!config.fail&&!fullYear) failures.push('Expected a full year');
       if (config.club && (!activityCounts.w_club_activity || final.club!==config.club)) failures.push('Club route was not exercised');
       if (config.fail && !final.flags.sleep_challenge_failed) failures.push('Expected sleep challenge failure');
+      const militaryChoices = visitedChoices.filter(entry => entry.phase === 'MILITARY');
+      if (fullYear && (militaryChoices.some(entry => entry.week !== 1)
+          || !militaryChoices.some(entry => entry.id === 'mil_closing'))) {
+        failures.push('Military training should open and close within one week');
+      }
+      if (visitedChoices.some(entry => entry.id === 'flavor_2' && !isWintryWeek(entry))) {
+        failures.push('Snow appeared outside the wintry part of the year');
+      }
+      if (fullYear && (final.academicExamHistory.length !== 5 || final.academicExamHistory.at(-1).title !== 'FINAL_EXAM_2')) {
+        failures.push('Academic exam history is incomplete');
+      }
+      if (config.expectedFestival && (final.flags.science_festival_outcome !== config.expectedFestival
+          || !getEndingMemories(final).some(memory => memory.includes('科技节'))
+          || Boolean(final.flags.science_festival_club_organizer) !== (config.expectedFestival === 'guided'))) {
+        failures.push('Unexpected festival outcome or memory');
+      }
+      if (config.expectedProject) {
+        const completed = final.completedProjects.includes('proj_campus_observation');
+        if (final.flags.campus_project_report !== config.expectedProject
+          || completed !== (config.expectedProject === 'compare')
+          || final.activeProjects.some(project=>project.id==='proj_campus_observation')
+          || !visitedChoices.some(entry=>entry.id==='campus_project_return'&&entry.phase==='SEMESTER_2')
+          || (completed && (!getEndingMemories(final).some(memory=>memory.includes('食堂等餐记录')) || activityCounts.w_project_work !== 3))) {
+          failures.push('Unexpected project progress, report or spring follow-up');
+        }
+      }
       const report={...config,steps,fullYear,phase:final.phase,week:final.week,failures,timeline,exams,visitedChoices,
-        ending:getEndingData(final),activityCounts,worldContext:final.worldContext,flags:final.flags,activeProjects:final.activeProjects,completedProjects:final.completedProjects,club:final.club,romancePartner:final.romancePartner,health:final.general.health,endingLogs:final.log.slice(-8),history:final.history};
-      flushSync(()=>root.render(React.createElement(EndingScreen,{state:final,endingData:getEndingData(final),onRestart:()=>{},onViewHistory:()=>{}})));
+        ending:getEndingData(final),academicExams:final.academicExamHistory,activityCounts,flags:final.flags,activeProjects:final.activeProjects,completedProjects:final.completedProjects,club:final.club,romancePartner:final.romancePartner,health:final.general.health,endingLogs:final.log.slice(-8),history:final.history};
+      flushSync(()=>root.render(localized(React.createElement(EndingScreen,{state:final,endingData:getEndingData(final),onRestart:()=>{},onViewHistory:()=>{}}))));
+      checkEnglish('ending');
+      report.untranslated = [...untranslated].map(([copy,scene])=>({scene,copy}));
+      if (report.untranslated.length) failures.push(`${report.untranslated.length} untranslated pieces of visible copy`);
       return report;
-    },scenario);
-    if (['sleep-challenge-fail','mo-rough','oi-cooperate','romance'].includes(scenario.name)) {
+    },{...scenario,english});
+    if (['sleep-challenge-fail','mo-rough','oi-cooperate','romance','festival-guide'].includes(scenario.name)) {
       await page.setViewport({width:390,height:844});
       await page.screenshot({path:`artifacts/ending-${scenario.name}.png`,fullPage:true});
     }
     report.errors=errors;reports.push(report);
-    writeFileSync(process.env.ROUTE ? `artifacts/playthrough-${process.env.ROUTE}.json` : 'artifacts/full-playthrough.json',JSON.stringify(reports,null,2));
+    const suffix = english ? '-en' : '';
+    writeFileSync(process.env.ROUTE ? `artifacts/playthrough-${process.env.ROUTE}${suffix}.json` : `artifacts/full-playthrough${suffix}.json`,JSON.stringify(reports,null,2));
     console.log(JSON.stringify({name:report.name,fullYear:report.fullYear,phase:report.phase,week:report.week,steps:report.steps,events:report.visitedChoices.length,exams:report.exams,failures:report.failures,errors}));
     await page.close();
   }

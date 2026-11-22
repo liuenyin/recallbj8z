@@ -34,7 +34,7 @@ test('Codeforces is restricted to Saturday night and blocks Sunday morning', () 
 test('staying up to play games increases fatigue instead of receiving rest recovery', () => {
   const mechanicsSource = fs.readFileSync(new URL('../data/mechanics.ts', import.meta.url), 'utf8');
   assert.match(mechanicsSource, /id: 'w_game_late'[\s\S]*?type: 'REST'/);
-  assert.match(mechanicsSource, /w_game_late'[\s\S]*?头痛/);
+  assert.match(mechanicsSource, /w_game_late'[\s\S]*?health: s\.general\.health - 5/);
   const source = fs.readFileSync(new URL('../data/utils.ts', import.meta.url), 'utf8');
   assert.match(source, /getWeekendActivityFatigueDelta\(/);
 });

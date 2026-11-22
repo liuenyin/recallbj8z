@@ -24,6 +24,8 @@ export const getWeekendActivityFatigueDelta = (
   if (activity.id === 'w_sleep') return -35 * restMultiplier;
   // Staying up all night is deliberately not treated as restorative rest.
   if (activity.id === 'w_game_late') return 16 * fatigueGainMultiplier;
+  // Physical exercise builds health and focus, while costing moderate stamina instead of clearing fatigue.
+  if (activity.id === 'act_sport') return 6 * fatigueGainMultiplier;
   if (activity.type === 'REST') return -10 * restMultiplier;
   if (activity.type === 'SOCIAL' || activity.type === 'LOVE') return 4;
   if (activity.type === 'OI') return 14 * fatigueGainMultiplier;

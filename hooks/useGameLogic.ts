@@ -9,16 +9,16 @@ import { DIFFICULTY_PRESETS, getDifficultyPreset } from '../data/constants';
 import { withChallengeSleep, PHASE_EVENTS, BASE_EVENTS, CHAINED_EVENTS, generateSummerLifeEvent, generateStudyEvent, generateOIEvent, generateRandomFlavorEvent, hasOIRandomEventsForPhase } from '../data/events';
 import { WEEKEND_ACTIVITIES, STATUSES, ACHIEVEMENTS, CLUBS, TALENTS } from '../data/mechanics';
 import { mapAiEventToGameEvent, modifyOI, modifySub, getLearningMultiplier, getRestRecoveryMultiplier, scalePositiveGeneralDeltas, scalePositiveSubjectDeltas, scalePositiveOIStatDeltas, isStudyBlocked, isHealthFatal, isStudyChoice, isLearningActivity, getShopPriceMultiplier, clampGameStateMetrics, getActivityBlockReason, normalizeActiveStatuses, getWeekendActivityUpdates } from '../data/utils';
-import { getRandomWorldContext, CHARACTER_TEMPLATES, WORLD_REGIONS } from '../data/world_context';
-import { getHistoricalEventsForWeek, loadCityEvents } from '../data/historical_events';
 import { OI_EVENTS_POOL } from '../data/events_oi';
-import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries } from '../data/timetable';
-import { getRandomRelationshipProfile } from '../data/relationships';
+import { SCHEDULE_SLOTS, BLOCKED_SLOTS_MAP, ALLOWED_SLOTS_MAP, clearWeekdaySchedule, getOrderedScheduleEntries, getActivityMaxSlots } from '../data/timetable';
+import { getRandomRelationshipProfile, RELATIONSHIP_PROFILES } from '../data/relationships';
+import { formatCampusText, restoreRelationshipName, RIVAL_NICKNAME } from '../data/campus_names';
+import { isWeekendInvitationId } from '../data/weekend_invites';
 import { generateBatchGameEvents } from '../lib/gemini';
 import { getAccountSaveKey, getAccountManualSaveKey } from '../lib/accounts';
-import { restoreExamResult, restoreWorldContext, restoreFlags } from '../lib/save_validation';
+import { restoreAcademicExamHistory, restoreExamResult, restoreFlags } from '../lib/save_validation';
 import { hydrateProject } from '../data/project_effects';
-import { PHASE_ORDER, getPhaseLabel, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
+import { PHASE_ORDER, STANDARD_SUMMER_WEEKS, MILITARY_TRAINING_WEEKS, getPhaseLabel, getAcademicMaxScore, getPostEventFlow, isQueuedEventStillEligible } from '../data/game_flow';
 
 const LEGACY_STORAGE_KEY = 'recall_save_v1';
 const SAVE_VERSION = 3;
@@ -62,7 +62,7 @@ const restoreQueueContext = (event: GameEvent, value: any): GameEvent => {
     const week = Number(context.week);
     const competition = context.competition;
     if (!Object.values(Phase).includes(phase) || !Number.isFinite(week)
-        || !['None', 'OI', 'MO', 'PhO', 'ChO'].includes(competition)) return event;
+        || !['None', 'OI', 'MO'].includes(competition)) return event;
     return { ...event, queueContext: { phase, week: Math.max(1, Math.floor(week)), competition } };
 };
 
@@ -136,7 +136,7 @@ const markEventTriggered = (triggeredEvents: string[], event: GameEvent): string
 
 const trackRecentRandomEvent = (recentEventIds: string[], event: GameEvent): string[] => {
     if (event.triggerType !== 'RANDOM' || recentEventIds.includes(event.id)) return recentEventIds;
-    return [...recentEventIds, event.id].slice(-4);
+    return [...recentEventIds, event.id].slice(-10);
 };
 
 const addQueueContext = (events: GameEvent[], state: GameState): GameEvent[] => events.map(event => ({
@@ -151,8 +151,8 @@ const addQueueContext = (events: GameEvent[], state: GameState): GameEvent[] => 
 const getHealthDeathMessage = (difficulty: Difficulty): string => {
     const threshold = getDifficultyPreset(difficulty).healthDeathThreshold;
     return threshold !== undefined && threshold > 0
-        ? '【极限失败】健康值低于' + threshold + '，身体再也承受不住了……游戏结束。'
-        : '【猝死】你的健康值降到了0，身体再也承受不住了……游戏结束。';
+        ? `健康值低于 ${threshold}，学年提前结束。`
+        : '健康值已降至 0，学年提前结束。';
 };
 
 const getInitialSubjects = (): Record<SubjectKey, { aptitude: number; level: number }> => ({
@@ -217,6 +217,7 @@ const getInitialGameState = (): GameState => ({
     eventResult: null,
     history: [],
     examResult: null,
+    academicExamHistory: [],
     midtermRank: null,
     popupExamResult: null,
     triggeredEvents: [],
@@ -234,13 +235,11 @@ const getInitialGameState = (): GameState => ({
     rejectionCount: 0,
     talents: [],
     inventory: [],
-    theme: 'light',
     hasSleptThisWeek: false,
-    dreamtExam: false,
     availableWeekendActivityIds: undefined
 });
 
-export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
+export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language: 'zh' | 'en' = 'zh') => {
     const STORAGE_KEY = getAccountSaveKey(accountId);
     // Initialize state with global achievements merged in
     const [state, setState] = useState<GameState>(() => {
@@ -323,8 +322,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             const currentPhase = prev.phase;
 
             switch (currentPhase) {
-                case Phase.INIT: nextPhase = Phase.SUMMER; weeks = 8; break;
-                case Phase.SUMMER: nextPhase = Phase.MILITARY; weeks = 2; break; 
+                case Phase.INIT: nextPhase = Phase.SUMMER; weeks = STANDARD_SUMMER_WEEKS; break;
+                case Phase.SUMMER: nextPhase = Phase.MILITARY; weeks = MILITARY_TRAINING_WEEKS; break;
                 case Phase.MILITARY: nextPhase = Phase.SELECTION; weeks = 0; break; 
                 case Phase.SELECTION: nextPhase = Phase.PLACEMENT_EXAM; weeks = 0; break;
                 case Phase.PLACEMENT_EXAM: nextPhase = Phase.SEMESTER_1; weeks = 21; break; 
@@ -355,7 +354,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
     // --- Achievement Check Effect ---
     useEffect(() => {
         // STRICT MODE CHECK
-        const isEligibleMode = state.difficulty === 'REALITY' || !!state.activeChallengeId;
+        const isEligibleMode = state.difficulty === 'REALITY' || state.difficulty === 'HELL' || !!state.activeChallengeId;
         if (!isEligibleMode) return;
 
         const newUnlocked: string[] = [];
@@ -368,7 +367,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         if (state.general.money >= 200) add('rich');
         if (state.general.money <= -250) add('in_debt');
         if (state.sleepCount >= 10) add('sleep_god');
-        if (state.rejectionCount >= 5) add('nice_person');
+        if (state.rejectionCount >= 1 || state.flags.romance_resolution === 'friends') add('nice_person');
         if (state.general.health < 10 && state.phase === Phase.SEMESTER_1 && state.week > 10) add('survival');
         if (state.general.health >= 100) add('sports_star');
         if (state.general.mindset <= 0) add('emotional_damage');
@@ -454,7 +453,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                             });
                         }
                     }
-                    logs.push({ message: `【课题失败】${p.title} 截止日期已过，未能完成。`, type: 'error', timestamp: Date.now() });
+                    logs.push({ message: `《${p.title}》已截止，进度 ${p.progress}/${p.requiredProgress}。`, type: 'warning', timestamp: Date.now() });
                 });
                 if (mergedGeneral) updates.general = mergedGeneral;
                 setState(prev => clampGameStateMetrics({ ...prev, ...updates, log: [...prev.log, ...logs] }));
@@ -509,16 +508,6 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             let weekEvents: GameEvent[] = [];
             const phasePool = PHASE_EVENTS[state.phase] || [];
 
-            // Historical Events
-            const historicalEvents = getHistoricalEventsForWeek(state);
-            if (historicalEvents.length > 0 && state.week % 3 === 0) {
-                 let newEvents = historicalEvents.filter(he => !state.triggeredEvents.includes(he.id));
-                 if (newEvents.length > 0) {
-                     newEvents = newEvents.sort(() => 0.5 - Math.random()).slice(0, 1);
-                     weekEvents.push(newEvents[0]);
-                 }
-            }
-
             // 3a. Fixed Events in current Phase/Week (Priority)
             const pendingFixed = phasePool.filter(e => 
                 e.triggerType === 'FIXED' && 
@@ -528,6 +517,12 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 !state.triggeredEvents.includes(e.id)
             );
             weekEvents.push(...pendingFixed);
+            if (state.phase === Phase.MILITARY && state.totalWeeksInPhase === MILITARY_TRAINING_WEEKS
+                && pendingFixed.some(event => event.id === 'mil_start')) {
+                const trainingScenes = phasePool.filter(event => event.triggerType === 'RANDOM');
+                const scene = trainingScenes[Math.floor(Math.random() * trainingScenes.length)];
+                if (scene) weekEvents.splice(1, 0, scene);
+            }
             
             // 3a.2 Global Negative Triggers (Debt Event)
             if (state.general.money < 0) {
@@ -568,11 +563,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 weekEvents.push(romancePool[Math.floor(Math.random() * romancePool.length)]);
             }
 
-            // Remember which events were selected before random/AI filler is
-            // added, so deferred conditional events can retain their priority.
-            const priorityEventIds = new Set(weekEvents.map(event => event.id));
             let aiEventsGenerated = false;
-            if (weekEvents.length === 0 || (weekEvents.length <= 1 && weekEvents[0]?.id?.startsWith('romance_'))) {
+            if (weekEvents.length === 0 && deferredConditionalEvents.length === 0) {
                 if (aiConfig?.enabled && weekEvents.length === 0) {
                     const requestId = ++aiRequestToken.current;
                     aiAbortController.current?.abort();
@@ -587,7 +579,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                         log: [...prev.log, { message: 'AI 正在根据本周状态编写事件...', type: 'info', timestamp: Date.now() }]
                     }));
                     try {
-                        const generatedEvents = await generateBatchGameEvents(state, aiConfig, controller.signal);
+                        const generatedEvents = await generateBatchGameEvents(state, aiConfig, controller.signal, language);
                         const latest = latestStateRef.current;
                         if (requestId !== aiRequestToken.current
                             || latest.phase !== requestPhase
@@ -596,7 +588,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                             || !latest.isPlaying
                             || !!latest.currentEvent
                             || latest.isWeekend) return;
-                        weekEvents.push(...generatedEvents.map(mapAiEventToGameEvent));
+                        if (generatedEvents[0]) weekEvents.push({ ...mapAiEventToGameEvent(generatedEvents[0]), autoContinue: true });
                         aiEventsGenerated = generatedEvents.length > 0;
                     } catch (error) {
                         if (requestId === aiRequestToken.current && !controller.signal.aborted) {
@@ -640,34 +632,17 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                   } else if (state.phase === Phase.MILITARY) {
                      if (validRandoms.length > 0) weekEvents.push(validRandoms[Math.floor(Math.random() * validRandoms.length)]);
                   } else if (state.phase === Phase.SEMESTER_1 || state.phase === Phase.SEMESTER_2) {
-                    const eventCount = Math.floor(Math.random() * 3) + 1; // 1 to 3 events
-
-                    if (state.competition === 'OI') {
-                        const oiCount = Math.floor(Math.random() * 3); // 0 to 2
-                        const normalCount = Math.floor(Math.random() * 3); // 0 to 2
-                        const total = Math.max(1, oiCount + normalCount); 
-                        
-                        for (let i=0; i<oiCount; i++) {
-                            weekEvents.push(generateOIEvent(state));
-                        }
-                        for (let i=0; i<total - oiCount; i++) {
-                            const roll = Math.random();
-                            if (validRandoms.length > 0 && roll < 0.3) weekEvents.push(validRandoms[Math.floor(Math.random() * validRandoms.length)]);
-                            else if (roll < 0.6) weekEvents.push(generateRandomFlavorEvent(state));
-                            else weekEvents.push(generateStudyEvent(state));
-                        }
+                    const roll = Math.random();
+                    const evening = state.flags.joined_evening_study ? validRandoms.filter(event => event.id.includes('evening_')) : [];
+                    if (state.competition === 'OI' && hasOIRandomEventsForPhase(state.phase) && roll < 0.32) {
+                        weekEvents.push(generateOIEvent(state));
+                    } else if (evening.length && roll >= 0.82) {
+                        weekEvents.push(evening[Math.floor(Math.random() * evening.length)]);
+                    } else if (validRandoms.length && roll < 0.56) {
+                        weekEvents.push(validRandoms[Math.floor(Math.random() * validRandoms.length)]);
                     } else {
-                        for (let i=0; i<eventCount; i++) {
-                            const roll = Math.random();
-                            if (validRandoms.length > 0 && roll < 0.3) weekEvents.push(validRandoms[Math.floor(Math.random() * validRandoms.length)]);
-                            else if (roll < 0.6) weekEvents.push(generateRandomFlavorEvent(state));
-                            else weekEvents.push(generateStudyEvent(state));
-                        }
-                    }
-
-                    if (state.flags?.joined_evening_study && Math.random() < 0.5) {
-                         const eveningEvents = validRandoms.filter(e => e.id.includes('evening_'));
-                         if (eveningEvents.length > 0) weekEvents.push(eveningEvents[Math.floor(Math.random() * eveningEvents.length)]);
+                        const ordinary = roll < 0.78 ? generateRandomFlavorEvent(state) : generateStudyEvent(state);
+                        weekEvents.push({ ...ordinary, autoContinue: true });
                     }
                   } else {
                      if (state.competition === 'OI' && hasOIRandomEventsForPhase(state.phase) && Math.random() < 0.35) {
@@ -685,27 +660,15 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             // than once. Keep the first occurrence so a single week cannot
             // show duplicate cards or mark one ID multiple times.
             const seenEventIds = new Set<string>();
-            weekEvents = weekEvents.filter(event => {
+            weekEvents = [...weekEvents, ...deferredConditionalEvents].filter(event => {
                 if (seenEventIds.has(event.id)) return false;
                 seenEventIds.add(event.id);
                 return true;
             });
-            const priorityEvents = weekEvents.filter(event => priorityEventIds.has(event.id));
-            const fillerEvents = weekEvents.filter(event => !priorityEventIds.has(event.id));
-            const orderedWeekEvents = [...priorityEvents, ...fillerEvents];
-
-            const [first, ...rest] = orderedWeekEvents;
+            const [first, ...rest] = weekEvents;
             
             if (first) {
-                // Keep deferred conditional events ahead of random filler while
-                // preserving the priority events already selected this week.
-                const priorityCount = Math.min(rest.length, Math.max(0, priorityEvents.length - 1));
-                const queuedRest = [
-                    ...rest.slice(0, priorityCount),
-                    ...deferredConditionalEvents,
-                    ...rest.slice(priorityCount)
-                ];
-                applyWeeklyUpdates(first, queuedRest);
+                applyWeeklyUpdates(first, rest);
             } else if (state.phase === Phase.SUMMER || state.phase === Phase.MILITARY) {
                 // Summer and military weeks do not have a weekend planning
                 // step. This branch is reachable when every military random
@@ -796,18 +759,15 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         let penaltyMindset = 0;
         let penaltyRomance = 0;
 
-        // Apply status effects once per week, then advance their duration. Statuses
-        // added by the current event therefore take effect on the following week.
+        // Apply status effects once per week, then advance their duration.
+        // Efficiency modifiers from active statuses are computed dynamically in getEffectiveEfficiency.
         const statusEffects = new Map<string, (general: GeneralStats) => void>([
-            ['focused', general => { general.efficiency += 2; }],
             ['anxious', general => { general.mindset -= 2; }],
-            ['crush', general => { general.efficiency -= 2; general.romance += 2; }],
+            ['crush', general => { general.romance += 2; }],
             ['in_love', general => { general.mindset += 5; }],
-            ['heartbroken', general => { general.mindset -= 3; general.efficiency -= 1; }],
+            ['heartbroken', general => { general.mindset -= 3; }],
             ['crush_pending', general => { general.luck += 2; general.experience += 2; }],
-            ['fatigued', general => { general.mindset -= 1; general.efficiency -= 1; }],
-            ['overstimulated', general => { general.efficiency -= 1; }],
-            ['low_morale', general => { general.efficiency -= 1; }]
+            ['fatigued', general => { general.mindset -= 1; }]
         ]);
 
         if (debtLevel > 0) {
@@ -912,7 +872,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             // Only track RANDOM events for repetition prevention, ignore generated/fixed
             newRecentIds = trackRecentRandomEvent(newRecentIds, currentEvent);
 
-            // Death check: health <= 0 means game over (猝死)
+            // End the run when health reaches the current difficulty's limit.
             if (isHealthFatal(prev.difficulty, updatedGeneral.health)) {
                 return {
                     ...prev,
@@ -948,16 +908,14 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         // Codeforces is only valid while the weekend planner is open.
         const weekendSnapshot = { ...snapshot, isWeekend: true };
         const validIds = WEEKEND_ACTIVITIES
-            .filter(activity => (!activity.condition || activity.condition(weekendSnapshot))
+            .filter(activity => !isWeekendInvitationId(activity.id) && (!activity.condition || activity.condition(weekendSnapshot))
                 && !getActivityBlockReason(weekendSnapshot, activity))
             .map(activity => activity.id);
         for (let i = validIds.length - 1; i > 0; i -= 1) {
             const j = Math.floor(Math.random() * (i + 1));
             [validIds[i], validIds[j]] = [validIds[j], validIds[i]];
         }
-        // Always leave a recovery option in the random pool so a bad draw
-        // cannot make a reality-mode week unwinnable by construction.
-        const guaranteed = validIds.includes('w_sleep') ? ['w_sleep'] : [];
+        const guaranteed = ['w_sleep', 'w_project_work'].filter(id => validIds.includes(id));
         return Array.from(new Set([...guaranteed, ...validIds])).slice(0, 6);
     };
 
@@ -991,7 +949,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             talents: snapshot.talents.map(({ effect, ...talent }) => talent),
             eventResult: snapshot.eventResult ? {
                 choiceText: snapshot.eventResult.choice.text,
-                diff: snapshot.eventResult.diff
+                diff: snapshot.eventResult.diff,
+                narrative: snapshot.eventResult.narrative
             } : null
         };
         try {
@@ -1075,12 +1034,33 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 const globalAchievements = getGlobalAchievements();
                 // Merge persisted global achievements with saved state to ensure no loss
                 const mergedAchievements = Array.from(new Set([...(Array.isArray(loaded.unlockedAchievements) ? loaded.unlockedAchievements : []), ...globalAchievements]));
+                const restoredFlags = restoreFlags(loaded.flags);
+                const profile = RELATIONSHIP_PROFILES.find(candidate => candidate.id === loaded.relationshipProfileId);
+                const oldName = typeof restoredFlags.relationship_name === 'string'
+                    ? restoredFlags.relationship_name
+                    : typeof loaded.romancePartner === 'string' ? loaded.romancePartner.trim() : undefined;
+                const partnerName = restoreRelationshipName(oldName, profile?.id);
+                const migrateText = (value: string) => formatCampusText(value, partnerName, oldName);
+                if (oldName || profile) restoredFlags.relationship_name = partnerName;
+                if (profile) {
+                    restoredFlags.relationship_role = profile.role;
+                    restoredFlags.relationship_personality = profile.personality;
+                    restoredFlags.relationship_route_hint = profile.routeHint;
+                }
+                if (restoredFlags.rival_name) restoredFlags.rival_name = RIVAL_NICKNAME;
                 const restoredEvent = resolveEvent(loaded.currentEvent);
                 const restoredChain = resolveEvent(loaded.chainedEvent);
                 const restoredResult = loaded.eventResult && restoredEvent
                     ? (() => {
-                        const choice = restoredEvent.choices?.find(candidate => candidate.text === loaded.eventResult.choiceText);
-                        return choice ? { choice, diff: Array.isArray(loaded.eventResult.diff) ? loaded.eventResult.diff.filter((line: unknown) => typeof line === 'string') : [] } : null;
+                        const choiceText = loaded.eventResult.choiceText;
+                        const choice = typeof choiceText === 'string'
+                            ? restoredEvent.choices?.find(candidate => migrateText(candidate.text) === migrateText(choiceText))
+                            : undefined;
+                        return choice ? {
+                            choice,
+                            diff: Array.isArray(loaded.eventResult.diff) ? loaded.eventResult.diff.filter((line: unknown) => typeof line === 'string') : [],
+                            narrative: typeof loaded.eventResult.narrative === 'string' ? migrateText(loaded.eventResult.narrative).slice(0, 2000) : undefined
+                        } : null;
                     })()
                     : null;
                 const restoredQueue = Array.isArray(loaded.eventQueue)
@@ -1097,7 +1077,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 }, {} as GameState['subjects']);
                 const validPhases = new Set(Object.values(Phase));
                 const validDifficulties = new Set<Difficulty>(['CUSTOM', 'NORMAL', 'HARD', 'REALITY', 'HELL']);
-                const validCompetitions = new Set(['None', 'OI', 'MO', 'PhO', 'ChO']);
+                const validCompetitions = new Set(['None', 'OI', 'MO']);
                 const validSubjectKeys = new Set(Object.keys(initialState.subjects));
                 const validClubIds = new Set(CLUBS.map(club => club.id));
                 const restoredPhase = validPhases.has(loaded.phase) && loaded.phase !== Phase.INIT
@@ -1121,13 +1101,14 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     : {};
                 const restoredSchedule = Object.fromEntries(getOrderedScheduleEntries(rawSchedule)
                     .filter(([slotId, activityId]) => validScheduleSlots.has(slotId) && typeof activityId === 'string' && validActivityIds.has(activityId)));
+                const examResult = restoreExamResult(loaded.examResult);
                 const restoredState = clampGameStateMetrics({
                     ...initialState,
                     ...loaded,
                     phase: restoredPhase,
-                    worldContext: restoreWorldContext(loaded.worldContext, WORLD_REGIONS, CHARACTER_TEMPLATES),
                     className: typeof loaded.className === 'string' ? loaded.className.slice(0, 80) : '',
-                    examResult: restoreExamResult(loaded.examResult),
+                    examResult,
+                    academicExamHistory: restoreAcademicExamHistory(loaded.academicExamHistory, examResult),
                     popupExamResult: (() => {
                         const result = restoreExamResult(loaded.popupExamResult);
                         return result ? { ...result, nextPhase: validPhases.has(loaded.popupExamResult.nextPhase) ? loaded.popupExamResult.nextPhase : undefined } : null;
@@ -1136,7 +1117,6 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     sleepCount: Number.isFinite(loaded.sleepCount) ? Math.max(0, Math.floor(loaded.sleepCount)) : 0,
                     rejectionCount: Number.isFinite(loaded.rejectionCount) ? Math.max(0, Math.floor(loaded.rejectionCount)) : 0,
                     midtermRank: Number.isFinite(loaded.midtermRank) || ['SEMESTER_1_DONE', 'SEMESTER_2_DONE'].includes(loaded.midtermRank) ? loaded.midtermRank : null,
-                    theme: loaded.theme === 'dark' ? 'dark' : 'light',
                     difficulty: validDifficulties.has(loaded.difficulty) ? loaded.difficulty : 'NORMAL',
                     competition: validCompetitions.has(loaded.competition) ? loaded.competition : 'None',
                     activeChallengeId: loaded.activeChallengeId === 'c_debt_king' || loaded.activeChallengeId === 'c_sleep_king'
@@ -1149,12 +1129,11 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     hasSelectedClub: loaded.hasSelectedClub === true,
                     debugMode: loaded.debugMode === true,
                     hasSleptThisWeek: loaded.hasSleptThisWeek === true,
-                    dreamtExam: loaded.dreamtExam === true,
                     club: typeof loaded.club === 'string' && validClubIds.has(loaded.club) && loaded.club !== 'none'
                         ? loaded.club as ClubId
                         : null,
                     romancePartner: typeof loaded.romancePartner === 'string' && loaded.romancePartner.trim()
-                        ? loaded.romancePartner.trim().slice(0, 24)
+                        ? restoreRelationshipName(loaded.romancePartner.trim(), profile?.id)
                         : null,
                     week: Number.isFinite(loaded.week) ? Math.max(1, Math.floor(loaded.week)) : 1,
                     totalWeeksInPhase: Number.isFinite(loaded.totalWeeksInPhase) ? Math.max(0, Math.floor(loaded.totalWeeksInPhase)) : 0,
@@ -1163,14 +1142,14 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     subjects: restoredSubjects,
                     oiStats: { ...initialState.oiStats, ...rawOiStats, history: restoredContestHistory },
                     fatigue: typeof loaded.fatigue === 'number' ? Math.min(100, Math.max(0, loaded.fatigue)) : 20,
-                    flags: restoreFlags(loaded.flags),
+                    flags: restoredFlags,
                     selectedSubjects: Array.isArray(loaded.selectedSubjects)
                         ? Array.from(new Set(loaded.selectedSubjects.filter((key: unknown): key is SubjectKey => typeof key === 'string' && validSubjectKeys.has(key) && !['chinese', 'math', 'english'].includes(key)))).slice(0, 3)
                         : [],
                     subjectReselectionReturnPhase: loaded.subjectReselectionReturnPhase === Phase.SEMESTER_1 || loaded.subjectReselectionReturnPhase === Phase.SEMESTER_2
                         ? loaded.subjectReselectionReturnPhase
                         : null,
-                    relationshipProfileId: typeof loaded.relationshipProfileId === 'string' ? loaded.relationshipProfileId : null,
+                    relationshipProfileId: profile?.id ?? null,
                     currentEvent: restoredEvent ? withChallengeSleep(restoredEvent) : null,
                     chainedEvent: restoredChain,
                     eventQueue: restoredQueue,
@@ -1186,8 +1165,13 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                         ? Array.from(new Set(loaded.completedProjects.filter((id: unknown): id is string => typeof id === 'string').map(id => id.slice(0, 80))))
                         : [],
                     activeStatuses: restoredActiveStatuses,
-                    log: restoreLogEntries(loaded.log),
-                    history: restoreStoryEntries(loaded.history),
+                    log: restoreLogEntries(loaded.log).map(entry => ({
+                        ...entry, message: migrateText(entry.message), details: entry.details?.map(migrateText)
+                    })),
+                    history: restoreStoryEntries(loaded.history).map(entry => ({
+                        ...entry, eventTitle: migrateText(entry.eventTitle), choiceText: migrateText(entry.choiceText),
+                        resultSummary: migrateText(entry.resultSummary)
+                    })),
                     triggeredEvents: Array.isArray(loaded.triggeredEvents)
                         ? loaded.triggeredEvents.filter((id: unknown): id is string => typeof id === 'string')
                         : [],
@@ -1215,9 +1199,6 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                     } else {
                         restoredState.isPlaying = true;
                     }
-                }
-                if (restoredState.worldContext) {
-                    void loadCityEvents(restoredState.worldContext.code, restoredState.worldContext.region);
                 }
                 savedCheckpoint.current.value = '';
                 setState(restoredState);
@@ -1285,22 +1266,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         // Ensure achievements are carried over to new game
         const globalAchievements = getGlobalAchievements();
 
-        // Generate V2 World Context
-        const worldContext = getRandomWorldContext();
         const relationshipProfile = getRandomRelationshipProfile();
-        void loadCityEvents(worldContext.code, worldContext.region);
-        const charTemplate = CHARACTER_TEMPLATES.find(t => t.id === worldContext.characterTemplateId);
-        
-        if (charTemplate && charTemplate.baseStatsModifier) {
-            Object.keys(charTemplate.baseStatsModifier).forEach(key => {
-                const k = key as keyof GeneralStats;
-                initialGeneral[k] = (initialGeneral[k] || 0) + (charTemplate.baseStatsModifier[k] || 0);
-            });
-        }
 
         let tempState: GameState = {
             ...getInitialGameState(),
-            worldContext,
             subjects: rolledSubjects,
             general: initialGeneral,
             initialGeneral: { ...initialGeneral },
@@ -1323,7 +1292,8 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             unlockedAchievements: globalAchievements // Keep existing achievements
         };
         
-        selectedTalents.forEach(t => {
+        const orderedTalents = [...selectedTalents].sort((a, b) => (a.rarity === 'cursed' ? -1 : 0) - (b.rarity === 'cursed' ? -1 : 0));
+        orderedTalents.forEach(t => {
             if (t.effect) {
                 const updates = t.effect(tempState);
                 if(updates.general) tempState.general = { ...tempState.general, ...updates.general };
@@ -1340,7 +1310,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             unlockedAchievements: tempState.unlockedAchievements, 
             phase: Phase.SUMMER,
             week: 1,
-            totalWeeksInPhase: 8,
+            totalWeeksInPhase: STANDARD_SUMMER_WEEKS,
             currentEvent: firstEvent || null,
             triggeredEvents: firstEvent ? [firstEvent.id] : [],
             log: [{ message: "八中模拟器启动。", type: 'success', timestamp: Date.now() }],
@@ -1348,7 +1318,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         });
         
         // Only grant First Blood if eligible
-        if (!activeChallenge && !tempState.unlockedAchievements.includes('first_blood') && difficulty === 'REALITY') {
+        if (!activeChallenge && !tempState.unlockedAchievements.includes('first_blood') && (difficulty === 'REALITY' || difficulty === 'HELL')) {
             setTimeout(() => {
                 setState(prev => ({
                     ...prev,
@@ -1436,18 +1406,19 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             };
         }
         const diff = visualizer ? visualizer(oldState, newState) : [];
+        const narrative = choice.resultDescription
+            || updates.log?.filter(entry => !prev.log.includes(entry)).map(entry => entry.message).join('；')
+            || undefined;
+        const rawResultSummary = narrative || diff.join('；') || '这次选择没有直接改变属性。';
         const entry: StoryEntry = {
             week: prev.week,
             phase: prev.phase,
             eventTitle: prev.currentEvent?.title || '未知事件',
-            choiceText: choice.text,
-            resultSummary: choice.resultDescription
-                || updates.log?.filter(entry => !prev.log.includes(entry)).map(entry => entry.message).join('；')
-                || diff.join('；')
-                || '这次选择没有直接改变属性。',
+            choiceText: formatCampusText(choice.text, prev.flags.relationship_name),
+            resultSummary: formatCampusText(rawResultSummary, prev.flags.relationship_name),
             timestamp: Date.now()
         };
-        setState({ ...newState, history: [...prev.history, entry], eventResult: { choice, diff } });
+        setState({ ...newState, history: [...prev.history, entry], eventResult: { choice, diff, narrative } });
     };
 
     const handleEventConfirm = () => {
@@ -1548,6 +1519,15 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         const prev = latestStateRef.current;
         if (shopActionStateRef.current === prev) return;
         if (prev.currentEvent || prev.isAiGenerating || getPostEventFlow(prev.phase) === 'BLOCKED_PHASE') return;
+        const weekKey = `${prev.phase}_${prev.week}`;
+        const boughtCount = prev.flags.shop_week_key === weekKey ? Number(prev.flags.shop_week_count || 0) : 0;
+        if (boughtCount >= 3) {
+            setState(current => current === prev ? {
+                ...current,
+                log: [...current.log, { message: '本周在小卖部已买满 3 件物品，下周再来吧。', type: 'warning', timestamp: Date.now() }]
+            } : current);
+            return;
+        }
         const price = item.price * getShopPriceMultiplier(prev);
         shopActionStateRef.current = prev;
         if (prev.general.money < price) {
@@ -1558,9 +1538,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             return;
         }
         const baseUpdates = item.effect(prev);
+        const nextFlags = { ...(baseUpdates.flags || prev.flags), shop_week_key: weekKey, shop_week_count: boughtCount + 1 };
         const updates = baseUpdates.general
-            ? { ...baseUpdates, general: { ...baseUpdates.general, money: prev.general.money - price } }
-            : { ...baseUpdates, general: { ...prev.general, money: prev.general.money - price } };
+            ? { ...baseUpdates, flags: nextFlags, general: { ...baseUpdates.general, money: prev.general.money - price } }
+            : { ...baseUpdates, flags: nextFlags, general: { ...prev.general, money: prev.general.money - price } };
         let newState = clampGameStateMetrics({ ...prev, ...updates });
         if (isHealthFatal(prev.difficulty, newState.general.health)) {
             newState = { ...newState, phase: Phase.ENDING, isPlaying: false, currentEvent: null, isWeekend: false, log: [...newState.log, { message: getHealthDeathMessage(prev.difficulty), type: 'error', timestamp: Date.now() }] };
@@ -1609,6 +1590,14 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 skip(slotId, activity.name, '只能安排在指定时间段');
                 continue;
             }
+            if (snapshot.difficulty === 'REALITY' && snapshot.availableWeekendActivityIds && !isWeekendInvitationId(actId) && !snapshot.availableWeekendActivityIds.includes(actId)) {
+                skip(slotId, activity.name, '本周未刷出该活动');
+                continue;
+            }
+            if ((activityRepeatCounts.get(activity.id) || 0) >= getActivityMaxSlots(activity.id)) {
+                skip(slotId, activity.name, `每周最多安排 ${getActivityMaxSlots(activity.id)} 次该活动`);
+                continue;
+            }
             const activityBlockReason = getActivityBlockReason(currentState, activity);
             if ((activity.condition && !activity.condition(currentState)) || activityBlockReason) {
                 skip(slotId, activity.name, activityBlockReason || '当前条件已不满足');
@@ -1648,7 +1637,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                 delete updates.log;
             }
             currentState = clampGameStateMetrics({ ...currentState, ...updates });
-            const trackedOiActivities = new Set(['w_luogu', 'w_cf', 'w_atc', 'w_oi_wiki', 'act_cf']);
+            const trackedOiActivities = new Set(['w_luogu', 'w_cf', 'w_atc', 'w_oi_wiki', 'act_cf', 'w_invite_contest']);
             if (currentState.competition === 'OI' && trackedOiActivities.has(activity.id)) {
                 const practiceSessions = Number(currentState.flags.oi_practice_sessions || 0) + 1;
                 currentState.flags = {
@@ -1683,7 +1672,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         const fatigueDelta = Math.round(currentState.fatigue - snapshot.fatigue);
         if (fatigueDelta) changes.push(snapshot.difficulty === 'REALITY' || snapshot.difficulty === 'HELL' ? `疲劳${fatigueDelta > 0 ? '上升' : '下降'}` : `疲劳 ${fatigueDelta > 0 ? '+' : ''}${fatigueDelta}`);
         currentState.log = [...(currentState.log || []), {
-            message: `【本周计划】完成 ${results.length} 项，跳过 ${skipped.length} 项。${changes.join('，') || '这周没折腾，先给自己留口气。'}`,
+            message: `【本周计划】完成 ${results.length} 项，跳过 ${skipped.length} 项。${changes.length ? `${changes.join('，')}。` : ''}`,
             details: [...results.map(line => `✓ ${line}`), ...skipped.map(line => `跳过 · ${line}`)],
             type: 'info',
             timestamp: Date.now()
@@ -1694,7 +1683,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             currentState.phase = Phase.ENDING;
             currentState.flags = { ...currentState.flags, sleep_challenge_failed: true };
             currentState.isPlaying = false;
-            currentState.log = [...(currentState.log || []), { message: "你这周没有睡觉，困死了！！！(挑战失败)", type: 'error', timestamp: Date.now() }];
+            currentState.log = [...(currentState.log || []), { message: '你这周没有补觉，挑战结束。', type: 'warning', timestamp: Date.now() }];
             results.push("挑战失败：你这周没有睡觉！");
         } else if (currentState.phase !== Phase.ENDING && currentState.phase !== Phase.WITHDRAWAL) {
             currentState.week += 1;
@@ -1702,9 +1691,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
             currentState.hasSleptThisWeek = false;
         }
 
+        const reusableSchedule = Object.fromEntries(getOrderedScheduleEntries(schedule).filter(([, id]) => !isWeekendInvitationId(id)));
         currentState.lastWeekSchedule = currentState.flags.joined_evening_study
-            ? clearWeekdaySchedule(schedule)
-            : schedule;
+            ? clearWeekdaySchedule(reusableSchedule)
+            : reusableSchedule;
         currentState.isGrounded = false;
         currentState.isWeekend = false; // Turn off planning UI
         currentState.availableWeekendActivityIds = undefined;
@@ -1722,15 +1712,15 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         const percentage = score / maxScore;
         const totalStudents = 633;
         
+        if (score >= maxScore * 0.98) return 1;
+
         const mean = getDifficultyPreset(state.difficulty).peerAverage;
-        const std = 0.15;
+        const std = 0.13;
         const z = (percentage - mean) / std;
         
         let percentile = 0.5 * (1 + Math.sign(z) * Math.sqrt(1 - Math.exp(-2 * z * z / Math.PI)));
         
         if (percentage < 0.1) percentile = 0; 
-        
-        if (score >= maxScore * 0.99) percentile = 1;
         else if (percentage > 0.999) percentile = 0.999;
         
         const rank = Math.max(1, Math.floor(totalStudents * (1 - percentile)));
@@ -1780,6 +1770,9 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
         setState(prev => ({ 
             ...prev,
             examResult: resultWithRank, 
+            academicExamHistory: isOI
+                ? prev.academicExamHistory
+                : restoreAcademicExamHistory(prev.academicExamHistory, { ...resultWithRank, title: state.phase }),
             popupExamResult: resultWithRank,
             midtermRank: state.phase === Phase.MIDTERM_EXAM ? 'SEMESTER_1_DONE' : (state.phase === Phase.MIDTERM_EXAM_2 ? 'SEMESTER_2_DONE' : prev.midtermRank),
             className: newClassName,
@@ -1831,26 +1824,42 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
                  return { ...nextState, phase: Phase.SEMESTER_1, week: prev.week + 1, totalWeeksInPhase: 21, isPlaying: true };
             }
             if (prev.phase === Phase.WC_EXAM) {
-                 // Push wc_result event and stop playing so the event pops up
+                 // Keep current week so processTurn delivers oi_wc_result and weekend before advancing to the next week.
                  const resultEvent = OI_EVENTS_POOL.find((e: GameEvent) => e.id === 'oi_wc_result') as GameEvent;
-                 return { ...nextState, phase: Phase.WINTER_BREAK, week: prev.week + 1, totalWeeksInPhase: 5, isPlaying: true, eventQueue: resultEvent ? [...prev.eventQueue, resultEvent] : prev.eventQueue };
+                 return { ...nextState, phase: Phase.WINTER_BREAK, week: prev.week, totalWeeksInPhase: 5, isPlaying: true, eventQueue: resultEvent ? [...prev.eventQueue, resultEvent] : prev.eventQueue };
             }
             if ([Phase.PROVINCIAL_EXAM, Phase.APIO_EXAM].includes(prev.phase)) {
                  const resultEventId = prev.phase === Phase.PROVINCIAL_EXAM ? 'oi_provincial_result' : 'oi_apio_result';
                  const resultEvent = OI_EVENTS_POOL.find((e: GameEvent) => e.id === resultEventId) as GameEvent;
-                 return { ...nextState, phase: Phase.SEMESTER_2, week: prev.week + 1, totalWeeksInPhase: 21, isPlaying: true, eventQueue: resultEvent ? [...prev.eventQueue, resultEvent] : prev.eventQueue };
+                 return { ...nextState, phase: Phase.SEMESTER_2, week: prev.week, totalWeeksInPhase: 21, isPlaying: true, eventQueue: resultEvent ? [...prev.eventQueue, resultEvent] : prev.eventQueue };
             }
             if (prev.phase === Phase.NOI_EXAM) {
                  const socialPractice = OI_EVENTS_POOL.find((e: GameEvent) => e.id === 'oi_noi_social_practice') as GameEvent;
-                 return { ...nextState, phase: Phase.SUMMER_BREAK, week: prev.week + 1, totalWeeksInPhase: 8, isPlaying: true, eventQueue: socialPractice ? [...prev.eventQueue, socialPractice] : prev.eventQueue };
+                 return { ...nextState, phase: Phase.SUMMER_BREAK, week: prev.week, totalWeeksInPhase: 8, isPlaying: true, eventQueue: socialPractice ? [...prev.eventQueue, socialPractice] : prev.eventQueue };
             }
             return { ...nextState, isPlaying: true };
         });
     };
 
+    const resetGame = () => {
+        cancelAiGeneration();
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            if (accountId === 'guest') localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch (error) {
+            console.error('Failed to remove save on restart', error);
+        }
+        savedCheckpoint.current = { key: STORAGE_KEY, value: '' };
+        setHasSave(false);
+        setState({
+            ...getInitialGameState(),
+            unlockedAchievements: getGlobalAchievements()
+        });
+    };
+
     const weekendContext = state.isWeekend ? state : { ...state, isWeekend: true };
     const weekendOptions = WEEKEND_ACTIVITIES.filter(a => {
-        if (state.isWeekend && state.availableWeekendActivityIds) {
+        if (state.isWeekend && state.difficulty === 'REALITY' && state.availableWeekendActivityIds && !isWeekendInvitationId(a.id)) {
             return state.availableWeekendActivityIds.includes(a.id)
                 && (!a.condition || a.condition(weekendContext))
                 && !getActivityBlockReason(state, a);
@@ -1860,7 +1869,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest') => {
 
     return {
         state, setState, hasSave, hasManualSave, saveGame, loadGame, saveNotice,
-        startGameState, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
+        startGameState, resetGame, handleChoice, handleEventConfirm, handleClubSelect, handleShopPurchase, 
         executeTimetable, handleExamFinish, closeExamResult,
         weekendOptions
     };

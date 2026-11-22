@@ -50,6 +50,15 @@ const TERMINAL_OR_SELECTION_PHASE_VALUES = new Set<string>([
 
 export type PostEventFlow = 'BLOCKED_PHASE' | 'ADVANCE_WITHOUT_WEEKEND' | 'OPEN_WEEKEND';
 
+export const STANDARD_SUMMER_WEEKS = 3;
+export const COMPETITION_SUMMER_WEEKS = 8;
+export const MILITARY_TRAINING_WEEKS = 1;
+
+export const isWintryWeek = ({ phase, week }: Pick<GameState, 'phase' | 'week'>): boolean =>
+  phase === 'WINTER_BREAK'
+  || (phase === 'SEMESTER_1' && week >= 14)
+  || (phase === 'SEMESTER_2' && week <= 3);
+
 export const isExamPhase = (phase: Phase): boolean => EXAM_PHASE_VALUES.has(phase);
 
 const MAIN_ACADEMIC_SUBJECTS = new Set(['chinese', 'math', 'english']);
@@ -100,15 +109,25 @@ export const PHASE_LABELS: Record<Phase, string> = {
 
 export const getPhaseLabel = (phase: string): string => PHASE_LABELS[phase as Phase] || phase;
 
-export const formatStoryDiary = (state: Pick<GameState, 'history' | 'className' | 'phase' | 'week'>): string => [
-  '八中重开模拟器 · 我的校园手记',
-  state.className || '尚未分班',
-  getPhaseLabel(state.phase) + ' · 第 ' + state.week + ' 周',
+export const ACADEMIC_EXAM_PHASES = [
+  'PLACEMENT_EXAM', 'MIDTERM_EXAM', 'FINAL_EXAM', 'MIDTERM_EXAM_2', 'FINAL_EXAM_2'
+] as const;
+
+export const getAcademicExamPhase = (title: string) =>
+  ACADEMIC_EXAM_PHASES.find(phase => phase === title || getPhaseLabel(phase) === title);
+
+export const formatStoryDiary = (
+  state: Pick<GameState, 'history' | 'className' | 'phase' | 'week'>,
+  translate: (text: string) => string = text => text
+): string => [
+  translate('八中重开模拟器 · 我的校园手记'),
+  translate(state.className || '尚未分班'),
+  translate(`${getPhaseLabel(state.phase)} · 第 ${state.week} 周`),
   '',
   ...state.history.flatMap(entry => [
-    getPhaseLabel(entry.phase) + ' · 第 ' + entry.week + ' 周｜' + entry.eventTitle,
-    '我的选择：' + entry.choiceText,
-    entry.resultSummary,
+    translate(`${getPhaseLabel(entry.phase)} · 第 ${entry.week} 周｜${entry.eventTitle}`),
+    translate(`我的选择：${entry.choiceText}`),
+    translate(entry.resultSummary),
     ''
   ])
 ].join('\n');

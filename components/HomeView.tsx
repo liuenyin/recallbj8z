@@ -1,17 +1,19 @@
 import React from 'react';
-import { AiConfig, Difficulty, GeneralStats } from '../types';
+import { AiConfig, Challenge, Difficulty, GeneralStats } from '../types';
 import { DIFFICULTY_PRESETS, CHANGELOG_DATA } from '../data/constants';
 import { ACHIEVEMENTS } from '../data/mechanics';
-import { motion } from 'framer-motion';
+import { IRREGULAR_CHALLENGES } from '../data/challenges';
+import { ENDING_CATALOG, getUnlockedEndings } from '../data/ending';
 import AiSettingsModal from './AiSettingsModal';
 import { LocalAccount } from '../lib/accounts';
+import { useLanguage } from '../lib/i18n';
 
 interface HomeViewProps {
     selectedDifficulty: Difficulty;
     onDifficultyChange: (diff: Difficulty) => void;
     customStats: GeneralStats;
     onCustomStatsChange: (stats: GeneralStats) => void;
-    onStart: () => void;
+    onStart: (challenge?: Challenge, chooseTalents?: boolean) => void;
     hasSave: boolean;
     onLoadGame: () => void;
     hasManualSave: boolean;
@@ -34,172 +36,135 @@ const CUSTOM_STAT_LABELS: Partial<Record<keyof GeneralStats, string>> = {
     health: '健康', money: '金钱', efficiency: '效率', excitement: '兴奋'
 };
 
-const UtilityButton: React.FC<{ icon: string, label: string, onClick: () => void, color: string }> = ({ icon, label, onClick, color }) => (
-    <button onClick={onClick} className={`flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl transition-all active:scale-95 shadow-sm ${color}`}>
-        <i className={`fas ${icon} text-lg md:text-xl mb-1`}></i>
-        <span className="text-[10px] md:text-xs font-bold">{label}</span>
-    </button>
-);
-
 const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyChange, customStats, onCustomStatsChange, onStart, hasSave, onLoadGame, hasManualSave, onLoadManual, unlockedAchievements, aiConfig, onAiConfigChange, account, onManageAccounts }) => {
+    const { language, setLanguage, t: tr } = useLanguage();
+    const [showMore, setShowMore] = React.useState(false);
     const [showChangelog, setShowChangelog] = React.useState(false);
     const [showSponsor, setShowSponsor] = React.useState(false);
     const [showSettings, setShowSettings] = React.useState(false);
     const [showAiSettings, setShowAiSettings] = React.useState(false);
     const [showAchievements, setShowAchievements] = React.useState(false);
+    const [collectionTab, setCollectionTab] = React.useState<'achievements' | 'endings'>('achievements');
+    const [unlockedEndings, setUnlockedEndings] = React.useState<string[]>(() => getUnlockedEndings());
     const [showQQGroup, setShowQQGroup] = React.useState(false);
     const [showVideo, setShowVideo] = React.useState(false);
+    const [imageFallbacks, setImageFallbacks] = React.useState<Record<string, boolean>>({});
+
+    React.useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            if (showVideo) setShowVideo(false);
+            else if (showAiSettings) setShowAiSettings(false);
+            else if (showAchievements) setShowAchievements(false);
+            else if (showSettings) setShowSettings(false);
+            else if (showSponsor) setShowSponsor(false);
+            else if (showChangelog) setShowChangelog(false);
+            else if (showQQGroup) setShowQQGroup(false);
+            else setShowMore(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [showVideo, showAiSettings, showAchievements, showSettings, showSponsor, showChangelog, showQQGroup]);
     
                 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-4 md:p-8 flex items-center justify-center">
-             <div className="fixed top-0 left-0 w-full h-full opacity-5 pointer-events-none overflow-hidden z-0">
-                 <div className="absolute top-10 left-10 text-[12rem] font-black rotate-12 text-slate-900">8</div>
-                 <div className="absolute bottom-10 right-10 text-[12rem] font-black -rotate-12 text-slate-900">OI</div>
-             </div>
+        <div className="min-h-[100dvh] bg-slate-50 px-4 py-8 md:py-16 text-slate-800 flex items-center justify-center">
+            <main className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white px-6 py-8 shadow-xl shadow-slate-200/60 sm:px-10 sm:py-12">
+                <div className="flex items-center gap-3">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-600 text-xl text-white sm:size-14" aria-hidden="true"><i className="fas fa-school" /></span>
+                    <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">{tr("八中重开模拟器")}</h1>
+                    <button type="button" onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')} className="ml-auto shrink-0 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-indigo-800 hover:bg-slate-50" lang={language === 'zh' ? 'en' : 'zh-CN'}>{language === 'zh' ? 'English' : '简体中文'}</button>
+                </div>
+                <p className="mt-4 text-sm text-slate-600">{tr("从入学前的暑假开始，过完在八中的高一。")}</p>
 
-             <div className="w-full max-w-4xl z-10 mx-auto">
-                 
-                 {/* 1. Hero Card */}
-                 <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-xl shadow-indigo-100/50 border border-slate-100 flex flex-col justify-between min-h-[420px] relative overflow-hidden group">
-                     {/* ... Hero Content ... */}
-                      <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-50 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-                     <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-50 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+                <div className="mt-8 space-y-2.5">
+                    {hasSave && (
+                        <button type="button" onClick={onLoadGame} className="w-full rounded-2xl bg-indigo-700 px-6 py-3.5 font-bold text-white hover:bg-indigo-800">{tr("继续游戏")}</button>
+                    )}
+                    <button type="button" onClick={() => onStart()} className={`w-full rounded-2xl px-6 py-3.5 font-bold ${hasSave ? 'border border-indigo-200 text-indigo-700 hover:bg-indigo-50' : 'bg-indigo-700 text-white hover:bg-indigo-800'}`}>
+                        {tr("开启新学期")}</button>
+                </div>
 
-                     <div className="relative z-10">
-                         <div className="flex justify-between items-start">
-                             <div className="flex items-center gap-3 md:gap-5 mb-2">
-                                 <div className="w-14 h-14 md:w-20 md:h-20 shrink-0 bg-indigo-600 rounded-2xl md:rounded-3xl flex items-center justify-center text-white text-4xl shadow-lg shadow-indigo-200 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                                    <i className="fas fa-school"></i>
-                                 </div>
-                                 <div>
-                                     <h1 className="text-2xl md:text-5xl font-black tracking-tighter text-slate-900">八中重开模拟器</h1>
-                                     <p className="text-slate-400 font-bold text-sm mt-1">Made by liuenyin</p>
-                                 </div>
-                             </div>
-                             
-                             <div className="hidden md:flex flex-col items-end gap-2">
-                                 <button type="button" onClick={onManageAccounts} className="bg-white/80 backdrop-blur-sm border border-slate-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 text-xs font-bold text-slate-600 hover:border-indigo-200">
-                                     <i className="fas fa-user-circle text-indigo-500" /> {account.name}
-                                 </button>
-                             </div>
-                         </div>
-                         
-                         <p className="mt-8 text-lg text-slate-600 leading-relaxed max-w-lg font-medium">
-                             如果是你，能在这所学校里活得更精彩吗？<br/>
-                             <span className="text-sm text-slate-400 font-normal">体验真实的高中生活，做出你的选择。</span>
-                         </p>
-                     </div>
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                        {tr("开局难度")}<select value={selectedDifficulty} onChange={e => onDifficultyChange(e.target.value as Difficulty)} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-800">
+                            {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof DIFFICULTY_PRESETS.NORMAL][]).map(([key, preset]) => (
+                                <option key={key} value={key}>{tr(preset.label)}</option>
+                            ))}
+                            <option value="CUSTOM">{tr("自定义")}</option>
+                        </select>
+                    </label>
+                    <button type="button" onClick={() => setShowMore(value => !value)} aria-expanded={showMore} aria-controls="home-more" className="rounded-lg px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">
+                        {tr("更多 ")}<i className={`fas fa-chevron-${showMore ? 'up' : 'down'} ml-1 text-xs`} aria-hidden="true" />
+                    </button>
+                </div>
+                {selectedDifficulty !== 'NORMAL' && (
+                    <p className="mt-2 text-xs leading-relaxed text-slate-600">{tr(selectedDifficulty === 'CUSTOM' ? '设置开局属性。' : DIFFICULTY_PRESETS[selectedDifficulty].desc)}</p>
+                )}
+                {selectedDifficulty === 'CUSTOM' && (
+                    <div className="mt-3 grid gap-x-5 gap-y-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+                        {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
+                            <label key={key} className="flex items-center gap-2 text-xs text-slate-600">
+                                <span className="w-8 shrink-0">{tr(CUSTOM_STAT_LABELS[key] || key)}</span>
+                                <input type="range" min="0" max={key === 'efficiency' ? 30 : 100} value={Math.min(customStats[key], key === 'efficiency' ? 30 : 100)} onChange={e => onCustomStatsChange({ ...customStats, [key]: Number(e.target.value) })} className="w-full accent-indigo-600" />
+                                <span className="w-7 shrink-0 text-right">{customStats[key]}</span>
+                            </label>
+                        ))}
+                    </div>
+                )}
 
-                     <div className="relative z-10 mt-10">
-                         <div className="mb-8">
-                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">选择开局难度</h3>
-                             <div className="flex flex-wrap gap-3">
-                                 {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof DIFFICULTY_PRESETS['NORMAL']][]).map(([key, config]) => (
-                                     <button key={key} onClick={() => onDifficultyChange(key)}
-                                         title={config.desc}
-                                         className={`px-5 py-2.5 rounded-2xl border-2 transition-all flex items-center gap-2 font-bold text-sm ${selectedDifficulty === key ? `border-indigo-600 ${'bg-indigo-50 text-indigo-700'} shadow-sm ring-2 ring-indigo-100 ring-offset-1` : 'border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-300 hover:bg-white'}`}
-                                     >
-                                         <div className={`w-2.5 h-2.5 rounded-full ${config.color}`}></div>
-                                         {config.label}
-                                         
-                                     </button>
-                                 ))}
-                                 <button onClick={() => onDifficultyChange('CUSTOM')}
-                                     className={`px-5 py-2.5 rounded-2xl border-2 transition-all flex items-center gap-2 font-bold text-sm ${selectedDifficulty === 'CUSTOM' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-100 ring-offset-1' : 'border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-300 hover:bg-white'}`}
-                                 >
-                                      <i className="fas fa-sliders-h text-xs"></i> 自定义
-                                 </button>
-                             </div>
-                             <p className="mt-3 text-xs text-slate-500 font-medium">{selectedDifficulty === 'CUSTOM' ? '自行分配开局属性。' : DIFFICULTY_PRESETS[selectedDifficulty].desc}</p>
-                         </div>
+                {showMore && (
+                    <div id="home-more" className="mt-5 space-y-4 border-t border-slate-200 pt-4">
+                        <div className="grid grid-cols-2 gap-1.5 text-left text-sm">
+                            <button type="button" onClick={() => onStart(undefined, true)} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("选天赋开局")}</button>
+                            <button type="button" onClick={() => { setShowMore(false); onManageAccounts(); }} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("账号与存档 ")}<span className="block truncate text-xs text-slate-500">{tr(account.name)}</span></button>
+                            {hasManualSave && <button type="button" onClick={onLoadManual} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("读取手动存档")}</button>}
+                            <button type="button" onClick={() => { setUnlockedEndings(getUnlockedEndings()); setShowAchievements(true); }} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("成就与图鉴")}</button>
+                            <button type="button" onClick={() => setShowAiSettings(true)} className="rounded-lg px-3 py-2 text-left hover:bg-slate-100">{tr("AI 模式")}{tr(aiConfig.enabled ? '（已开启）' : '')}</button>
+                        </div>
 
-                         {selectedDifficulty === 'CUSTOM' && (
-                             <div className="mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 grid grid-cols-2 gap-x-8 gap-y-3 shadow-inner">
-                                 {(Object.keys(customStats) as (keyof GeneralStats)[]).map(key => (
-                                     <div key={key} className="flex items-center gap-3">
-                                         <span className="text-[10px] font-bold text-slate-500 w-12">{CUSTOM_STAT_LABELS[key] || key}</span>
-                                         <input type="range" min="0" max={key === 'efficiency' ? 30 : 100} value={Math.min(customStats[key], key === 'efficiency' ? 30 : 100)} onChange={(e) => onCustomStatsChange({...customStats, [key]: parseInt(e.target.value)})}
-                                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                         />
-                                         <span className="text-xs font-bold text-indigo-600 w-8 text-right">{customStats[key]}</span>
-                                     </div>
-                                 ))}
-                             </div>
-                         )}
-                         
-                         {/* Achievement Meta Progression */}
-                         <div className="mt-8">
-                             <div className="flex flex-wrap gap-3">
-                                 <button onClick={() => setShowAchievements(true)} className="px-6 py-3 bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 rounded-xl font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
-                                     <i className="fas fa-trophy text-yellow-500"></i> 查看成就墙 ({unlockedAchievements.length} / {Object.keys(ACHIEVEMENTS).length})
-                                 </button>
-                                 <button onClick={() => setShowAiSettings(true)} className={`px-6 py-3 border rounded-xl font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 ${aiConfig.enabled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'}`}>
-                                     <i className="fas fa-robot"></i> {aiConfig.enabled ? 'AI 模式已启用' : 'AI 模式设置'}
-                                 </button>
-                             </div>
-                         </div>
+                        <details className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+                            <summary className="cursor-pointer font-medium">{tr("特殊挑战")}</summary>
+                            <div className="mt-2 space-y-1">
+                                {IRREGULAR_CHALLENGES.map(challenge => (
+                                    <button key={challenge.id} type="button" onClick={() => onStart(challenge, true)} className="block w-full rounded-lg px-2 py-2 text-left hover:bg-white">
+                                        <strong>{tr(challenge.title)}</strong>
+                                        <span className="mt-0.5 block text-xs text-slate-600">{tr(challenge.description)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </details>
 
-                         <div className="flex gap-4 mt-8">
-                             <motion.button 
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => onStart()} 
-                                className="flex-1 md:w-auto bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-xl shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3"
-                             >
-                                 <i className="fas fa-play text-indigo-400"></i> 开启新学期
-                             </motion.button>
-                             
-                             {hasSave && (
-                                <button onClick={onLoadGame} className="px-8 py-4 bg-white text-emerald-600 border-2 border-emerald-100 hover:border-emerald-300 rounded-2xl font-black text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2 active:scale-95 group" title="继续上次的进度">
-                                     <i className="fas fa-save group-hover:animate-bounce"></i> 继续游戏
-                                 </button>
-                             )}
-                         </div>
-                         {hasManualSave && <button onClick={onLoadManual} className="mt-4 text-sm font-bold text-indigo-600">读取手动存档 · 回到亲手留的那一刻</button>}
-                         <button type="button" onClick={onManageAccounts} className="mt-4 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1">
-                             <i className="fas fa-users-cog" /> 管理本地账号与存档
-                         </button>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 px-1 text-xs text-slate-600">
+                            <button type="button" onClick={() => setShowSettings(true)} className="hover:text-indigo-700">{tr("帮助")}</button>
+                            <button type="button" onClick={() => setShowChangelog(true)} className="hover:text-indigo-700">{tr("更新日志")}</button>
+                            <button type="button" onClick={() => setShowQQGroup(true)} className="hover:text-indigo-700">{tr("QQ群")}</button>
+                            <button type="button" onClick={() => setShowVideo(true)} className="hover:text-indigo-700">{tr("介绍视频")}</button>
+                            <button type="button" onClick={() => setShowSponsor(true)} className="hover:text-indigo-700">{tr("支持作者")}</button>
+                        </div>
+                    </div>
+                )}
+            </main>
 
-                         <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
-                             <UtilityButton icon="fa-history" label="更新日志" onClick={() => setShowChangelog(true)} color="bg-slate-100 text-slate-600 hover:bg-slate-200" />
-                             <UtilityButton icon="fa-info-circle" label="关于 / FAQ" onClick={() => setShowSettings(true)} color="bg-slate-100 text-slate-600 hover:bg-slate-200" />
-                             <UtilityButton icon="fa-users" label="加入组织" onClick={() => setShowQQGroup(true)} color="bg-indigo-50 text-indigo-600 hover:bg-indigo-100" />
-                             <UtilityButton icon="fa-play-circle" label="视频介绍" onClick={() => setShowVideo(true)} color="bg-rose-50 text-rose-600 hover:bg-rose-100" />
-                             <UtilityButton icon="fa-bolt" label="支持作者" onClick={() => setShowSponsor(true)} color="bg-amber-50 text-amber-700 hover:bg-amber-100" />
-                         </div>
-                         
-                         {/* Hints */}
-                         {selectedDifficulty !== 'REALITY'  && (
-                             <div className="mt-4 text-xs text-amber-500 font-bold flex items-center gap-1.5 bg-amber-50 w-fit px-3 py-1 rounded-full">
-                                 <i className="fas fa-exclamation-triangle"></i> 仅在【现实】难度下可解锁成就
-                             </div>
-                         )}
-                         {selectedDifficulty === 'HELL' && (
-                             <div className="mt-3 text-xs text-rose-600 font-bold flex items-start gap-1.5 bg-rose-50 w-fit max-w-xl px-3 py-2 rounded-xl border border-rose-100">
-                                 <i className="fas fa-skull-crossbones mt-0.5" />
-                                 <span>极限规则：健康低于 10 立即结束；心态低于 20 或疲劳超过 90 时不能学习。开局天赋点为 -1，需选择负面天赋补足；商店价格翻倍。</span>
-                             </div>
-                         )}
-                     </div>
-                 </div>
-             </div>
-
-
-             {/* Modals ... (Rest is largely same but omitting for brevity, assuming standard imports work) */}
-             
              {showQQGroup && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowQQGroup(false)}>
                      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col items-center" onClick={e => e.stopPropagation()}>
                          <div className="flex justify-between items-center w-full mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">加入组织</h2>
+                             <h2 className="text-2xl font-black text-slate-800">{tr("加入组织")}</h2>
                              <button onClick={() => setShowQQGroup(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
                          <div className="bg-slate-100 p-4 rounded-2xl mb-4">
-                            <img src="https://cdn.luogu.com.cn/upload/image_hosting/rhymaxyw.png" alt="QQ Group QR" className="w-64 h-auto rounded-xl mix-blend-multiply" />
+                            {imageFallbacks.qr ? (
+                                <div className="w-64 h-48 rounded-xl bg-white flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+                                    <i className="fas fa-qrcode text-3xl" />
+                                    <span>{tr("二维码加载失败，请直接搜群号")}</span>
+                                </div>
+                            ) : (
+                                <img src="https://cdn.luogu.com.cn/upload/image_hosting/rhymaxyw.png" alt="QQ Group QR" onError={() => setImageFallbacks(prev => ({ ...prev, qr: true }))} className="w-64 h-auto rounded-xl mix-blend-multiply" />
+                            )}
                          </div>
-                         <p className="text-center text-slate-600 font-bold mb-2">群号: 1080382240</p>
-                         <p className="text-center text-xs text-slate-400">点击图片或长按保存扫描</p>
+                         <p className="text-center text-slate-600 font-bold mb-2">{tr("群号: 1080382240")}</p>
+                         <p className="text-center text-xs text-slate-400">{tr("点击图片或长按保存扫描")}</p>
                      </div>
                  </div>
              )}
@@ -215,7 +180,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              <i className="fas fa-times"></i>
                          </button>
                          <iframe 
-                            src="//player.bilibili.com/player.html?isOutside=true&aid=115953580973453&bvid=BV1TEzDBDEPg&cid=35597586008&p=1&autoplay=0" 
+                            src="https://player.bilibili.com/player.html?isOutside=true&aid=115953580973453&bvid=BV1TEzDBDEPg&cid=35597586008&p=1&autoplay=0" 
                             scrolling="no" 
                             style={{ border: 0 }}
                             frameBorder="0" 
@@ -228,16 +193,26 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
 
              {showAchievements && (
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowAchievements(false)}>
-                    <div className="bg-white rounded-[2rem] p-8 max-w-4xl w-full h-[80vh] shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-6">
+                    <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-4xl w-full h-[80vh] shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
                              <div>
-                                <h2 className="text-3xl font-black text-slate-800">成就墙</h2>
-                                <p className="text-sm text-slate-500 font-medium mt-1">已解锁 <span className="text-indigo-600 font-bold">{unlockedAchievements.length}</span> / {Object.keys(ACHIEVEMENTS).length}</p>
+                                <h2 className="text-2xl md:text-3xl font-black text-slate-800">{tr(collectionTab === 'achievements' ? '成就墙' : '生涯结局图鉴')}</h2>
+                                <p className="text-sm text-slate-500 font-medium mt-1">
+                                    {collectionTab === 'achievements'
+                                        ? <>{tr("已解锁 ")}<span className="text-indigo-600 font-bold">{unlockedAchievements.length}</span> / {Object.keys(ACHIEVEMENTS).length}</>
+                                        : <>{tr("已点亮 ")}<span className="text-indigo-600 font-bold">{unlockedEndings.length}</span> / {ENDING_CATALOG.length}</>}
+                                </p>
                              </div>
-                             <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
+                             <div className="flex items-center gap-2">
+                                 <div className="bg-slate-100 p-1 rounded-xl flex text-xs font-bold">
+                                     <button type="button" onClick={() => setCollectionTab('achievements')} className={`px-3 py-1.5 rounded-lg transition-all ${collectionTab === 'achievements' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{tr("成就徽章")}</button>
+                                     <button type="button" onClick={() => setCollectionTab('endings')} className={`px-3 py-1.5 rounded-lg transition-all ${collectionTab === 'endings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{tr("结局图鉴")}</button>
+                                 </div>
+                                 <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
+                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scroll grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
-                            {Object.values(ACHIEVEMENTS).map(ach => {
+                            {collectionTab === 'achievements' ? Object.values(ACHIEVEMENTS).map(ach => {
                                 const isUnlocked = unlockedAchievements.includes(ach.id);
                                 return (
                                     <div key={ach.id} className={`p-4 rounded-2xl border-2 flex items-center gap-4 transition-all ${isUnlocked ? 'bg-indigo-50/50 border-indigo-100' : 'bg-slate-50 border-slate-100 opacity-60 grayscale'}`}>
@@ -245,9 +220,21 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                             <i className={`fas ${ach.icon}`}></i>
                                         </div>
                                         <div>
-                                            <h4 className={`font-bold text-sm ${isUnlocked ? 'text-slate-800' : 'text-slate-500'}`}>{ach.title}</h4>
-                                            <p className="text-xs text-slate-400 mt-0.5 leading-tight">{ach.description}</p>
+                                            <h4 className={`font-bold text-sm ${isUnlocked ? 'text-slate-800' : 'text-slate-500'}`}>{tr(ach.title)}</h4>
+                                            <p className="text-xs text-slate-400 mt-0.5 leading-tight">{tr(ach.description)}</p>
                                         </div>
+                                    </div>
+                                );
+                            }) : ENDING_CATALOG.map(entry => {
+                                const isUnlocked = unlockedEndings.includes(entry.title);
+                                return (
+                                    <div key={entry.title} className={`p-4 rounded-2xl border-2 flex flex-col justify-between gap-2 transition-all ${isUnlocked ? 'bg-indigo-50/40 border-indigo-200' : 'bg-slate-50 border-slate-100 opacity-75'}`}>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isUnlocked ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{tr(entry.rank)} · {tr(entry.category)}</span>
+                                            <i className={`fas ${isUnlocked ? 'fa-check-circle text-emerald-500' : 'fa-lock text-slate-300'}`} />
+                                        </div>
+                                        <h4 className={`font-black text-sm ${isUnlocked ? 'text-slate-900' : 'text-slate-500'}`}>{tr(isUnlocked ? entry.title : '未点亮结局')}</h4>
+                                        <p className="text-xs text-slate-500 leading-relaxed">{tr(entry.hint)}</p>
                                     </div>
                                 );
                             })}
@@ -262,19 +249,19 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowChangelog(false)}>
                      <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">更新日志</h2>
+                             <h2 className="text-2xl font-black text-slate-800">{tr("更新日志")}</h2>
                              <button onClick={() => setShowChangelog(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
                          <div className="overflow-y-auto custom-scroll space-y-6 pr-2">
                              {CHANGELOG_DATA.map((log, i) => (
                                  <div key={i}>
                                      <div className="flex items-baseline gap-2 mb-2">
-                                         <span className="text-lg font-bold text-indigo-600">{log.version}</span>
-                                         <span className="text-xs text-slate-400 font-mono">{log.date}</span>
+                                         <span className="text-lg font-bold text-indigo-600">{tr(log.version)}</span>
+                                         <span className="text-xs text-slate-400 font-mono">{tr(log.date)}</span>
                                      </div>
                                      <ul className="list-disc list-inside space-y-1">
                                          {log.content.map((item, idx) => (
-                                             <li key={idx} className="text-sm text-slate-600">{item}</li>
+                                             <li key={idx} className="text-sm text-slate-600">{tr(item)}</li>
                                          ))}
                                      </ul>
                                  </div>
@@ -288,24 +275,27 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSponsor(false)}>
                      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">赞助商展示</h2>
+                             <h2 className="text-2xl font-black text-slate-800">{tr("赞助商展示")}</h2>
                              <button onClick={() => setShowSponsor(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
                          <div className="overflow-y-auto custom-scroll space-y-3 pr-2 text-center">
                              {SPONSORS.map((sponsor, idx) => (
                                  <div key={sponsor.id} className={`p-4 rounded-2xl border shadow-sm flex items-center gap-4 ${idx === 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-indigo-100'}`}>
-                                    <img src={sponsor.avatar} alt={sponsor.name} className="w-12 h-12 rounded-full border-2 border-white shadow-md flex-shrink-0 bg-slate-200"/>
+                                    {imageFallbacks[sponsor.id] ? (
+                                        <div className="w-12 h-12 rounded-full border-2 border-white shadow-md flex-shrink-0 bg-indigo-100 text-indigo-600 flex items-center justify-center font-black">{tr(sponsor.name.slice(0, 1))}</div>
+                                    ) : (
+                                        <img src={sponsor.avatar} alt={tr(sponsor.name)} onError={() => setImageFallbacks(prev => ({ ...prev, [sponsor.id]: true }))} className="w-12 h-12 rounded-full border-2 border-white shadow-md flex-shrink-0 bg-slate-200"/>
+                                    )}
                                     <div className="text-left flex-1 min-w-0">
-                                        <div className="font-bold text-slate-800 truncate">{sponsor.name}</div>
-                                        <div className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit mt-1 ${idx === 0 ? 'bg-amber-200 text-amber-800' : 'bg-indigo-50 text-indigo-500'}`}>{sponsor.label}</div>
+                                        <div className="font-bold text-slate-800 truncate">{tr(sponsor.name)}</div>
+                                        <div className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit mt-1 ${idx === 0 ? 'bg-amber-200 text-amber-800' : 'bg-indigo-50 text-indigo-500'}`}>{tr(sponsor.label)}</div>
                                     </div>
                                  </div>
                              ))}
                              
-                             <p className="text-xs text-slate-400 mt-4 mb-6">金主列表每周更新一次，可能有时间延迟</p>
+                             <p className="text-xs text-slate-400 mt-4 mb-6">{tr("金主列表每周更新一次，可能有时间延迟")}</p>
                              <a href="https://afdian.com/a/liuenyin?tab=home" target="_blank" rel="noopener noreferrer" className="block w-full bg-amber-500 text-white py-3 rounded-xl font-bold hover:bg-amber-600 transition-colors shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
-                                 <i className="fas fa-bolt mr-2"></i> 前往爱发电支持作者
-                             </a>
+                                 <i className="fas fa-bolt mr-2"></i> {tr("前往爱发电支持作者")}</a>
                          </div>
                      </div>
                  </div>
@@ -315,16 +305,15 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSettings(false)}>
                      <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                             <h2 className="text-2xl font-black text-slate-800">关于与FAQ</h2>
+                             <h2 className="text-2xl font-black text-slate-800">{tr("游戏帮助")}</h2>
                              <button onClick={() => setShowSettings(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
                          <div className="overflow-y-auto custom-scroll space-y-6 pr-2">
                              {/* ... Content ... */}
                              <div className="space-y-4">
-                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">关于本项目</h3>
+                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">{tr("关于本项目")}</h3>
                                  <p className="text-sm text-slate-600 leading-relaxed">
-                                     本项目纯属虚构，如有雷同，纯属巧合。
-                                 </p>
+                                     {tr("本项目纯属虚构，如有雷同，纯属巧合。")}</p>
                                  <div className="text-xs text-slate-400">
                                      <p>Developer: liuenyin</p>
                                      <p>Tech Stack: React, Tailwind, TypeScript</p>
@@ -332,17 +321,17 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                              </div>
                              
                              <div className="space-y-4">
-                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">游戏机制</h3>
+                                 <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">{tr("游戏机制")}</h3>
                                  <div className="text-sm text-slate-600 space-y-2">
-                                     <p><span className="font-bold text-slate-800">最终评价：</span><br/>
-                                     以各科水平为主，结合经验、效率、长期项目、社团和关键路线成果；不同路线会影响结局。</p>
+                                     <p><span className="font-bold text-slate-800">{tr("最终评价：")}</span><br/>
+                                     {tr("以各科水平为主，结合经验、效率、长期项目、社团和关键路线成果；不同路线会影响结局。")}</p>
                                  </div>
                              </div>
 
                              <div className="space-y-4">
                                  <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs border-b border-slate-100 pb-2">FAQ</h3>
                                  <div className="text-sm text-slate-600 space-y-2">
-                                     <p><span className="font-bold text-slate-800">Q: 怎么存档？</span><br/>A: 点击主页或游戏侧边栏的保存按钮即可。</p>
+                                     <p><span className="font-bold text-slate-800">{tr("Q: 怎么存档？")}</span><br/>{tr("A: 游戏中用「更多」里的「保存」建立手动存档。到达存档点时，游戏也会自动保存。")}</p>
                                  </div>
                              </div>
                          </div>

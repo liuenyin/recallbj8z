@@ -12,10 +12,13 @@
         "text": "重新读题，仔细分析样例",
         "effect": {
           "experience": 5,
-          "oi_misc": 5,
+          "oi_misc": 2,
           "efficiency": -2
         },
-        "resultDescription": "你重新读了三遍题，终于发现漏掉的条件，修改后AC了。但浪费了不少时间。"
+        "resultDescription": "你重新读了三遍题，终于发现漏掉的条件，修改后AC了。但浪费了不少时间。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接去CF看别人代码",
@@ -23,13 +26,17 @@
           "mindset": -3,
           "oi_misc": 2
         },
-        "resultDescription": "你从别人代码里抄了思路，勉强过了，但自己没完全理解，下次遇到类似题还是不会。"
+        "resultDescription": "你从别人代码里抄了思路，勉强过了，但自己没完全理解，下次遇到类似题还是不会。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃这题，先做后面",
         "effect": {
-          "luck": 5,
-          "experience": -5
+          "mindset": -5,
+          "experience": -3,
+          "luck": -2
         },
         "resultDescription": "你跳到后面做签到题，结果后面B题更难，最后只拿了个爆零。"
       }
@@ -37,7 +44,7 @@
   },
   {
     "id": "oi_pu_longlong_memory",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "忘记开long long痛失30分",
@@ -47,11 +54,14 @@
       {
         "text": "吸取教训，以后所有整数都开long long",
         "effect": {
-          "oi_math": 5,
+          "oi_math": 2,
           "mindset": 3,
           "efficiency": -3
         },
-        "resultDescription": "你开始养成随手开long long的习惯，虽然代码变长了，但再没因为溢出炸过。"
+        "resultDescription": "你开始养成随手开long long的习惯，虽然代码变长了，但再没因为溢出炸过。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "抱怨出题人卡int，然后继续用int",
@@ -64,11 +74,14 @@
       {
         "text": "仔细研究数据范围，判断何时需要用long long",
         "effect": {
-          "oi_math": 8,
+          "oi_math": 2,
           "experience": 5,
           "efficiency": 2
         },
-        "resultDescription": "你学会了分析题目数值范围，能准确判断是否需要64位整形，水平有了实质提升。"
+        "resultDescription": "你学会了分析题目数值范围，能准确判断是否需要64位整型，水平有了实质提升。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -85,17 +98,20 @@
         "text": "打起精神听课，晚上复盘比赛",
         "effect": {
           "health": -5,
-          "oi_misc": 8,
+          "oi_misc": 2,
           "mindset": 5
         },
-        "resultDescription": "你强忍困意听完了数学课，晚上认真补了题，发现很多知识点自己不懂，决定系统学习。"
+        "resultDescription": "你强忍困意听完了数学课，晚上认真补了题，发现很多知识点自己不懂，决定系统学习。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "请假回家睡觉，放弃当天学习",
         "effect": {
           "health": 10,
           "experience": -5,
-          "efficiency": -5
+          "efficiency": -2
         },
         "resultDescription": "你睡了大半天，晚上精神恢复，但错过了当天的复习内容，进度落后。"
       },
@@ -129,7 +145,7 @@
       {
         "text": "假装在查资料，关掉OJ",
         "effect": {
-          "efficiency": -5,
+          "efficiency": -2,
           "mindset": -3
         },
         "resultDescription": "老师没说什么，但提醒你注意机房纪律。你只好把后续训练放到周末和线上。"
@@ -137,17 +153,20 @@
       {
         "text": "坦白自己基础薄弱，请求指导",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "experience": 8,
           "health": -3
         },
-        "resultDescription": "你在训练群里把代码发给一位外校学长，对方抽空讲了基本算法。你决定认真补基础。"
+        "resultDescription": "你在训练群里把代码发给一位外校学长，对方抽空讲了基本算法。你决定认真补基础。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_contest_strategy",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "赛时时间分配失误",
@@ -158,18 +177,24 @@
         "text": "向学长请教时间分配套路",
         "effect": {
           "experience": 8,
-          "oi_misc": 5,
-          "efficiency": 5
+          "oi_misc": 2,
+          "efficiency": 2
         },
-        "resultDescription": "学长教你先通读全卷，从最易拿分题做起，下次比赛你时间管理好了很多。"
+        "resultDescription": "学长教你先通读全卷，从最易拿分题做起，下次比赛你时间管理好了很多。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "痛定思痛，以后先写暴力保底",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "mindset": 3
         },
-        "resultDescription": "你学会了在有限时间内拿分的策略，虽然解不出难题，但稳定到手基础分。"
+        "resultDescription": "你学会了在有限时间内拿分的策略，虽然解不出难题，但稳定到手基础分。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "觉得是能力问题，开始猛刷难题",
@@ -178,7 +203,10 @@
           "mindset": -3,
           "oi_misc": 3
         },
-        "resultDescription": "你熬夜刷题，但效率低下，基础题反而生疏了。"
+        "resultDescription": "你熬夜刷题，但效率低下，基础题反而生疏了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -194,26 +222,32 @@
       {
         "text": "先放下，回头重看基础字符串处理",
         "effect": {
-          "oi_string": 5,
+          "oi_string": 2,
           "experience": 3,
           "efficiency": 3
         },
-        "resultDescription": "你回去复习了哈希和朴素匹配，打好基础后再看KMP，终于理解了关键。"
+        "resultDescription": "你回去复习了哈希和朴素匹配，打好基础后再看KMP，终于理解了关键。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "死磕到底，通宵理解",
         "effect": {
           "health": -10,
-          "oi_string": 5,
+          "oi_string": 2,
           "mindset": 2
         },
-        "resultDescription": "你熬到凌晨三点，终于似懂非懂地抄出了模板，但第二天完全忘了。"
+        "resultDescription": "你熬到凌晨三点，终于似懂非懂地抄出了模板，但第二天完全忘了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃KMP，改用C++自带函数",
         "effect": {
           "mindset": -5,
-          "efficiency": 5
+          "efficiency": 2
         },
         "resultDescription": "你用find函数暂时解决了问题，但遇到需要O(n)的题还是不会。"
       }
@@ -221,7 +255,7 @@
   },
   {
     "id": "oi_pu_cf_pretest_passed",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "pretest过了但被hack",
@@ -231,11 +265,14 @@
       {
         "text": "仔细看别人hack的输入，补全边界",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "experience": 5,
           "mindset": 3
         },
-        "resultDescription": "你学会了边界测试的重要性，以后写题必先考虑极值数据。"
+        "resultDescription": "你学会了边界测试的重要性，以后写题必先考虑极值数据。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "生气地关掉CF，觉得出题人太阴",
@@ -248,17 +285,20 @@
       {
         "text": "下场比赛故意留漏洞引诱hack，学习经验",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "luck": 5,
           "health": -3
         },
-        "resultDescription": "你主动在群里发代码求hack，学到了很多边界情况，后来成了hack达人。"
+        "resultDescription": "你主动在群里发代码求hack，学到了很多边界情况，后来成了hack达人。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_teammate_carry",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "被队友带飞省选模拟",
@@ -268,17 +308,20 @@
       {
         "text": "抱紧大腿，虚心请教思路",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "experience": 8,
           "mindset": 3
         },
-        "resultDescription": "队友给你详细讲解了每一题的思考过程，你学到了很多，后来自己也能独立做中等题了。"
+        "resultDescription": "队友给你详细讲解了每一题的思考过程，你学到了很多，后来自己也能独立做中等题了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "觉得都是队友功劳，自己不用努力",
         "effect": {
           "mindset": -8,
-          "oi_misc": -5,
+          "oi_misc": -3,
           "luck": 5
         },
         "resultDescription": "你放松了训练，下次没有大腿抱的时候直接垫底。"
@@ -287,10 +330,13 @@
         "text": "虽然躺赢，但开始疯狂刷题想追上",
         "effect": {
           "health": -10,
-          "oi_misc": 15,
+          "oi_misc": 4,
           "efficiency": 3
         },
-        "resultDescription": "你每天刷题到深夜，一个月后rating从1200冲到了1500。"
+        "resultDescription": "你每天刷题到深夜，一个月后rating从1200冲到了1500。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -306,16 +352,19 @@
       {
         "text": "认真记住常用STL头文件",
         "effect": {
-          "oi_ds": 5,
-          "efficiency": 5,
+          "oi_ds": 2,
+          "efficiency": 2,
           "experience": 3
         },
-        "resultDescription": "你整理了一个STL头文件笔记，之后写题不再犯低级错误。"
+        "resultDescription": "你整理了一个STL头文件笔记，之后写题不再犯低级错误。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接Google解决方案",
         "effect": {
-          "efficiency": 5,
+          "efficiency": 2,
           "mindset": -2
         },
         "resultDescription": "快速解决了问题，但没记住，下次还是同样的错。"
@@ -324,15 +373,18 @@
         "text": "改用C语言手写排序",
         "effect": {
           "oi_ds": 3,
-          "efficiency": -5
+          "efficiency": -2
         },
-        "resultDescription": "你手写快排加深了理解，但速度慢了很多，比赛时不利。"
+        "resultDescription": "你手写快排加深了理解，但速度慢了很多，比赛时不利。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_wa_on_math",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "数论题公式推错",
@@ -342,25 +394,31 @@
       {
         "text": "背熟所有基础公式，每天默写一遍",
         "effect": {
-          "oi_math": 10,
+          "oi_math": 3,
           "health": -3,
           "mindset": 3
         },
-        "resultDescription": "你花了一周把数论公式背得滚瓜烂熟，后续稳稳拿到数学分。"
+        "resultDescription": "你花了一周把数论公式背得滚瓜烂熟，后续稳稳拿到数学分。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "找规律推出公式，练好手算能力",
         "effect": {
-          "oi_math": 8,
+          "oi_math": 2,
           "experience": 5,
           "efficiency": -2
         },
-        "resultDescription": "你学会了用数列通项自己推导，虽然慢但准确率高了很多。"
+        "resultDescription": "你学会了用数列通项自己推导，虽然慢但准确率高了很多。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃数学题，把时间给其他题",
         "effect": {
-          "oi_math": -5,
+          "oi_math": -3,
           "luck": 3,
           "mindset": 5
         },
@@ -381,7 +439,7 @@
         "text": "虚心接受，学习代码规范",
         "effect": {
           "mindset": 5,
-          "efficiency": 5,
+          "efficiency": 2,
           "experience": 3
         },
         "resultDescription": "你开始用有意义的变量名和缩进，代码可读性大增，debug速度也快了。"
@@ -397,16 +455,19 @@
       {
         "text": "让他帮忙改，偷学规范",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "luck": 3
         },
-        "resultDescription": "同学帮你重构了代码，你学了好多技巧，两人成了好基友。"
+        "resultDescription": "同学帮你重构了代码，你学了好多技巧，两人成了好基友。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_contest_rusty",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "长时间没写代码手感生疏",
@@ -417,19 +478,25 @@
         "text": "保持每天至少一道题维持手感",
         "effect": {
           "health": -3,
-          "oi_misc": 8,
-          "efficiency": 5
+          "oi_misc": 2,
+          "efficiency": 2
         },
-        "resultDescription": "你建立了每日一题的习惯，即使考试也能抽时间刷水题，水平稳步提升。"
+        "resultDescription": "你建立了每日一题的习惯，即使考试也能抽时间刷水题，水平稳步提升。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "考前突击刷100题找回感觉",
         "effect": {
           "health": -12,
-          "oi_misc": 10,
+          "oi_misc": 3,
           "mindset": 2
         },
-        "resultDescription": "你疯狂刷题两天，但是睡眠不足导致考试状态很差，反而下滑了。"
+        "resultDescription": "你疯狂刷题两天，但是睡眠不足导致考试状态很差，反而下滑了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "承认自己需要休息，下次再战",
@@ -444,7 +511,7 @@
   },
   {
     "id": "oi_pu_csp_j_cheat",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "CSP-S考场上想抄答案",
@@ -458,14 +525,17 @@
           "luck": 5,
           "oi_misc": 2
         },
-        "resultDescription": "你凭自己的能力做出了一道题，虽然分不高但收获了诚信。"
+        "resultDescription": "你凭自己的能力做出了一道题，虽然分不高但收获了诚信。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "偷偷瞟了几眼，抄到一点思路",
         "effect": {
-          "mindset": -5,
-          "luck": 3,
-          "oi_misc": 3
+          "mindset": -12,
+          "luck": -5,
+          "experience": -5
         },
         "resultDescription": "你抄到了部分代码，但被监考老师发现，取消成绩，并记过处分。"
       },
@@ -492,29 +562,38 @@
       {
         "text": "找书本和网上教程重新学",
         "effect": {
-          "oi_dp": 8,
+          "oi_dp": 2,
           "experience": 5,
           "efficiency": -3
         },
-        "resultDescription": "你花了一个周末啃完了背包九讲，终于弄懂了01背包和完全背包。"
+        "resultDescription": "你花了一个周末啃完了背包九讲，终于弄懂了01背包和完全背包。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "找学长要代码，硬背模板",
         "effect": {
           "oi_dp": 3,
           "mindset": -2,
-          "efficiency": 5
+          "efficiency": 2
         },
-        "resultDescription": "你背下了背包模板，能套着用，但遇到变形题还是不会。"
+        "resultDescription": "你背下了背包模板，能套着用，但遇到变形题还是不会。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃DP，专心搞图论",
         "effect": {
-          "oi_dp": -8,
+          "oi_dp": -3,
           "oi_graph": 3,
           "luck": 2
         },
-        "resultDescription": "你放弃了一个重要方向，之后遇到DP题吃大亏。"
+        "resultDescription": "你放弃了一个重要方向，之后遇到DP题吃大亏。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -530,11 +609,14 @@
       {
         "text": "认真阅读并自己做一遍",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "experience": 8,
           "mindset": 3
         },
-        "resultDescription": "你学会了多种解法，并且自己实践了一遍，水平大增。"
+        "resultDescription": "你学会了多种解法，并且自己实践了一遍，水平大增。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "收藏了但没看，以后再说",
@@ -542,22 +624,28 @@
           "oi_misc": 2,
           "efficiency": -3
         },
-        "resultDescription": "你收藏了很多好文章，但从不翻看，仍是菜鸡。"
+        "resultDescription": "你收藏了很多好文章，但从不翻看，仍是菜鸡。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "模仿题解风格写一篇自己的题解",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "experience": 5,
           "health": -3
         },
-        "resultDescription": "你发了一篇题解，得到很多赞和评论，动力十足。"
+        "resultDescription": "你发了一篇题解，得到很多赞和评论，动力十足。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_contest_friend",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "和好友拼题相互激励",
@@ -567,11 +655,14 @@
       {
         "text": "坚持执行，每天总结",
         "effect": {
-          "oi_misc": 12,
+          "oi_misc": 3,
           "experience": 8,
           "health": -5
         },
-        "resultDescription": "你们坚持了一个月，各自rating涨了100多，友情也更深了。"
+        "resultDescription": "你们坚持了一个月，各自rating涨了100多，友情也更深了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "坚持了几天就松懈了",
@@ -580,22 +671,28 @@
           "mindset": -3,
           "efficiency": -3
         },
-        "resultDescription": "你们俩都没有坚持住，回到了各自划水状态。"
+        "resultDescription": "你们俩都没有坚持住，回到了各自划水状态。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "把拼题学到的方法教给更多人",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "mindset": 8,
           "luck": 3
         },
-        "resultDescription": "你们组织了小规模刷题群，带动了班级OI氛围。"
+        "resultDescription": "你们组织了小规模刷题群，带动了班级OI氛围。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_oj_zhongduan",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "考试中OJ突然宕机",
@@ -615,7 +712,7 @@
         "text": "心急如焚，反复刷新浪费20分钟",
         "effect": {
           "mindset": -8,
-          "efficiency": -10,
+          "efficiency": -3,
           "luck": -3
         },
         "resultDescription": "你浪费了大量时间，最后来不及做后面的大题，直接退役心态。"
@@ -627,7 +724,10 @@
           "experience": 3,
           "oi_misc": 2
         },
-        "resultDescription": "老师协调后恢复了服务，但影响了你的做题节奏。"
+        "resultDescription": "老师协调后恢复了服务，但影响了你的做题节奏。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -643,20 +743,26 @@
       {
         "text": "看题解学习构造方法，记下套路",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "experience": 5,
           "efficiency": -2
         },
-        "resultDescription": "你学到了常见的构造技巧，下次遇到类似题能快速反应。"
+        "resultDescription": "你学到了常见的构造技巧，下次遇到类似题能快速反应。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "强行自己写，结果WA了十几次",
         "effect": {
           "mindset": -5,
           "oi_misc": 3,
-          "efficiency": -5
+          "efficiency": -2
         },
-        "resultDescription": "你硬刚了一个多小时，最后还是没做出来，还影响了心情。"
+        "resultDescription": "你硬刚了一个多小时，最后还是没做出来，还影响了心情。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃这题，提前提交，保证已有分",
@@ -681,20 +787,26 @@
       {
         "text": "学习复杂度分析，尝试用二分或双指针",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "experience": 5,
-          "efficiency": 5
+          "efficiency": 2
         },
-        "resultDescription": "你改用了双指针，复杂度降为O(n^2)，终于AC了，成就感满满。"
+        "resultDescription": "你改用了双指针，复杂度降为O(n^2)，终于AC了，成就感满满。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接看题解，复制最优解法",
         "effect": {
           "oi_misc": 3,
           "mindset": -2,
-          "efficiency": 5
+          "efficiency": 2
         },
-        "resultDescription": "你抄到了最优解法，但是没理解，下次还是TLE。"
+        "resultDescription": "你抄到了最优解法，但是没理解，下次还是TLE。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "尝试用硬优化，比如加register和O2",
@@ -703,13 +815,16 @@
           "efficiency": 3,
           "experience": 2
         },
-        "resultDescription": "你通过卡常勉强AC了，但是代码变得很难看，而且不治本。"
+        "resultDescription": "你通过卡常勉强AC了，但是代码变得很难看，而且不治本。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_pu_contest_failure",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "CSP-S第一场爆零",
@@ -721,7 +836,7 @@
         "effect": {
           "mindset": 5,
           "experience": 8,
-          "efficiency": 5
+          "efficiency": 2
         },
         "resultDescription": "你学会了用本地编译器提前检查，再也没犯过CE错误。"
       },
@@ -757,11 +872,14 @@
       {
         "text": "重读《算法竞赛进阶指南》双指针章节",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "mindset": 3,
           "efficiency": -2
         },
-        "resultDescription": "你花了一下午啃完例题，终于理解了双指针的实质——单调性。之后连续AC了3道双指针题目，信心大增。"
+        "resultDescription": "你花了一下午啃完例题，终于理解了双指针的实质——单调性。之后连续AC了3道双指针题目，信心大增。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接看题解，抄一遍代码试试",
@@ -769,7 +887,10 @@
           "oi_misc": 2,
           "luck": -5
         },
-        "resultDescription": "你照着题解打了一遍，虽然过了样例，但稍有变形就又WA了。下次遇到同类题依然不会。"
+        "resultDescription": "你照着题解打了一遍，虽然过了样例，但稍有变形就又WA了。下次遇到同类题依然不会。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "向机房OI爷请教，让他手把手教",
@@ -801,25 +922,31 @@
       {
         "text": "果断放弃C题，去尝试D题",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "mindset": 5,
           "luck": -3
         },
-        "resultDescription": "你发现D题是线段树板子题，很快敲完AC，rating反而涨了。之后你明白了打CF要懂得取舍。"
+        "resultDescription": "你发现D题是线段树板子题，很快敲完AC，rating反而涨了。之后你明白了打CF要懂得取舍。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "赛后看题解，整理错题本",
         "effect": {
-          "oi_ds": 8,
+          "oi_ds": 2,
           "health": -2
         },
-        "resultDescription": "你熬夜看完C题官方题解和讨论，发现原来是个经典不等式模型。你花一小时整理错题，下次见到一样套路直接秒。"
+        "resultDescription": "你熬夜看完C题官方题解和讨论，发现原来是个经典不等式模型。你花一小时整理错题，下次见到一样套路直接秒。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_sp_segment_tree_init",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "线段树入门狂魔",
@@ -829,29 +956,38 @@
       {
         "text": "硬着头皮自己debug",
         "effect": {
-          "oi_ds": 12,
+          "oi_ds": 3,
           "mindset": -5,
           "health": -10
         },
-        "resultDescription": "你一行一行地检查，终于发现是build函数里参数写反了。虽然AC了，但你累得趴在桌上睡着，错过了下午的英语课。"
+        "resultDescription": "你一行一行地检查，终于发现是build函数里参数写反了。虽然AC了，但你累得趴在桌上睡着，错过了下午的英语课。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "下载别人AC代码，逐行对比",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "experience": 10,
-          "efficiency": 8
+          "efficiency": 3
         },
-        "resultDescription": "你找到一份清晰规范的代码，发现你犯了一个低级错误——没有开long long。改完后直接AC，效率超高。"
+        "resultDescription": "你找到一份清晰规范的代码，发现你犯了一个低级错误——没有开long long。改完后直接AC，效率超高。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "先放一放，复习其他基础算法",
         "effect": {
-          "oi_dp": 5,
+          "oi_dp": 2,
           "mindset": 3,
           "health": 5
         },
-        "resultDescription": "你决定晚上再战，先刷了几道简单贪心，心情平复。晚上回来再调试，状态很好，很快发现bug并AC。"
+        "resultDescription": "你决定晚上再战，先刷了几道简单贪心，心情平复。晚上回来再调试，状态很好，很快发现bug并AC。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -868,7 +1004,7 @@
         "text": "主动站起来听课，彻底清醒",
         "effect": {
           "health": 5,
-          "efficiency": 10,
+          "efficiency": 3,
           "luck": -2
         },
         "resultDescription": "你站起来后精神一振，全程跟上了老师讲的导数，还在课上回答了问题。但中午困得趴在食堂桌上睡着了。"
@@ -886,7 +1022,7 @@
         "text": "掐自己大腿保持清醒，课后补觉",
         "effect": {
           "health": -6,
-          "efficiency": 5,
+          "efficiency": 2,
           "mindset": 3
         },
         "resultDescription": "你靠掐大腿勉强撑完一节课，记了笔记，但下课后头晕眼花。午休时睡死过去，错过了OI集训的集合时间。"
@@ -895,7 +1031,7 @@
   },
   {
     "id": "oi_sp_math_in_oi",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "数论卡壳现场",
@@ -905,26 +1041,32 @@
       {
         "text": "拿出草稿纸重新推导一遍全部数学",
         "effect": {
-          "oi_math": 12,
+          "oi_math": 3,
           "mindset": 5,
           "efficiency": -3
         },
-        "resultDescription": "你从裴蜀定理开始推，逐步到exgcd、逆元存在条件，终于写对了代码。之后做数论题思路清晰很多。"
+        "resultDescription": "你从裴蜀定理开始推，逐步到exgcd、逆元存在条件，终于写对了代码。之后做数论题思路清晰很多。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "看洛谷题解吸收多种解法",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "experience": 8
         },
-        "resultDescription": "你发现题解里有三种不同做法，你学会了用费马小定理+快速幂求逆元的简洁写法，效率提升。"
+        "resultDescription": "你发现题解里有三种不同做法，你学会了用费马小定理+快速幂求逆元的简洁写法，效率提升。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接放弃，转头做其他板块",
         "effect": {
           "mindset": 3,
           "health": 5,
-          "oi_math": -4
+          "oi_math": -3
         },
         "resultDescription": "你暂时放下数论，去刷了几道模拟题调节心情。但后来发现数论在CSP-S中考到了同类型，你后悔没坚持。"
       }
@@ -942,11 +1084,14 @@
       {
         "text": "现场学习二进制优化，并尝试实现",
         "effect": {
-          "oi_dp": 15,
+          "oi_dp": 4,
           "mindset": -5,
           "health": -8
         },
-        "resultDescription": "你花了一小时理解原理，手写二进制拆分+单调队列优化，终于AC。虽然头昏脑胀，但DP功力大涨。"
+        "resultDescription": "你花了一小时理解原理，手写二进制拆分+单调队列优化，终于AC。虽然头昏脑胀，但DP功力大涨。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用朴素多重背包赌一把小数据",
@@ -955,13 +1100,16 @@
           "luck": -5,
           "health": 3
         },
-        "resultDescription": "你硬着头皮写了三层循环，果然TLE。但当你提交时发现数据很弱，居然有部分分，拿到了60%。"
+        "resultDescription": "你硬着头皮写了三层循环，果然TLE。但当你提交时发现数据很弱，居然有部分分，拿到了60%。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "找队友讨论，让他给你讲思路",
         "effect": {
           "experience": 10,
-          "efficiency": 8
+          "efficiency": 3
         },
         "resultDescription": "队友是神犇，几句话点通二进制拆分本质。你恍然大悟，快速AC，还从他那里学到了一维数组滚动写法。"
       }
@@ -969,7 +1117,7 @@
   },
   {
     "id": "oi_sp_csp_s_confidence",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "CSP-S考前自信爆棚",
@@ -990,24 +1138,27 @@
         "effect": {
           "mindset": -10,
           "experience": -5,
-          "efficiency": -8
+          "efficiency": -3
         },
         "resultDescription": "你觉得自己稳了，开始摸鱼聊天。结果考场上遇到两道新题全都无从下手，最后只拿了省三，懊悔不已。"
       },
       {
         "text": "找老师要来历年省一分数线，制定保底策略",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "mindset": 2,
           "luck": 3
         },
-        "resultDescription": "你分析分数线，发现自己第二题常犯小错误。于是加强检查习惯，最终虽然题目难，但凭借细心拿到了省一。"
+        "resultDescription": "你分析分数线，发现自己第二题常犯小错误。于是加强检查习惯，最终虽然题目难，但凭借细心拿到了省一。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_sp_graph_dijkstra_mistake",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "Dijkstra踩坑",
@@ -1017,16 +1168,19 @@
       {
         "text": "冷静分析WA点，重新检查建图",
         "effect": {
-          "oi_graph": 12,
+          "oi_graph": 3,
           "mindset": 5,
           "health": -3
         },
-        "resultDescription": "你发现邻接表里存了重复边，用min函数缩去重边后AC。从此记住了图论题要谨慎处理重边。"
+        "resultDescription": "你发现邻接表里存了重复边，用min函数缩去重边后AC。从此记住了图论题要谨慎处理重边。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "怀疑算法不会，改成SPFA",
         "effect": {
-          "oi_graph": -5,
+          "oi_graph": -3,
           "experience": 3,
           "mindset": -5
         },
@@ -1035,17 +1189,20 @@
       {
         "text": "直接看别人代码，学习规范写法",
         "effect": {
-          "oi_graph": 8,
-          "efficiency": 10,
+          "oi_graph": 2,
+          "efficiency": 3,
           "experience": 5
         },
-        "resultDescription": "你看到一份代码用了自定义结构体重载<，还用了距离数组初始化为INF。你模仿后写出更可靠的Dijkstra，下次再没错过。"
+        "resultDescription": "你看到一份代码用了自定义结构体重载<，还用了距离数组初始化为INF。你模仿后写出更可靠的Dijkstra，下次再没错过。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_sp_cheating_false_alarm",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "误被当成作弊",
@@ -1073,9 +1230,8 @@
       {
         "text": "让家长出面跟学校交涉",
         "effect": {
-          "experience": 3,
-          "luck": 5,
-          "mindset": 2
+          "mindset": -6,
+          "experience": 2
         },
         "resultDescription": "家长找来证明你手机确实有编程软件，但校方还是给了警告。虽然没有实质性惩罚，但你觉得很没面子。"
       }
@@ -1121,7 +1277,7 @@
   },
   {
     "id": "oi_sp_pretest_fail",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "预赛翻车现场",
@@ -1131,11 +1287,14 @@
       {
         "text": "振作起来，分析错题原因",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "mindset": 6,
           "health": -3
         },
-        "resultDescription": "你发现你掉进了命题陷阱，学会了“形式逻辑”题的套路。虽然初赛擦线过，但以后遇到类似题不会再错。"
+        "resultDescription": "你发现你掉进了命题陷阱，学会了“形式逻辑”题的套路。虽然初赛擦线过，但以后遇到类似题不会再错。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "自暴自弃，开始玩手机",
@@ -1169,29 +1328,38 @@
       {
         "text": "仔细阅读cplusplus.com文档，深究每个函数",
         "effect": {
-          "oi_ds": 10,
+          "oi_ds": 3,
           "mindset": 3,
-          "efficiency": -5
+          "efficiency": -2
         },
-        "resultDescription": "你花了半天时间专门学习set::insert的返回值、迭代器失效等情况。之后用STL写得又快又准，被同学称为STL工具人。"
+        "resultDescription": "你花了半天时间专门学习set::insert的返回值、迭代器失效等情况。之后用STL写得又快又准，被同学称为STL工具人。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "暴力手写结构体，不依赖STL",
         "effect": {
-          "oi_ds": 5,
-          "efficiency": -8,
+          "oi_ds": 2,
+          "efficiency": -3,
           "mindset": 2
         },
-        "resultDescription": "你手动实现红黑树失败，改成数组+二分，勉强AC但代码长且容易溢界。效率低下。"
+        "resultDescription": "你手动实现红黑树失败，改成数组+二分，勉强AC但代码长且容易溢界。效率低下。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "看洛谷讨论区STL技巧总结帖",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "experience": 8,
           "health": -2
         },
-        "resultDescription": "你看到一篇帖子总结了常用STL坑点，你按里面建议改了代码，AC并学到了很多技巧。"
+        "resultDescription": "你看到一篇帖子总结了常用STL坑点，你按里面建议改了代码，AC并学到了很多技巧。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -1220,7 +1388,10 @@
           "mindset": 5,
           "luck": -2
         },
-        "resultDescription": "你发现那是正规活动，但错过了一次免费资源。不过你因为专注刷题，还是有效率的。"
+        "resultDescription": "你发现那是正规活动，但错过了一次免费资源。不过你因为专注刷题，还是有效率的。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "分享给机房同学一起点",
@@ -1235,7 +1406,7 @@
   },
   {
     "id": "oi_sp_physics_teacher_oi",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "物理老师讲OI",
@@ -1245,16 +1416,19 @@
       {
         "text": "课后跟老师深入交流OI与物理结合",
         "effect": {
-          "oi_math": 5,
+          "oi_math": 2,
           "experience": 8,
           "mindset": 4
         },
-        "resultDescription": "老师教你用数值逼近方法在物理模拟中的应用，你不仅学会一个新技巧，还和老师混熟了，以后可以光明正大用机房。"
+        "resultDescription": "老师教你用数值逼近方法在物理模拟中的应用，你不仅学会一个新技巧，还和老师混熟了，以后可以光明正大用机房。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "课上打断老师，说这个可以用线段树优化",
         "effect": {
-          "oi_misc": -5,
+          "oi_misc": -3,
           "luck": -8,
           "mindset": -3
         },
@@ -1263,11 +1437,14 @@
       {
         "text": "默默记下，课后自己推演算法",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "health": -2,
-          "efficiency": 5
+          "efficiency": 2
         },
-        "resultDescription": "你放学后花了半小时推导，发现这个问题可以完美转化为二分答案模型。你兴奋地写了个程序验证。"
+        "resultDescription": "你放学后花了半小时推导，发现这个问题可以完美转化为二分答案模型。你兴奋地写了个程序验证。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -1283,17 +1460,20 @@
       {
         "text": "继续死磕，不AC不睡觉",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "health": -15,
           "mindset": -5
         },
-        "resultDescription": "你熬夜到凌晨3点，终于推出来了，但第二天上课完全没精神，还被老师批评。不过你的思维深度有提升。"
+        "resultDescription": "你熬夜到凌晨3点，终于推出来了，但第二天上课完全没精神，还被老师批评。不过你的思维深度有提升。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "求助Codeforces讨论区",
         "effect": {
           "experience": 12,
-          "efficiency": 8,
+          "efficiency": 3,
           "mindset": 3
         },
         "resultDescription": "你在讨论区看到大神用“反悔贪心”解这道题，你学习后不仅懂了，还学会了新题型。"
@@ -1305,7 +1485,10 @@
           "health": 5,
           "oi_ds": 3
         },
-        "resultDescription": "你换做几道简单数据结构题，AC后心情恢复。第二天再看D题，竟有了思路。"
+        "resultDescription": "你换做几道简单数据结构题，AC后心情恢复。第二天再看D题，竟有了思路。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -1321,38 +1504,47 @@
       {
         "text": "选择线下集训，面对面交流",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "experience": 10,
           "health": -5,
           "money": -8
         },
-        "resultDescription": "你在线下认识了同省大神，每天高强度刷题+讨论，进益飞快，但费用贵且食堂难吃。"
+        "resultDescription": "你在线下认识了同省大神，每天高强度刷题+讨论，进益飞快，但费用贵且食堂难吃。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "选择线上课程，自主节奏",
         "effect": {
-          "oi_dp": 5,
+          "oi_dp": 2,
           "health": 5,
           "money": 5,
           "mindset": -2
         },
-        "resultDescription": "你在线听课，但自制力不强，经常走神。不过你利用了回放反复听难点，最终也学到了不少。"
+        "resultDescription": "你在线听课，但自制力不强，经常走神。不过你利用了回放反复听难点，最终也学到了不少。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "两个都不去，自己在家刷Codeforces",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "experience": 3,
           "health": 8,
           "luck": -3
         },
-        "resultDescription": "你每天在家打CF，rating涨了100，但缺乏系统训练，有些知识点还是没覆盖到。"
+        "resultDescription": "你每天在家打CF，rating涨了100，但缺乏系统训练，有些知识点还是没覆盖到。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_sp_skill_equation_type",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "方程模型化难题",
@@ -1362,35 +1554,44 @@
       {
         "text": "用扩展欧几里得逐步求解",
         "effect": {
-          "oi_math": 14,
+          "oi_math": 4,
           "mindset": 4,
           "health": -3
         },
-        "resultDescription": "你仔细推了通解公式，并处理了负数问题，最终AC。你对数论的理解更上一层。"
+        "resultDescription": "你仔细推了通解公式，并处理了负数问题，最终AC。你对数论的理解更上一层。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "暴力枚举一个变量可能的范围",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "luck": -4,
           "experience": 2
         },
-        "resultDescription": "你枚举范围太大，TLE了。但优化后勉强拿到部分分，不是最优解。"
+        "resultDescription": "你枚举范围太大，TLE了。但优化后勉强拿到部分分，不是最优解。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "请教数学老师，用矩阵思想",
         "effect": {
-          "oi_math": 8,
+          "oi_math": 2,
           "experience": 8,
           "mindset": 5
         },
-        "resultDescription": "数学老师帮你从线性代数角度解释，你发现可以用高斯消元。虽然代码长了点，但AC且通用性更强。"
+        "resultDescription": "数学老师帮你从线性代数角度解释，你发现可以用高斯消元。虽然代码长了点，但AC且通用性更强。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_sp_mood_swing_after_contest",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "赛后情绪波动",
@@ -1411,7 +1612,7 @@
         "effect": {
           "mindset": -15,
           "health": -8,
-          "efficiency": -5
+          "efficiency": -2
         },
         "resultDescription": "你连续两天都在纠结那个边界条件，导致没心思刷题。最后NOIP也受到心态影响，发挥失常。"
       },
@@ -1438,20 +1639,26 @@
       {
         "text": "重新理解倍增原理，手画二叉树调试",
         "effect": {
-          "oi_graph": 14,
+          "oi_graph": 4,
           "mindset": 3,
           "health": -6
         },
-        "resultDescription": "你画了一棵深度为5的树，手动模拟了倍增过程，终于搞懂了为什么fa[k][i] = fa[k-1][fa[k-1][i]]。调完AC，快如闪电。"
+        "resultDescription": "你画了一棵深度为5的树，手动模拟了倍增过程，终于搞懂了为什么fa[k][i] = fa[k-1][fa[k-1][i]]。调完AC，快如闪电。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "改用树剖求LCA",
         "effect": {
-          "oi_graph": 10,
+          "oi_graph": 3,
           "experience": 5,
           "efficiency": 3
         },
-        "resultDescription": "你顺便学了树链剖分，虽然代码长但思路清晰。你顺利AC，并且学会了轻重链剖分。"
+        "resultDescription": "你顺便学了树链剖分，虽然代码长但思路清晰。你顺利AC，并且学会了轻重链剖分。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接跳到下一题，打算以后回头",
@@ -1466,7 +1673,7 @@
   },
   {
     "id": "oi_sp_cf_rating_increase",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "CF专打小号",
@@ -1485,11 +1692,14 @@
       {
         "text": "分析小号上分原因，调整大号策略",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "mindset": 6,
-          "efficiency": 5
+          "efficiency": 2
         },
-        "resultDescription": "你发现小号你注重稳定A和B，C题尝试但不死磕。你把这个策略用到大号，rating也开始稳定上涨。"
+        "resultDescription": "你发现小号你注重稳定A和B，C题尝试但不死磕。你把这个策略用到大号，rating也开始稳定上涨。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用小号继续碾压，大号就作为纪念",
@@ -1514,26 +1724,35 @@
       {
         "text": "手写__builtin_popcount优化",
         "effect": {
-          "oi_dp": 8,
+          "oi_dp": 2,
           "efficiency": -2
         },
-        "resultDescription": "你手写了一个popcount表，常数降了一点，但还是TLE，不过你学到了位运算优化的精髓。"
+        "resultDescription": "你手写了一个popcount表，常数降了一点，但还是TLE，不过你学到了位运算优化的精髓。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用滚动数组+预处理转移",
         "effect": {
-          "oi_dp": 10,
-          "efficiency": -5
+          "oi_dp": 3,
+          "efficiency": -2
         },
-        "resultDescription": "你花了一小时预处理所有转移，代码冗长但效率起飞，AC了，但你的放学时间被拖后了。"
+        "resultDescription": "你花了一小时预处理所有转移，代码冗长但效率起飞，AC了，但你的放学时间被拖后了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接看题解找优化思路",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "experience": 3
         },
-        "resultDescription": "你发现题解用了更巧妙的枚举子集方式，恍然大悟，下次遇到类似题就知道了。"
+        "resultDescription": "你发现题解用了更巧妙的枚举子集方式，恍然大悟，下次遇到类似题就知道了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -1549,11 +1768,14 @@
       {
         "text": "继续调试，吃完泡面再说",
         "effect": {
-          "oi_ds": 12,
+          "oi_ds": 3,
           "health": -8,
-          "efficiency": -5
+          "efficiency": -2
         },
-        "resultDescription": "你饿着肚子猛调两小时，终于发现赋值标记没清空加法标记，AC后成就感满满，但胃开始疼了。"
+        "resultDescription": "你饿着肚子猛调两小时，终于发现赋值标记没清空加法标记，AC后成就感满满，但胃开始疼了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "先去吃饭，回来再搞",
@@ -1566,10 +1788,13 @@
       {
         "text": "去Luogu讨论区问一波",
         "effect": {
-          "oi_misc": 5,
-          "efficiency": 4
+          "oi_misc": 2,
+          "efficiency": 1
         },
-        "resultDescription": "你在帖子里描述了问题，热心的群友指出了标记下传的顺序错误，你照着改立刻AC了。"
+        "resultDescription": "你在帖子里描述了问题，热心的群友指出了标记下传的顺序错误，你照着改立刻AC了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -1585,23 +1810,29 @@
       {
         "text": "手动模拟小数据调试",
         "effect": {
-          "oi_ds": 10,
+          "oi_ds": 3,
           "efficiency": -3
         },
-        "resultDescription": "你画了半小时旋转图，终于找到是左旋右旋搞混了，之后Treap代码库建立成功。"
+        "resultDescription": "你画了半小时旋转图，终于找到是左旋右旋搞混了，之后Treap代码库建立成功。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接看别人的splay代码",
         "effect": {
-          "oi_ds": 5,
+          "oi_ds": 2,
           "oi_misc": -3
         },
-        "resultDescription": "你被splay的zigzag搞得头大，最后还是回来学Treap，绕了一圈。"
+        "resultDescription": "你被splay的zigzag搞得头大，最后还是回来学Treap，绕了一圈。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃，用set应付",
         "effect": {
-          "oi_ds": -8,
+          "oi_ds": -3,
           "experience": 2
         },
         "resultDescription": "你逞一时之快，但后续很多平衡树题目只能用std::set，复杂度高，后悔没好好学。"
@@ -1620,33 +1851,39 @@
       {
         "text": "硬刚到底，不AC不睡觉",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "health": -10,
           "luck": -3
         },
-        "resultDescription": "你死磕到凌晨两点，终于想出了一个极妙的构造，AC后却失眠了，第二天上课打瞌睡被老师点名。"
+        "resultDescription": "你死磕到凌晨两点，终于想出了一个极妙的构造，AC后却失眠了，第二天上课打瞌睡被老师点名。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "先跳过去做后面的题",
         "effect": {
           "experience": 5,
-          "efficiency": 4
+          "efficiency": 1
         },
         "resultDescription": "你换了一道题，发现是熟悉的二分答案，迅速拿下，最后三道题都拿了分，总分不低。"
       },
       {
         "text": "看题解学习构造技巧",
         "effect": {
-          "oi_misc": 12,
+          "oi_misc": 3,
           "experience": 3
         },
-        "resultDescription": "你看了题解，学到了经典的“奇偶构造”方法，并总结到笔记本上，以后遇到类似题就会了。"
+        "resultDescription": "你看了题解，学到了经典的“奇偶构造”方法，并总结到笔记本上，以后遇到类似题就会了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_ex_graph_mst_kruskal",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "最小生成树魔改",
@@ -1656,18 +1893,24 @@
       {
         "text": "坚持Kruskal+排序技巧",
         "effect": {
-          "oi_graph": 8,
+          "oi_graph": 2,
           "oi_misc": 4
         },
-        "resultDescription": "你发现其实可以离线按某种顺序排序，用并查集动态维护，得到60分，部分正确。"
+        "resultDescription": "你发现其实可以离线按某种顺序排序，用并查集动态维护，得到60分，部分正确。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "从LCT角度思考",
         "effect": {
-          "oi_ds": 12,
-          "efficiency": -6
+          "oi_ds": 3,
+          "efficiency": -2
         },
-        "resultDescription": "你试图现推LCT，但写了一半发现不会维护边权，时间不够，最后爆零，但加深了LCT理解。"
+        "resultDescription": "你试图现推LCT，但写了一半发现不会维护边权，时间不够，最后爆零，但加深了LCT理解。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃，检查前面的题",
@@ -1681,7 +1924,7 @@
   },
   {
     "id": "oi_ex_dp_slope_optimization",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "斜率优化之凸壳",
@@ -1691,18 +1934,24 @@
       {
         "text": "逐行打印调出错误",
         "effect": {
-          "oi_dp": 10,
-          "efficiency": -4
+          "oi_dp": 3,
+          "efficiency": -1
         },
-        "resultDescription": "你发现是分母符号导致斜率比较出错，修正后AC，对凸包的维护有了深层理解。"
+        "resultDescription": "你发现是分母符号导致斜率比较出错，修正后AC，对凸包的维护有了深层理解。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "换一种写法（用双端队列）",
         "effect": {
-          "oi_dp": 8,
+          "oi_dp": 2,
           "oi_misc": 3
         },
-        "resultDescription": "你重新实现了一遍，用了结构体封装，代码简洁，终于过了，但浪费了午休时间。"
+        "resultDescription": "你重新实现了一遍，用了结构体封装，代码简洁，终于过了，但浪费了午休时间。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "去看洛谷题解的视频",
@@ -1716,7 +1965,7 @@
   },
   {
     "id": "oi_ex_math_combination",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "组合数取模翻车",
@@ -1726,18 +1975,24 @@
       {
         "text": "检查模数是否质数",
         "effect": {
-          "oi_math": 10,
+          "oi_math": 3,
           "experience": 2
         },
-        "resultDescription": "你发现模数不是质数，不能直接逆元，改用Lucas定理后AC，吓出一身冷汗。"
+        "resultDescription": "你发现模数不是质数，不能直接逆元，改用Lucas定理后AC，吓出一身冷汗。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用递推公式硬算",
         "effect": {
           "oi_math": 3,
-          "efficiency": -8
+          "efficiency": -3
         },
-        "resultDescription": "你打算用递推O(nm)算，但n=1e5直接超时，最后时间耗尽，爆零了。"
+        "resultDescription": "你打算用递推O(nm)算，但n=1e5直接超时，最后时间耗尽，爆零了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃，赌一把写暴力",
@@ -1761,23 +2016,29 @@
       {
         "text": "换成Trie树重建代码",
         "effect": {
-          "oi_string": 12,
-          "efficiency": -7
+          "oi_string": 3,
+          "efficiency": -2
         },
-        "resultDescription": "你花了一下午把哈希改成了Trie，代码长了三倍，但稳稳AC，再也不用担心碰撞了。"
+        "resultDescription": "你花了一下午把哈希改成了Trie，代码长了三倍，但稳稳AC，再也不用担心碰撞了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "改用3个模数+随机种子",
         "effect": {
-          "oi_string": 6,
+          "oi_string": 2,
           "efficiency": -2
         },
-        "resultDescription": "你加了第三个模数和随机种子，碰撞概率极低，成功AC，但心里还是不放心。"
+        "resultDescription": "你加了第三个模数和随机种子，碰撞概率极低，成功AC，但心里还是不放心。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用set存字符串，暴力比较",
         "effect": {
-          "oi_string": -5,
+          "oi_string": -3,
           "luck": -3
         },
         "resultDescription": "你直接交了set，不出所料MLE+超时，后悔没好好学哈希。"
@@ -1786,7 +2047,7 @@
   },
   {
     "id": "oi_ex_csp_s_contest",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "CSP-S第三题博弈",
@@ -1796,19 +2057,25 @@
       {
         "text": "重新推导sg函数",
         "effect": {
-          "oi_math": 12,
-          "oi_dp": 8,
+          "oi_math": 3,
+          "oi_dp": 2,
           "experience": 5
         },
-        "resultDescription": "你冷静下来，发现其实不是sg函数，而是min-max对抗搜索，推对了方程，最终AC，靠这题进了省一。"
+        "resultDescription": "你冷静下来，发现其实不是sg函数，而是min-max对抗搜索，推对了方程，最终AC，靠这题进了省一。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "暴力打表找规律",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "efficiency": 3
         },
-        "resultDescription": "你写了暴力搜索小数据，发现了周期规律，直接输出答案，拿了80分，还不错。"
+        "resultDescription": "你写了暴力搜索小数据，发现了周期规律，直接输出答案，拿了80分，还不错。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃，回头检查前两题",
@@ -1822,7 +2089,7 @@
   },
   {
     "id": "oi_ex_noip_preparation",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "NOIP前夕的焦虑",
@@ -1832,10 +2099,13 @@
       {
         "text": "专攻最薄弱板块（图论）",
         "effect": {
-          "oi_graph": 15,
+          "oi_graph": 4,
           "health": -5
         },
-        "resultDescription": "你连续三天熬夜刷最短路径、差分约束和网络流，图论能力飙升，但身体快撑不住了。"
+        "resultDescription": "你连续三天熬夜刷最短路径、差分约束和网络流，图论能力飙升，但身体快撑不住了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "做几套真题保持手感",
@@ -1843,16 +2113,22 @@
           "experience": 8,
           "oi_misc": 4
         },
-        "resultDescription": "你做了近三年NOIP真题，熟悉了出题风格，心态稳定了很多。"
+        "resultDescription": "你做了近三年NOIP真题，熟悉了出题风格，心态稳定了很多。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "跟好友一起复习讨论",
         "effect": {
-          "oi_graph": 5,
-          "oi_string": 5,
+          "oi_graph": 2,
+          "oi_string": 2,
           "health": 3
         },
-        "resultDescription": "你和朋友互相讲题，查漏补缺，还不时摸鱼玩会儿游戏，压力小了不少。"
+        "resultDescription": "你和朋友互相讲题，查漏补缺，还不时摸鱼玩会儿游戏，压力小了不少。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -1868,10 +2144,13 @@
       {
         "text": "虚心接受，花时间重构",
         "effect": {
-          "oi_misc": 8,
-          "efficiency": 5
+          "oi_misc": 2,
+          "efficiency": 2
         },
-        "resultDescription": "你按照学长建议拆分成小函数，加了注释，代码可读性大大提高，调试速度也快了。"
+        "resultDescription": "你按照学长建议拆分成小函数，加了注释，代码可读性大大提高，调试速度也快了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "嘴上答应，实则不改",
@@ -1884,16 +2163,19 @@
       {
         "text": "跟学长讨论更优解",
         "effect": {
-          "oi_dp": 5,
-          "oi_graph": 5
+          "oi_dp": 2,
+          "oi_graph": 2
         },
-        "resultDescription": "你们讨论着发现题目还有更优的树链剖分解法，你学到了新东西，重构同时顺便优化了算法。"
+        "resultDescription": "你们讨论着发现题目还有更优的树链剖分解法，你学到了新东西，重构同时顺便优化了算法。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_ex_contest_time_management",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "比赛时间分配翻车",
@@ -1904,9 +2186,12 @@
         "text": "果断跳过C，做D和E",
         "effect": {
           "experience": 6,
-          "oi_misc": 5
+          "oi_misc": 2
         },
-        "resultDescription": "你写D题时发现是经典二分+贪心，半小时AC，又看了E题拿部分分，最终排名比硬刚C高了不少。"
+        "resultDescription": "你写D题时发现是经典二分+贪心，半小时AC，又看了E题拿部分分，最终排名比硬刚C高了不少。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "再给C半小时，不行就跳",
@@ -1919,7 +2204,7 @@
       {
         "text": "直接全部暴力拿部分分",
         "effect": {
-          "oi_misc": -5,
+          "oi_misc": -3,
           "experience": 2
         },
         "resultDescription": "你暴力写了几个小数据，最后总分很低，但至少没爆零。"
@@ -1938,33 +2223,42 @@
       {
         "text": "刷几道黄/紫题提分",
         "effect": {
-          "oi_dp": 8,
-          "oi_ds": 8,
+          "oi_dp": 2,
+          "oi_ds": 2,
           "experience": 4
         },
-        "resultDescription": "你挑了三道紫题，磕掉后rating回升，还学到了树剖和平衡树，一举两得。"
+        "resultDescription": "你挑了三道紫题，磕掉后rating回升，还学到了树剖和平衡树，一举两得。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "不管rating，继续刷板子",
         "effect": {
-          "oi_ds": 5,
+          "oi_ds": 2,
           "experience": -2
         },
-        "resultDescription": "你坚持刷基础题，基础更扎实了，但rating依然在掉，心态有点崩。"
+        "resultDescription": "你坚持刷基础题，基础更扎实了，但rating依然在掉，心态有点崩。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "去CF打一场找回自信",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "health": -4
         },
-        "resultDescription": "你熬夜打了一场CF，rating加了不少，但第二天上课状态很差。"
+        "resultDescription": "你熬夜打了一场CF，rating加了不少，但第二天上课状态很差。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_ex_atcoder_problem",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "AtCoder ABC的F题",
@@ -1974,18 +2268,24 @@
       {
         "text": "检查取模和long long",
         "effect": {
-          "oi_math": 6,
+          "oi_math": 2,
           "experience": 3
         },
-        "resultDescription": "你发现有个减法忘记加mod，修完后AC，但排名已经靠后，不过学到了教训。"
+        "resultDescription": "你发现有个减法忘记加mod，修完后AC，但排名已经靠后，不过学到了教训。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "重新读题，可能理解有误",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "efficiency": -3
         },
-        "resultDescription": "你仔细读题发现题目要求的是组合数而非排列数，改后AC，恍然大悟。"
+        "resultDescription": "你仔细读题发现题目要求的是组合数而非排列数，改后AC，恍然大悟。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃去看题解",
@@ -1993,7 +2293,10 @@
           "oi_dp": 3,
           "luck": -5
         },
-        "resultDescription": "你看了题解后表示懂了，但下次遇到类似题还是不会，依赖题解成为习惯。"
+        "resultDescription": "你看了题解后表示懂了，但下次遇到类似题还是不会，依赖题解成为习惯。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2009,10 +2312,13 @@
       {
         "text": "坚持己见，课后找资料",
         "effect": {
-          "oi_graph": 10,
+          "oi_graph": 3,
           "experience": 5
         },
-        "resultDescription": "你查论文发现有一种优化的 Bellman-Ford 在竞赛中更稳定，课后和教练讨论，两人都受益了。"
+        "resultDescription": "你查论文发现有一种优化的 Bellman-Ford 在竞赛中更稳定，课后和教练讨论，两人都受益了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "认怂，听教练的",
@@ -2020,21 +2326,27 @@
           "oi_graph": 2,
           "oi_misc": -3
         },
-        "resultDescription": "你表面接受，但心里不服，后来在比赛中吃了 SPFA 的亏，才明白教练是对的。"
+        "resultDescription": "你表面接受，但心里不服，后来在比赛中吃了 SPFA 的亏，才明白教练是对的。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "提议做性能测试",
         "effect": {
-          "oi_graph": 8,
+          "oi_graph": 2,
           "oi_misc": 4
         },
-        "resultDescription": "你和教练一起在随机图上测试了 SPFA 和 Dijkstra，结果发现 SPFA 确实容易卡，从此你彻底摒弃 SPFA。"
+        "resultDescription": "你和教练一起在随机图上测试了 SPFA 和 Dijkstra，结果发现 SPFA 确实容易卡，从此你彻底摒弃 SPFA。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_ex_class_miss",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "打CF导致课堂摸鱼",
@@ -2079,10 +2391,13 @@
       {
         "text": "主动扛起Coding大旗",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "health": -6
         },
-        "resultDescription": "你一个人写了三题的代码，累得半死但排名还不错，之后你决定下次好好选队友。"
+        "resultDescription": "你一个人写了三题的代码，累得半死但排名还不错，之后你决定下次好好选队友。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "督促划水队友干活",
@@ -2114,10 +2429,13 @@
       {
         "text": "虚心请教，记下笔记",
         "effect": {
-          "oi_dp": 12,
+          "oi_dp": 3,
           "experience": 6
         },
-        "resultDescription": "大神给你讲了DP优化的几种套路，还留了联系方式，你感觉打通了任督二脉。"
+        "resultDescription": "大神给你讲了DP优化的几种套路，还留了联系方式，你感觉打通了任督二脉。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "礼貌拒绝，自己研究",
@@ -2125,21 +2443,27 @@
           "oi_dp": 3,
           "efficiency": -3
         },
-        "resultDescription": "你逞强自己琢磨了两个小时，虽然也懂了，但效率低，错过了和大神交流的机会。"
+        "resultDescription": "你逞强自己琢磨了两个小时，虽然也懂了，但效率低，错过了和大神交流的机会。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "跟他交换题目经验",
         "effect": {
-          "oi_dp": 8,
-          "oi_graph": 6
+          "oi_dp": 2,
+          "oi_graph": 2
         },
-        "resultDescription": "你们互相分享了一些神题，你学到了网络流建模的技巧，他也对你的搜索思路感兴趣。"
+        "resultDescription": "你们互相分享了一些神题，你学到了网络流建模的技巧，他也对你的搜索思路感兴趣。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_ex_sleep_after_contest",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "赛后虚脱狂补觉",
@@ -2157,11 +2481,14 @@
       {
         "text": "继续刷题到天亮",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "health": -12,
           "luck": -5
         },
-        "resultDescription": "你通宵刷了几道模板题，第二天比赛中睡着了，发挥失常，后悔莫及。"
+        "resultDescription": "你通宵刷了几道模板题，第二天比赛中睡着了，发挥失常，后悔莫及。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "吃助眠药强行入睡",
@@ -2175,7 +2502,7 @@
   },
   {
     "id": "oi_ex_breakthrough",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "突破瓶颈的瞬间",
@@ -2185,28 +2512,37 @@
       {
         "text": "立刻写下AC代码",
         "effect": {
-          "oi_dp": 15,
-          "oi_ds": 10,
+          "oi_dp": 4,
+          "oi_ds": 3,
           "experience": 8
         },
-        "resultDescription": "你成功AC了一道DDP模板题，从此对动态DP豁然开朗，信心大增。"
+        "resultDescription": "你成功AC了一道DDP模板题，从此对动态DP豁然开朗，信心大增。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "跟好朋友分享思路",
         "effect": {
-          "oi_dp": 8,
-          "oi_misc": 5
+          "oi_dp": 2,
+          "oi_misc": 2
         },
-        "resultDescription": "你拉着朋友讲了一遍，发现对方也听懂了，两人一起进步，还讨论了变种。"
+        "resultDescription": "你拉着朋友讲了一遍，发现对方也听懂了，两人一起进步，还讨论了变种。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "再刷五道相关题巩固",
         "effect": {
-          "oi_dp": 12,
-          "oi_ds": 8,
+          "oi_dp": 3,
+          "oi_ds": 2,
           "health": -3
         },
-        "resultDescription": "你趁热打铁连刷五题，手速和思维都上了一个台阶，但脖子酸得不行。"
+        "resultDescription": "你趁热打铁连刷五题，手速和思维都上了一个台阶，但脖子酸得不行。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2222,20 +2558,26 @@
       {
         "text": "继续硬调，用汇编优化",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "health": -10,
           "experience": 5
         },
-        "resultDescription": "你甚至用内联汇编重写了核心循环，评测机绿了！但你的头发也掉了好几根，第二天上课直接梦游。"
+        "resultDescription": "你甚至用内联汇编重写了核心循环，评测机绿了！但你的头发也掉了好几根，第二天上课直接梦游。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "换成更高效的算法",
         "effect": {
-          "oi_ds": 8,
-          "oi_dp": 5,
-          "efficiency": 5
+          "oi_ds": 2,
+          "oi_dp": 2,
+          "efficiency": 2
         },
-        "resultDescription": "你重新审视题目，发现可以用分块代替线段树，复杂度降了一个log，AC后神清气爽。"
+        "resultDescription": "你重新审视题目，发现可以用分块代替线段树，复杂度降了一个log，AC后神清气爽。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "认输，去看题解",
@@ -2269,20 +2611,26 @@
       {
         "text": "逐行debug，开对拍",
         "effect": {
-          "oi_ds": 10,
-          "oi_misc": 5,
+          "oi_ds": 3,
+          "oi_misc": 2,
           "health": -3
         },
-        "resultDescription": "你在小数据上手动模拟，发现是splay的rotate写反了，修改后终于过了模板题，开心到飞起。"
+        "resultDescription": "你在小数据上手动模拟，发现是splay的rotate写反了，修改后终于过了模板题，开心到飞起。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "去B站看视频讲解",
         "effect": {
-          "oi_ds": 5,
+          "oi_ds": 2,
           "experience": 3,
-          "efficiency": 5
+          "efficiency": 2
         },
-        "resultDescription": "看了半小时动画演示，你突然理解了access操作的本质，代码也很快调通了。"
+        "resultDescription": "看了半小时动画演示，你突然理解了access操作的本质，代码也很快调通了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "先放放，过两天再来",
@@ -2297,7 +2645,7 @@
   },
   {
     "id": "oi_cm_cf_div1_attempt",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "冲击Div.1的勇气",
@@ -2307,11 +2655,14 @@
       {
         "text": "稳扎稳打，先写暴力找规律",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "mindset": 5,
           "oi_dp": 3
         },
-        "resultDescription": "你花15分钟猜出了交互策略，A题一遍过，信心大增。"
+        "resultDescription": "你花15分钟猜出了交互策略，A题一遍过，信心大增。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接猜结论，赌一把",
@@ -2325,11 +2676,14 @@
       {
         "text": "先看B题，回头再想A",
         "effect": {
-          "oi_string": 5,
+          "oi_string": 2,
           "experience": 5,
           "efficiency": 3
         },
-        "resultDescription": "B题是字符串哈希，你很快秒掉，再回头看A时思路更清晰，也顺利AC了。"
+        "resultDescription": "B题是字符串哈希，你很快秒掉，再回头看A时思路更清晰，也顺利AC了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2345,29 +2699,38 @@
       {
         "text": "先保第二题部分分",
         "effect": {
-          "oi_ds": 5,
+          "oi_ds": 2,
           "oi_dp": -3,
           "mindset": -5
         },
-        "resultDescription": "你写了30分的树上差分部分分，但第三题完全放弃，总分不高，排名中游。"
+        "resultDescription": "你写了30分的树上差分部分分，但第三题完全放弃，总分不高，排名中游。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "死磕第三题到结束",
         "effect": {
-          "oi_dp": 8,
+          "oi_dp": 2,
           "health": -8,
           "experience": 2
         },
-        "resultDescription": "你花费2小时推出第三题的状态转移，但最后10分钟没写完代码，草草交了暴力，心态崩了。"
+        "resultDescription": "你花费2小时推出第三题的状态转移，但最后10分钟没写完代码，草草交了暴力，心态崩了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃第二题，专攻第三题",
         "effect": {
-          "oi_dp": 10,
-          "oi_ds": -5,
+          "oi_dp": 3,
+          "oi_ds": -3,
           "luck": -3
         },
-        "resultDescription": "你放弃第二题部分分，全力冲第三题，结果写出来了60分DP，但第二题0分，总分离预期差一截。"
+        "resultDescription": "你放弃第二题部分分，全力冲第三题，结果写出来了60分DP，但第二题0分，总分离预期差一截。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2383,11 +2746,14 @@
       {
         "text": "耐心回复，讲解优化思路",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "mindset": 5,
           "oi_ds": 3
         },
-        "resultDescription": "你详细解释了为什么自己的做法是当前最优，对方豁然开朗，你多了个粉丝。"
+        "resultDescription": "你详细解释了为什么自己的做法是当前最优，对方豁然开朗，你多了个粉丝。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "开喷“你行你上”",
@@ -2411,7 +2777,7 @@
   },
   {
     "id": "oi_cm_purple_problem_solved",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "紫题首杀纪念",
@@ -2421,35 +2787,44 @@
       {
         "text": "偷偷在桌下握拳庆祝",
         "effect": {
-          "oi_dp": 10,
+          "oi_dp": 3,
           "mindset": 8,
           "luck": 3
         },
-        "resultDescription": "你压制住兴奋，在草稿纸上画了个笑脸，接下来的课都听得特别认真。"
+        "resultDescription": "你压制住兴奋，在草稿纸上画了个笑脸，接下来的课都听得特别认真。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "当即去犇犇吹水",
         "effect": {
           "oi_misc": 3,
           "health": -5,
-          "efficiency": -5
+          "efficiency": -2
         },
-        "resultDescription": "你在犇犇上发帖炫耀，引来一群膜拜，但浪费了下午的黄金刷题时间。"
+        "resultDescription": "你在犇犇上发帖炫耀，引来一群膜拜，但浪费了下午的黄金刷题时间。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "继续刷下一道紫题",
         "effect": {
-          "oi_ds": 5,
-          "oi_dp": 5,
+          "oi_ds": 2,
+          "oi_dp": 2,
           "health": -3
         },
-        "resultDescription": "你趁热打铁，又找了一道紫题开始啃，但晚上困得不行。"
+        "resultDescription": "你趁热打铁，又找了一道紫题开始啃，但晚上困得不行。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_cm_provincial_top_discussion",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "与省队大佬的交流",
@@ -2459,11 +2834,14 @@
       {
         "text": "虚心请教SAM的套路",
         "effect": {
-          "oi_string": 12,
+          "oi_string": 3,
           "experience": 5,
           "mindset": 3
         },
-        "resultDescription": "大佬给你画了张图，讲了几个经典应用，你茅塞顿开，还加了他的QQ。"
+        "resultDescription": "大佬给你画了张图，讲了几个经典应用，你茅塞顿开，还加了他的QQ。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "吹捧大佬，求带飞",
@@ -2477,17 +2855,20 @@
       {
         "text": "装大佬，讨论深层技巧",
         "effect": {
-          "oi_ds": 8,
+          "oi_ds": 2,
           "mindset": -5,
           "health": -2
         },
-        "resultDescription": "你强撑着讨论了一些高深话题，但被问倒了一个细节，大佬微微一笑，你暗下决心要补短板。"
+        "resultDescription": "你强撑着讨论了一些高深话题，但被问倒了一个细节，大佬微微一笑，你暗下决心要补短板。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_cm_noip_preparation_plan",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "NOIP前的复习抉择",
@@ -2497,20 +2878,26 @@
       {
         "text": "刷10道计数DP巩固",
         "effect": {
-          "oi_dp": 10,
-          "oi_math": 5,
+          "oi_dp": 3,
+          "oi_math": 2,
           "efficiency": 3
         },
-        "resultDescription": "你刷了专题，终于搞懂了容斥原理的套路，模拟赛里碰到类似题直接秒杀。"
+        "resultDescription": "你刷了专题，终于搞懂了容斥原理的套路，模拟赛里碰到类似题直接秒杀。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "打三场CF模拟赛",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "mindset": 3,
           "health": -5
         },
-        "resultDescription": "你打了三场，rating涨了，但发现弱项还是没补，有点焦虑。"
+        "resultDescription": "你打了三场，rating涨了，但发现弱项还是没补，有点焦虑。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "劳逸结合，调整状态",
@@ -2535,20 +2922,26 @@
       {
         "text": "冲F题，放弃E",
         "effect": {
-          "oi_graph": 5,
+          "oi_graph": 2,
           "oi_dp": -3,
           "luck": -5
         },
-        "resultDescription": "你看了F题，是数学题，但最后没推出来，E和F都没分，rating掉。"
+        "resultDescription": "你看了F题，是数学题，但最后没推出来，E和F都没分，rating掉。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "优化E题部分分",
         "effect": {
-          "oi_dp": 8,
+          "oi_dp": 2,
           "oi_misc": 3,
           "health": -2
         },
-        "resultDescription": "你写了一个剪枝+记忆化，过了80%数据，得到不错分数，弥补了rating下滑。"
+        "resultDescription": "你写了一个剪枝+记忆化，过了80%数据，得到不错分数，弥补了rating下滑。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "看E题题解，硬抄",
@@ -2557,13 +2950,16 @@
           "oi_dp": 2,
           "mindset": -3
         },
-        "resultDescription": "你百度到了思路，强行写出来，但没理解透，比赛中ac，赛后却发现很多细节不会。"
+        "resultDescription": "你百度到了思路，强行写出来，但没理解透，比赛中ac，赛后却发现很多细节不会。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_cm_afo_thoughts",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "AFO的念头闪过",
@@ -2575,9 +2971,12 @@
         "effect": {
           "mindset": -10,
           "health": -5,
-          "oi_misc": 5
+          "oi_misc": 2
         },
-        "resultDescription": "你硬撑着打完一场CF，血崩掉分，情绪彻底崩溃，请了三天假。"
+        "resultDescription": "你硬撑着打完一场CF，血崩掉分，情绪彻底崩溃，请了三天假。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "找训练群里的学长谈心",
@@ -2593,7 +2992,7 @@
         "effect": {
           "health": 10,
           "mindset": 8,
-          "oi_dp": -5
+          "oi_dp": -3
         },
         "resultDescription": "你回班级上课、打球，一周后再回到机房，发现状态好多了，做题思路也清晰了。"
       }
@@ -2601,7 +3000,7 @@
   },
   {
     "id": "oi_cm_cultural_balance",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "文化课与OI的修罗场",
@@ -2611,8 +3010,8 @@
       {
         "text": "缩减OI时间，补文化课",
         "effect": {
-          "oi_misc": -10,
-          "oi_dp": -5,
+          "oi_misc": -3,
+          "oi_dp": -3,
           "health": 5
         },
         "resultDescription": "你每天只刷1道题，文化课成绩回升，但OI手感生疏，模拟赛生无可恋。"
@@ -2621,19 +3020,25 @@
         "text": "跟班主任立军令状",
         "effect": {
           "mindset": 8,
-          "oi_ds": 5,
+          "oi_ds": 2,
           "luck": -3
         },
-        "resultDescription": "你保证下次模考数学进前10，同时OI拿省一。你压力山大，但动力十足。"
+        "resultDescription": "你保证下次模考数学进前10，同时OI拿省一。你压力山大，但动力十足。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "先放文化课，全力冲NOIP",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "health": -10,
           "mindset": -5
         },
-        "resultDescription": "你每天刷题到凌晨，文化课成绩继续下滑，但OI水平突飞猛进，成功拿到省一等奖。"
+        "resultDescription": "你每天刷题到凌晨，文化课成绩继续下滑，但OI水平突飞猛进，成功拿到省一等奖。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2649,11 +3054,14 @@
       {
         "text": "重写C++版",
         "effect": {
-          "oi_graph": 5,
+          "oi_graph": 2,
           "oi_ds": 3,
           "experience": 5
         },
-        "resultDescription": "你花半小时翻译成C++，提交AC，心情转好，但意识到Python在竞赛中的劣势。"
+        "resultDescription": "你花半小时翻译成C++，提交AC，心情转好，但意识到Python在竞赛中的劣势。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用PyPy优化试试",
@@ -2662,7 +3070,10 @@
           "luck": -3,
           "health": -2
         },
-        "resultDescription": "你换成PyPy，再加上各种输入优化，还是TLE，浪费了一个小时。"
+        "resultDescription": "你换成PyPy，再加上各种输入优化，还是TLE，浪费了一个小时。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃这道题，换简单题",
@@ -2691,25 +3102,34 @@
           "oi_misc": 3,
           "mindset": 5
         },
-        "resultDescription": "System test奇迹般地全绿，你靠随机化涨了rating，还发帖分享“玄学算法”。"
+        "resultDescription": "System test奇迹般地全绿，你靠随机化涨了rating，还发帖分享“玄学算法”。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "再优化随机策略",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "oi_ds": 3,
           "health": -3
         },
-        "resultDescription": "你加入了模拟退火，结果反而变慢了，pretest超时，你后悔没直接交。"
+        "resultDescription": "你加入了模拟退火，结果反而变慢了，pretest超时，你后悔没直接交。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "尝试写出确定性算法",
         "effect": {
-          "oi_dp": 5,
-          "oi_math": 5,
-          "efficiency": -5
+          "oi_dp": 2,
+          "oi_math": 2,
+          "efficiency": -2
         },
-        "resultDescription": "你花了2小时推导出贪心证明，但写出来发现不如随机化好，又改回去了。"
+        "resultDescription": "你花了2小时推导出贪心证明，但写出来发现不如随机化好，又改回去了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2738,16 +3158,22 @@
           "mindset": -8,
           "oi_ds": 3
         },
-        "resultDescription": "你偷偷看了他屏幕，发现他在做另一道题，心里乱了阵脚，做题节奏被打乱，最终落选。"
+        "resultDescription": "你偷偷看了他屏幕，发现他在做另一道题，心里乱了阵脚，做题节奏被打乱，最终落选。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "开赛后全力输出",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "health": -5,
           "experience": 5
         },
-        "resultDescription": "你三题全写，但第二题有个bug没调出来，总分略低，遗憾落败。"
+        "resultDescription": "你三题全写，但第二题有个bug没调出来，总分略低，遗憾落败。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2763,20 +3189,26 @@
       {
         "text": "修复后AC，爽！",
         "effect": {
-          "oi_ds": 10,
-          "oi_misc": 5,
+          "oi_ds": 3,
+          "oi_misc": 2,
           "mindset": 8
         },
-        "resultDescription": "你提交后AC，感觉对拍器真是debug神器，以后再也不怕WA了。"
+        "resultDescription": "你提交后AC，感觉对拍器真是debug神器，以后再也不怕WA了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "研究更深层原因",
         "effect": {
-          "oi_math": 5,
+          "oi_math": 2,
           "oi_dp": 3,
           "health": -5
         },
-        "resultDescription": "你发现是因为排序时用了全局变量导致混乱，深入理解了莫队原理，但熬夜到2点。"
+        "resultDescription": "你发现是因为排序时用了全局变量导致混乱，深入理解了莫队原理，但熬夜到2点。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "发帖炫耀对拍技巧",
@@ -2785,13 +3217,16 @@
           "experience": 2,
           "efficiency": -3
         },
-        "resultDescription": "你在洛谷发帖，收到了不少赞，但也有人指出你的对拍脚本有bug，尴尬。"
+        "resultDescription": "你在洛谷发帖，收到了不少赞，但也有人指出你的对拍脚本有bug，尴尬。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_cm_original_problem_encounter",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "NOIP遇到原题了",
@@ -2801,20 +3236,26 @@
       {
         "text": "冷静写代码，确保无误",
         "effect": {
-          "oi_dp": 8,
-          "oi_ds": 5,
+          "oi_dp": 2,
+          "oi_ds": 2,
           "mindset": 5
         },
-        "resultDescription": "你凭借记忆写出正解，一遍AC，心里暗爽，下午的题也充满信心。"
+        "resultDescription": "你凭借记忆写出正解，一遍AC，心里暗爽，下午的题也充满信心。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "快速写完，检查其他题",
         "effect": {
-          "oi_misc": 5,
-          "efficiency": 10,
+          "oi_misc": 2,
+          "efficiency": 3,
           "health": -3
         },
-        "resultDescription": "你10分钟写完，用剩余时间攻克第三题，最终总分爆表。"
+        "resultDescription": "你10分钟写完，用剩余时间攻克第三题，最终总分爆表。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "担心是陷阱，反复验证",
@@ -2839,35 +3280,44 @@
       {
         "text": "先做几道生成函数入门题",
         "effect": {
-          "oi_math": 10,
-          "oi_dp": 5,
+          "oi_math": 3,
+          "oi_dp": 2,
           "health": -2
         },
-        "resultDescription": "你从斐波那契数列生成函数做起，慢慢理解了，再做两道题巩固，感觉打开了新世界。"
+        "resultDescription": "你从斐波那契数列生成函数做起，慢慢理解了，再做两道题巩固，感觉打开了新世界。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃，先搞多项式",
         "effect": {
           "oi_math": 3,
-          "oi_ds": 5,
+          "oi_ds": 2,
           "experience": 3
         },
-        "resultDescription": "你转去学FFT/NTT，发现生成函数和多项式紧密结合，后来再返回学就简单了。"
+        "resultDescription": "你转去学FFT/NTT，发现生成函数和多项式紧密结合，后来再返回学就简单了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "死磕数学推导",
         "effect": {
-          "oi_math": 8,
+          "oi_math": 2,
           "mindset": -10,
           "health": -8
         },
-        "resultDescription": "你啃了三天书，推导从入门到入土，最后懂了，但也累垮了。"
+        "resultDescription": "你啃了三天书，推导从入门到入土，最后懂了，但也累垮了。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_cm_dp_quadrangle_inequality",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "四边形不等式优化",
@@ -2877,20 +3327,26 @@
       {
         "text": "硬背板子，套进去",
         "effect": {
-          "oi_dp": 8,
+          "oi_dp": 2,
           "oi_misc": 3,
           "mindset": -2
         },
-        "resultDescription": "你记住了决策单调性的写法，过掉了题，但没理解原理，下次换种形式就不会了。"
+        "resultDescription": "你记住了决策单调性的写法，过掉了题，但没理解原理，下次换种形式就不会了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "找一篇证明详细的博客",
         "effect": {
-          "oi_dp": 10,
-          "oi_math": 5,
+          "oi_dp": 3,
+          "oi_math": 2,
           "efficiency": 3
         },
-        "resultDescription": "你花了2小时搞懂证明，自己手推了一遍，从此四边形不等式信手拈来。"
+        "resultDescription": "你花了2小时搞懂证明，自己手推了一遍，从此四边形不等式信手拈来。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃优化，写暴力骗分",
@@ -2915,29 +3371,38 @@
       {
         "text": "课后问老师，抄下思路",
         "effect": {
-          "oi_graph": 10,
+          "oi_graph": 3,
           "oi_ds": 3,
           "experience": 5
         },
-        "resultDescription": "你追着老师问了两遍，终于明白如何用差分约束建图，回去又练了几道同类题。"
+        "resultDescription": "你追着老师问了两遍，终于明白如何用差分约束建图，回去又练了几道同类题。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "自己翻书《算法竞赛进阶指南》",
         "effect": {
-          "oi_graph": 8,
+          "oi_graph": 2,
           "oi_misc": 3,
           "health": -5
         },
-        "resultDescription": "你花了整个晚自习看书，终于搞懂了，但错过了晚练时间。"
+        "resultDescription": "你花了整个晚自习看书，终于搞懂了，但错过了晚练时间。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃，去刷数据结构",
         "effect": {
-          "oi_ds": 5,
-          "oi_graph": -5,
+          "oi_ds": 2,
+          "oi_graph": -3,
           "luck": 2
         },
-        "resultDescription": "你放弃了网络流，转向线段树，结果下次考试考了网络流，你后悔不已。"
+        "resultDescription": "你放弃了网络流，转向线段树，结果下次考试考了网络流，你后悔不已。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2953,20 +3418,26 @@
       {
         "text": "用整数运算+叉积",
         "effect": {
-          "oi_math": 8,
-          "oi_misc": 5,
+          "oi_math": 2,
+          "oi_misc": 2,
           "health": -2
         },
-        "resultDescription": "你把所有坐标乘以一个大数变成整数，避免了浮点误差，AC了，但代码变得又长又丑。"
+        "resultDescription": "你把所有坐标乘以一个大数变成整数，避免了浮点误差，AC了，但代码变得又长又丑。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "用EPS比较法",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "luck": -5,
           "experience": 3
         },
-        "resultDescription": "你加入eps=1e-9，测试了多组数据，侥幸AC，但知道并不稳健。"
+        "resultDescription": "你加入eps=1e-9，测试了多组数据，侥幸AC，但知道并不稳健。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "换用Python的Decimal",
@@ -2975,7 +3446,10 @@
           "health": 5,
           "oi_ds": -3
         },
-        "resultDescription": "你用高精度浮点数，过了样例但交上去TLE到飞起，放弃。"
+        "resultDescription": "你用高精度浮点数，过了样例但交上去TLE到飞起，放弃。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -2991,23 +3465,29 @@
       {
         "text": "老老实实补上命名空间",
         "effect": {
-          "oi_misc": 5,
-          "efficiency": 5
+          "oi_misc": 2,
+          "efficiency": 2
         },
-        "resultDescription": "你补了using namespace std;，AC了，但花了十分钟才发现这个低级错误。"
+        "resultDescription": "你补了using namespace std;，AC了，但花了十分钟才发现这个低级错误。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "百度搜索std是什么",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "health": -2
         },
-        "resultDescription": "你看了半小时C++基础教程，终于理解了命名空间，但错过了午睡时间。"
+        "resultDescription": "你看了半小时C++基础教程，终于理解了命名空间，但错过了午睡时间。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接放弃去打游戏",
         "effect": {
-          "efficiency": -10,
+          "efficiency": -3,
           "health": 5
         },
         "resultDescription": "你打开手机玩了一局王者，心情好了，但OI进度完全停滞。"
@@ -3029,16 +3509,22 @@
           "oi_misc": 2,
           "experience": 3
         },
-        "resultDescription": "你照着题解敲了一遍，虽然没理解，但AC了，排名上升了一点点。"
+        "resultDescription": "你照着题解敲了一遍，虽然没理解，但AC了，排名上升了一点点。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "自己尝试写for循环",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "health": -3,
           "efficiency": -2
         },
-        "resultDescription": "你琢磨了半小时终于写出了循环，但因为没考虑边界，WA了三次才过。"
+        "resultDescription": "你琢磨了半小时终于写出了循环，但因为没考虑边界，WA了三次才过。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "跳过换一道水题",
@@ -3046,7 +3532,10 @@
           "oi_misc": 1,
           "experience": -2
         },
-        "resultDescription": "你找了一道A+B换了个输入输出格式的题，虽然AC了但毫无提升。"
+        "resultDescription": "你找了一道A+B换了个输入输出格式的题，虽然AC了但毫无提升。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -3066,13 +3555,16 @@
           "health": -5,
           "experience": 2
         },
-        "resultDescription": "你最终没做出来，但学到了一个输出格式的技巧，rating掉了50。"
+        "resultDescription": "你最终没做出来，但学到了一个输出格式的技巧，rating掉了50。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接看第二题",
         "effect": {
-          "oi_misc": 1,
-          "efficiency": -5
+          "mindset": -4,
+          "efficiency": -2
         },
         "resultDescription": "第二题更难，你连题意都没读懂，整场比赛爆零。"
       },
@@ -3109,7 +3601,10 @@
           "oi_misc": 1,
           "experience": -2
         },
-        "resultDescription": "你随便敲了几个cout，班主任看了一眼没说话，但你的心虚让你整节课没听进去。"
+        "resultDescription": "你随便敲了几个cout，班主任看了一眼没说话，但你的心虚让你整节课没听进去。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "坦白承认错误",
@@ -3123,7 +3618,7 @@
   },
   {
     "id": "oi_nb_math_homework",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "数学课与OI冲突",
@@ -3141,17 +3636,20 @@
       {
         "text": "用OI方法解数学题",
         "effect": {
-          "oi_misc": 5,
-          "oi_math": 5,
+          "oi_misc": 2,
+          "oi_math": 2,
           "efficiency": -2
         },
-        "resultDescription": "你尝试用C++写程序算圆锥曲线，结果因为精度问题WA了，但数学老师没发现。"
+        "resultDescription": "你尝试用C++写程序算圆锥曲线，结果因为精度问题WA了，但数学老师没发现。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "抄同桌数学作业",
         "effect": {
           "mindset": -5,
-          "efficiency": 5
+          "efficiency": 2
         },
         "resultDescription": "你很快抄完作业，用省下的时间刷了两道水题，但内心非常不安。"
       }
@@ -3159,7 +3657,7 @@
   },
   {
     "id": "oi_nb_longlong_wa",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "中间量溢出痛失分数",
@@ -3169,11 +3667,14 @@
       {
         "text": "懊恼地记笔记",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "experience": -5,
           "health": -3
         },
-        "resultDescription": "你在笔记本上记下了数据范围和中间量检查。这次失误的分数已经拿不回来了，但复盘至少有了具体内容。"
+        "resultDescription": "你在笔记本上记下了数据范围和中间量检查。这次失误的分数已经拿不回来了，但复盘至少有了具体内容。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "安慰自己下次注意",
@@ -3195,7 +3696,7 @@
   },
   {
     "id": "oi_nb_csp_beginner",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "CSP-S爆零想AFO",
@@ -3209,14 +3710,14 @@
           "experience": 5,
           "health": -5
         },
-        "resultDescription": "你找了一份寒假训练题单，从语法和基础算法重新补起。八中没有现成的校队课程，题单和讲解得自己找。"
+        "resultDescription": "你翻出教练发的寒假题单，从语法和基础算法重新补起。碰到卡住的题，就先写下哪里想不通，留到下次训练时讨论。"
       },
       {
         "text": "暂时AFO去搞文化课",
         "effect": {
-          "oi_misc": -15,
+          "oi_misc": -3,
           "mindset": 5,
-          "efficiency": 5
+          "efficiency": 2
         },
         "resultDescription": "你把精力全部投入到文化课，期末排名上升了10名，但心里总放不下OI。"
       },
@@ -3225,9 +3726,12 @@
         "effect": {
           "oi_misc": 3,
           "mindset": -2,
-          "efficiency": -5
+          "efficiency": -2
         },
-        "resultDescription": "你刷了一晚上A+B和Hello World，虽然AC了不少，但内心明白这毫无意义。"
+        "resultDescription": "你刷了一晚上A+B和Hello World，虽然AC了不少，但内心明白这毫无意义。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -3243,10 +3747,13 @@
       {
         "text": "虚心请教并修改",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "experience": 3
         },
-        "resultDescription": "你学会检查数组大小，以后很少再犯越界错误。"
+        "resultDescription": "你学会检查数组大小，以后很少再犯越界错误。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "不服气争论",
@@ -3260,9 +3767,12 @@
         "text": "自己上网查资料",
         "effect": {
           "oi_misc": 4,
-          "efficiency": -4
+          "efficiency": -1
         },
-        "resultDescription": "你花了半小时看CSDN才弄懂，但效率很低，不过知识学得更扎实。"
+        "resultDescription": "你花了半小时看CSDN才弄懂，但效率很低，不过知识学得更扎实。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -3288,7 +3798,7 @@
         "text": "偷偷补觉",
         "effect": {
           "health": -5,
-          "efficiency": -8
+          "efficiency": -3
         },
         "resultDescription": "你被老师抓到第二次，直接叫家长，OI练习被禁止两周。"
       },
@@ -3314,19 +3824,25 @@
       {
         "text": "逐行对比查错",
         "effect": {
-          "oi_misc": 7,
-          "efficiency": -5,
+          "oi_misc": 2,
+          "efficiency": -2,
           "mindset": 1
         },
-        "resultDescription": "你花了40分钟终于找到bug，学到了变量命名规范的重要性。"
+        "resultDescription": "你花了40分钟终于找到bug，学到了变量命名规范的重要性。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "重新自己手写快排",
         "effect": {
-          "oi_misc": 10,
+          "oi_misc": 3,
           "health": -3
         },
-        "resultDescription": "你完全理解了快排原理，虽然写得慢但以后不用抄模板了。"
+        "resultDescription": "你完全理解了快排原理，虽然写得慢但以后不用抄模板了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "换一个模板再试",
@@ -3334,7 +3850,10 @@
           "oi_misc": 1,
           "experience": -3
         },
-        "resultDescription": "你复制了另一个模板，这次运气好AC了，但依然不懂原理。"
+        "resultDescription": "你复制了另一个模板，这次运气好AC了，但依然不懂原理。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -3355,13 +3874,16 @@
           "health": -3,
           "luck": -2
         },
-        "resultDescription": "你花了2小时AC了题，但迟到了，女友有点生气，不过你还是陪她看了后半场。"
+        "resultDescription": "你花了2小时AC了题，但迟到了，女友有点生气，不过你还是陪她看了后半场。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放下先去约会",
         "effect": {
           "mindset": 5,
-          "efficiency": -5,
+          "efficiency": -2,
           "experience": -2
         },
         "resultDescription": "你开心地看了电影，但回到宿舍发现那道题思路忘了，又要从头想。"
@@ -3373,13 +3895,16 @@
           "efficiency": -1,
           "oi_misc": 2
         },
-        "resultDescription": "女友陪你看了半小时代码，觉得无聊自己先走了，你既没AC又失了约会。"
+        "resultDescription": "女友陪你看了半小时代码，觉得无聊自己先走了，你既没AC又失了约会。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
   {
     "id": "oi_nb_false_ranklist",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "排名虚高得意忘形",
@@ -3389,11 +3914,14 @@
       {
         "text": "继续努力乘胜追击",
         "effect": {
-          "oi_misc": 5,
+          "oi_misc": 2,
           "experience": 3,
           "mindset": 2
         },
-        "resultDescription": "你保持了勤奋，下次测试虽然题目难了，但还是AC了一题，进步看得见。"
+        "resultDescription": "你保持了勤奋，下次测试虽然题目难了，但还是AC了一题，进步看得见。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "停下放松一天",
@@ -3427,11 +3955,14 @@
       {
         "text": "赛后看官方题解",
         "effect": {
-          "oi_misc": 6,
+          "oi_misc": 2,
           "experience": 4,
           "efficiency": -2
         },
-        "resultDescription": "你花了一个小时看英文题解和别人的代码，终于弄懂了多组数据的读入，收获很大。"
+        "resultDescription": "你花了一个小时看英文题解和别人的代码，终于弄懂了多组数据的读入，收获很大。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "放弃去查排名",
@@ -3463,10 +3994,13 @@
       {
         "text": "学习字符串输入方法",
         "effect": {
-          "oi_string": 8,
+          "oi_string": 2,
           "efficiency": -3
         },
-        "resultDescription": "你花了半天把cin.getline、fgets、string都学了一遍，以后再也不会犯。"
+        "resultDescription": "你花了半天把cin.getline、fgets、string都学了一遍，以后再也不会犯。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "改用cin和string",
@@ -3474,7 +4008,10 @@
           "oi_string": 4,
           "oi_misc": 2
         },
-        "resultDescription": "你切换成C++ string，勉强过了，但是遇到空格还是出问题。"
+        "resultDescription": "你切换成C++ string，勉强过了，但是遇到空格还是出问题。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "直接放弃这题",
@@ -3488,7 +4025,7 @@
   },
   {
     "id": "oi_nb_cheat_in_exam",
-    "phase": "CSP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "考场作弊未遂",
@@ -3544,11 +4081,14 @@
       {
         "text": "继续做下一题",
         "effect": {
-          "oi_misc": 6,
-          "efficiency": 5,
+          "oi_misc": 2,
+          "efficiency": 2,
           "health": -3
         },
-        "resultDescription": "你趁热打铁又AC了两道题，但晚上太兴奋睡不着。"
+        "resultDescription": "你趁热打铁又AC了两道题，但晚上太兴奋睡不着。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "发帖求助更优解法",
@@ -3556,7 +4096,10 @@
           "oi_misc": 4,
           "experience": 5
         },
-        "resultDescription": "你学到了直接用std::cin cout更快，但被喷说这是浪费论坛资源。"
+        "resultDescription": "你学到了直接用std::cin cout更快，但被喷说这是浪费论坛资源。",
+        "tags": [
+          "study"
+        ]
       }
     ]
   },
@@ -3572,10 +4115,13 @@
       {
         "text": "厚脸皮请教基础",
         "effect": {
-          "oi_misc": 8,
+          "oi_misc": 2,
           "mindset": 3
         },
-        "resultDescription": "大佬给你讲了半个小时C++语法和基础算法，你受益匪浅，还加了他QQ。"
+        "resultDescription": "大佬给你讲了半个小时C++语法和基础算法，你受益匪浅，还加了他QQ。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "默默走开不打扰",
@@ -3597,7 +4143,7 @@
   },
   {
     "id": "oi_nb_debug_forever",
-    "phase": "MIDTERM_EXAM",
+    "phase": "SEMESTER_2",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "debug一整天无果",
@@ -3607,26 +4153,32 @@
       {
         "text": "打印中间变量",
         "effect": {
-          "oi_misc": 7,
-          "efficiency": -4,
+          "oi_misc": 2,
+          "efficiency": -1,
           "experience": 5
         },
-        "resultDescription": "你加了cout输出，发现循环变量多了一次，改完AC，但已经很晚了。"
+        "resultDescription": "你加了cout输出，发现循环变量多了一次，改完AC，但已经很晚了。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "重写代码",
         "effect": {
           "oi_misc": 4,
-          "efficiency": -8,
+          "efficiency": -3,
           "mindset": -3
         },
-        "resultDescription": "你删掉重写，结果还是同样错误，而且时间更晚了，你崩溃大哭。"
+        "resultDescription": "你删掉重写，结果还是同样错误，而且时间更晚了，你崩溃大哭。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "求助oi群友",
         "effect": {
           "experience": 3,
-          "efficiency": 5,
+          "efficiency": 2,
           "mindset": 2
         },
         "resultDescription": "群友一眼看出是数组下标越界，你改好AC了，但被群友调侃“萌新日常”。"
@@ -3657,7 +4209,10 @@
           "health": -10,
           "oi_misc": 2
         },
-        "resultDescription": "你完成了4道水题，但腰疼得第二天直不起来，去了医院花了200。"
+        "resultDescription": "你完成了4道水题，但腰疼得第二天直不起来，去了医院花了200。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "买靠垫和支架",
@@ -3671,7 +4226,7 @@
   },
   {
     "id": "oi_nb_luogu_rank_up",
-    "phase": "NOIP_EXAM",
+    "phase": "SEMESTER_1",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
     "title": "洛谷排名上升激动",
@@ -3689,11 +4244,14 @@
       {
         "text": "加练100题计划",
         "effect": {
-          "oi_misc": 6,
-          "efficiency": 4,
+          "oi_misc": 2,
+          "efficiency": 1,
           "health": -5
         },
-        "resultDescription": "你制定了刷题计划，但执行三天就累了，不过仍坚持了一半。"
+        "resultDescription": "你制定了刷题计划，但执行三天就累了，不过仍坚持了一半。",
+        "tags": [
+          "study"
+        ]
       },
       {
         "text": "给自己买个键盘奖励",

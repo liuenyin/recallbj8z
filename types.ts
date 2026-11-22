@@ -70,7 +70,7 @@ export interface StoryEntry {
   timestamp: number;
 }
 
-export type CompetitionType = 'None' | 'OI' | 'MO' | 'PhO' | 'ChO';
+export type CompetitionType = 'None' | 'OI' | 'MO';
 
 export type Difficulty = 'CUSTOM' | 'NORMAL' | 'HARD' | 'REALITY' | 'HELL' ;
 
@@ -198,14 +198,6 @@ export interface Project {
     onFail?: (state: GameState) => Partial<GameState>;
 }
 
-export interface WorldContext {
-  region: string;
-  code: string;
-  yearStart: number;
-  yearEnd: number;
-  characterTemplateId: string;
-}
-
 export interface RelationshipProfile {
   id: string;
   name: string;
@@ -214,15 +206,7 @@ export interface RelationshipProfile {
   routeHint: string;
 }
 
-export interface CharacterTemplate {
-  id: string;
-  name: string;
-  description: string;
-  baseStatsModifier: Partial<GeneralStats>;
-}
-
 export interface GameState {
-  worldContext?: WorldContext; 
   activeProjects: Project[]; 
   completedProjects: string[]; 
   isPlaying: boolean; 
@@ -250,9 +234,10 @@ export interface GameState {
   log: GameLogEntry[];
   currentEvent: GameEvent | null;
   chainedEvent: GameEvent | null; 
-  eventResult: { choice: EventChoice, diff: string[] } | null;
+  eventResult: { choice: EventChoice, diff: string[], narrative?: string } | null;
   history: StoryEntry[];
   examResult: ExamResult | null;
+  academicExamHistory: ExamResult[];
   midtermRank: number | string | null; 
   popupExamResult: (ExamResult & { nextPhase?: Phase }) | null;
   triggeredEvents: string[]; 
@@ -270,10 +255,8 @@ export interface GameState {
   sleepCount: number;
   rejectionCount: number; 
   hasSleptThisWeek?: boolean;
-  dreamtExam?: boolean;
   talents: Talent[];
-  inventory: string[]; 
-  theme: Theme;
+  inventory: string[];
 }
 
 export interface GameLogEntry {
@@ -327,6 +310,7 @@ export interface SerializableGameEvent {
 
 export interface EventChoice {
   text: string;
+  hint?: string;
   resultDescription?: string;
   nextEventId?: string; 
   tags?: Array<'sleep' | 'study' | 'sport' | 'rest' | 'social' | 'risky'>;
