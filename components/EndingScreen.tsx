@@ -5,7 +5,7 @@ import { getAcademicMaxScore, getPhaseLabel } from '../data/game_flow';
 import { ENDING_CATALOG, getEndingMemories, recordUnlockedEnding } from '../data/ending';
 import { DIFFICULTY_PRESETS } from '../data/constants';
 import { formatCampusText } from '../data/campus_names';
-import { getMoReadiness, getMoResult } from '../data/mo_competition';
+import { getMoLeagueAward, getMoReadiness, getMoResult } from '../data/mo_competition';
 
 interface EndingScreenProps {
     state: GameState;
@@ -20,7 +20,8 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
     const hideDetails = state.difficulty === 'REALITY';
     const moResults = (['league', 'mock'] as const).flatMap(exam => {
         const score = state.competition === 'MO' && state.flags[`mo_${exam}_published`] && getMoResult(state, exam);
-        return score ? [{ title: exam === 'league' ? '高中数学联赛' : '数竞校内模拟', ...score }] : [];
+        const award = exam === 'league' && score ? getMoLeagueAward(state) : null;
+        return score ? [{ title: exam === 'league' ? '高中数学联赛' : '数竞校内模拟', award, ...score }] : [];
     });
     const formatStoryText = (text: string) => formatCampusText(text, state.flags.relationship_name || state.romancePartner);
     const [unlockedEndings, setUnlockedEndings] = useState<string[]>(() => recordUnlockedEnding(endingData.title));
@@ -102,7 +103,10 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                  <ul className="mt-2 divide-y divide-slate-100">
                                      {moResults.map(exam => (
                                          <li key={exam.title} className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1 py-2.5 text-xs">
-                                             <span className="font-bold text-slate-700">{tr(exam.title)}</span>
+                                             <span className="font-bold text-slate-700">
+                                                 {tr(exam.title)}
+                                                 {exam.award && <span className="ml-2 font-medium text-indigo-700">{tr(`赛区${exam.award}（游戏内评定）`)}</span>}
+                                             </span>
                                              <span className="tabular-nums text-slate-600">{tr(`一试 ${exam.first}/120 · 二试 ${exam.second}/180`)} <strong className="ml-2 text-indigo-700">{exam.total}/300</strong></span>
                                          </li>
                                      ))}

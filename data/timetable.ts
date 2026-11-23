@@ -55,16 +55,11 @@ export const ACTIVITY_MAX_SLOTS: Record<string, number> = {
 export const getActivityMaxSlots = (activityId: string, state?: Pick<GameState, 'phase' | 'week'>): number =>
     activityId === HOMEWORK_ACTIVITY_ID && state ? getHomeworkSlotsNeeded(state) : ACTIVITY_MAX_SLOTS[activityId] || 3;
 
-const WEEKDAY_DAYS = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-
 export const isSchoolSemester = (state: Pick<GameState, 'phase'>): boolean =>
     state.phase === 'SEMESTER_1' || state.phase === 'SEMESTER_2';
 
-export const getEveningStudySlots = (state: Pick<GameState, 'phase' | 'flags'>): TimeSlotId[] => {
-    if (!isSchoolSemester(state)) return [];
-    return SCHEDULE_SLOTS.filter(slot => WEEKDAY_DAYS.has(slot.day) && (slot.day !== 'Fri' || state.flags.joined_evening_study))
-        .map(slot => slot.id);
-};
+export const getEveningStudySlots = (state: Pick<GameState, 'phase'>): TimeSlotId[] =>
+    isSchoolSemester(state) ? ['Mon_Eve', 'Tue_Eve', 'Wed_Eve', 'Thu_Eve'] : [];
 
 export const getMoExamSlots = (state: Pick<GameState, 'phase' | 'week' | 'flags'>): TimeSlotId[] =>
     getMoExamScheduleTitle(state) ? ['Sun_Morn'] : [];
@@ -72,17 +67,10 @@ export const getMoExamSlots = (state: Pick<GameState, 'phase' | 'week' | 'flags'
 export const getHomeworkSlotsNeeded = (state: Pick<GameState, 'phase' | 'week'>): number =>
     isSchoolSemester(state) ? (state.week % 3 === 0 ? 3 : 2) : 0;
 
-export const clearEveningStudySchedule = (schedule: Record<string, string>, state: Pick<GameState, 'phase' | 'flags'>): Record<string, string> => {
+export const clearEveningStudySchedule = (schedule: Record<string, string>, state: Pick<GameState, 'phase'>): Record<string, string> => {
     const reserved = new Set<string>(getEveningStudySlots(state));
     return Object.fromEntries(Object.entries(schedule).filter(([slot]) => !reserved.has(slot)));
 };
-
-/** Remove evening slots made unavailable by the evening-study agreement. */
-export const clearWeekdaySchedule = (schedule: Record<string, string> = {}): Record<string, string> =>
-    Object.fromEntries(Object.entries(schedule).filter(([slotId]) => {
-        const slot = SCHEDULE_SLOTS.find(candidate => candidate.id === slotId);
-        return !slot || !WEEKDAY_DAYS.has(slot.day);
-    }));
 
 const SLOT_ORDER = new Map(SCHEDULE_SLOTS.map((slot, index) => [slot.id, index]));
 

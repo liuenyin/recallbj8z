@@ -5,6 +5,7 @@ import { STATUSES } from './mechanics';
 import { CHAINED_EVENTS } from './event_defs';
 import { isWintryWeek } from './game_flow';
 import { hasRomanticInterest } from './relationships';
+import { getClassroomScene } from './classroom_scenes';
 import oiEventsData from '../oi_events.json';
 
 const parsedOiEvents: GameEvent[] = (oiEventsData as any[]).map(e => ({
@@ -106,18 +107,6 @@ export const hasOIRandomEventsForPhase = (phase: Phase): boolean => {
 
 
 
-const CLASSROOM_SCENES: Record<SubjectKey, string> = {
-    chinese: '老师收上来几份作文，挑了一段让全班一起改开头。你认出那一段是后桌写的。',
-    math: '黑板上留下两种解法，老师擦掉了中间一行，回头问谁能补上。',
-    english: '听力放完一遍，后排还在对第二题的答案。老师准备带大家再听一次。',
-    physics: '物理老师把小车推上斜面，前排的同学忙着抢一把长尺量它滑了多远。',
-    chemistry: '桌上那支试管的颜色比书上的浅。老师让每组先写下看到的现象，再翻讲义。',
-    biology: '显微镜轮到你这一组，玻片总对不上焦。同桌盯着记录纸，等你说看到了什么。',
-    history: '投影上两段材料在讲同一件事，老师让大家先圈出它们各自站在哪一边。',
-    geography: '地理老师拿出一张没有标注的地形图，让大家猜雨会先落在哪一侧。',
-    politics: '老师把最近的新闻剪在讲义上，让大家先找材料里的依据，再说自己的看法。'
-};
-
 export const generateStudyEvent = (state: GameState, queuedIds: readonly string[] = []): GameEvent => {
     const pool: SubjectKey[] = state.selectedSubjects.length > 0 
         ? ['chinese', 'math', 'english', ...state.selectedSubjects]
@@ -132,23 +121,25 @@ export const generateStudyEvent = (state: GameState, queuedIds: readonly string[
     const efficiency = getEffectiveEfficiency(state);
     const isHoliday = state.phase === Phase.WINTER_BREAK || state.phase === Phase.SUMMER_BREAK;
     const distracted = !isHoliday && hasRomanticInterest(state);
+    const scene = getClassroomScene(subject, state.phase, state.week);
+    const groupLab = !isHoliday && (subject === 'chemistry' || (subject === 'biology' && state.phase === Phase.SEMESTER_1));
 
     return {
         id: `study_weekly_${subject}`,
-        title: isHoliday ? `假期${subName}自习` : `${subName}课的抉择`,
+        title: isHoliday ? `假期${subName}自习` : `${subName}课 · ${scene.topic}`,
         description: isHoliday
             ? `假期的${subName}专项计划摆在桌前，你是打算沉下心推进一章，还是先喘口气？`
-            : CLASSROOM_SCENES[subject],
+            : scene.description,
         type: 'neutral',
         triggerType: 'RANDOM',
         choices: [
             { 
-                text: isHoliday ? '系统整理一轮重点' : '认真听讲',
+                text: isHoliday ? '系统整理一轮重点' : scene.choice,
                 tags: ['study'],
                 action: (s) => {
                     const lookedOver = distracted && Math.random() < 0.22;
-                    const result = lookedOver ? '你以为自己一直在听，回神才发现又朝TA那边看了几眼，只记下来半道例题。'
-                        : isHoliday ? '整理到最后，至少知道下一页该从哪里复习起。' : '你把老师补充的那一步标在笔记边上，下次遇到类似的题可以翻回来。';
+                    const result = lookedOver ? scene.missed
+                        : isHoliday ? '整理到最后，至少知道下一页该从哪里复习起。' : scene.result;
                     return {
                         subjects: modifySub(s, [subject], (1 + efficiency * 0.05) * (lookedOver ? 0.5 : 1)),
                         general: { ...s.general, mindset: s.general.mindset - 2 },
@@ -157,14 +148,15 @@ export const generateStudyEvent = (state: GameState, queuedIds: readonly string[
                 }
             },
             ...(distracted ? [{
-                text: '下课拿笔记去问TA',
+                text: '拿笔记和TA对一下',
                 tags: ['social' as const],
-                resultDescription: 'TA把笔记翻到那道例题，给你指了指老师刚加的条件。',
+                resultDescription: 'TA把刚才漏记的那一处指给你看。',
                 action: (s: GameState) => ({ subjects: modifySub(s, [subject], 0.5), flags: { ...s.flags, ta_favorability: Number(s.flags.ta_favorability || 0) + 2 } })
             }] : []),
             {
-                text: isHoliday ? '集中刷套卷' : '偷偷刷题',
-                resultDescription: isHoliday ? '做完一套卷子，纸角上攒了几道还值得回看的题。' : '你多做了两页自己的题，抬头时老师已经讲到下一处了。',
+                text: isHoliday ? '集中刷套卷' : groupLab ? '趁组员记录，做两道自己的题' : '偷偷刷题',
+                resultDescription: isHoliday ? '做完一套卷子，纸角上攒了几道还值得回看的题。'
+                    : groupLab ? '你多做了两题，抬头时小组已经在填下一栏了。' : '你多做了两页自己的题，抬头时老师已经讲到下一处了。',
                 tags: ['study', 'risky'],
                 action: (s) => ({ 
                     subjects: modifySub(s, [subject], 2 + efficiency * 0.05),

@@ -637,13 +637,10 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
                      if (validRandoms.length > 0) weekEvents.push(validRandoms[Math.floor(Math.random() * validRandoms.length)]);
                   } else if (state.phase === Phase.SEMESTER_1 || state.phase === Phase.SEMESTER_2) {
                     const roll = Math.random();
-                    const evening = state.flags.joined_evening_study ? validRandoms.filter(event => event.id.includes('evening_')) : [];
                     const springCampus = state.phase === Phase.SEMESTER_2
                         ? validRandoms.filter(event => event.id.startsWith('s2_daily_')) : [];
                     if (state.competition === 'OI' && hasOIRandomEventsForPhase(state.phase) && roll < 0.32) {
                         weekEvents.push(generateOIEvent(state));
-                    } else if (evening.length && roll >= 0.82) {
-                        weekEvents.push(evening[Math.floor(Math.random() * evening.length)]);
                     } else if (springCampus.length && roll < (state.competition === 'OI' ? 0.50 : 0.28)) {
                         weekEvents.push(springCampus[Math.floor(Math.random() * springCampus.length)]);
                     } else if (validRandoms.length && roll < 0.56) {
@@ -862,6 +859,13 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
     const applyWeeklyUpdates = (currentEvent: GameEvent, nextQueue: GameEvent[] = []) => {
         setState(prev => {
             const { updatedGeneral, updatedStatuses, updatedSubjects, updatedFatigue } = calculateWeeklyUpdates(prev);
+            const weeklyState = clampGameStateMetrics({
+                ...prev,
+                general: updatedGeneral,
+                activeStatuses: updatedStatuses,
+                subjects: updatedSubjects,
+                fatigue: updatedFatigue
+            });
 
             const dynamicStatusMessages: Record<string, string> = {
                 fatigued: '你开始感到疲惫，接下来硬撑会更吃力。',
@@ -881,9 +885,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
             // End the run when health reaches the current difficulty's limit.
             if (isHealthFatal(prev.difficulty, updatedGeneral.health)) {
                 return {
-                    ...prev,
-                    general: updatedGeneral,
-                    fatigue: updatedFatigue,
+                    ...weeklyState,
                     phase: Phase.ENDING,
                     currentEvent: null,
                     eventQueue: [],
@@ -893,11 +895,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
             }
 
             return {
-                ...prev,
-                activeStatuses: updatedStatuses,
-                general: updatedGeneral,
-                fatigue: updatedFatigue,
-                subjects: updatedSubjects,
+                ...weeklyState,
                 currentEvent: withChallengeSleep(currentEvent),
                 eventQueue: addQueueContext(nextQueue, prev),
                 triggeredEvents: markEventTriggered(prev.triggeredEvents, currentEvent),

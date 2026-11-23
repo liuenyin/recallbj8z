@@ -87,7 +87,7 @@ try {
   await page.screenshot({path:'artifacts/review-game.png',fullPage:true});
   assert.deepEqual(errors, []);
   console.log('PASS: account creation and malformed optional save recovery without render errors');
-  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  await page.waitForSelector('[role="dialog"][aria-label="周计划时间表"]');
   await clickText('清空安排');
   assert.ok(await page.evaluate(() => document.body.innerText.includes('0 项可执行')));
   await clickText('恢复上次');
@@ -183,14 +183,14 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('recall_auto_continue_v1')), 'false');
   await clickText('恢复自动继续');
   await page.waitForFunction(() => document.body.innerText.includes('片刻后自动继续'));
-  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  await page.waitForSelector('[role="dialog"][aria-label="周计划时间表"]');
   const automaticSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
   assert.equal(automaticSave.history.filter(entry => entry.eventTitle === '借一支笔').length, 1);
   assert.equal(automaticSave.currentEvent, null);
   await page.reload({waitUntil:'networkidle0'});
   await clickText('继续');
-  await page.waitForFunction(() => document.body.innerText.includes('周计划时间表'));
+  await page.waitForSelector('[role="dialog"][aria-label="周计划时间表"]');
   const resumedSave = await page.evaluate(() => JSON.parse(localStorage.getItem(
     `recall_save_v1_${localStorage.getItem('recall_active_account_v1')}`)).state);
   assert.deepEqual(resumedSave.history, automaticSave.history);

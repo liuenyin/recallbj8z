@@ -1,4 +1,4 @@
-import { SEMESTER_2_EVENTS, WINTER_BREAK_EVENTS } from "./events_semester2";
+import { POST_FINAL_DRAMA_EVENT, SEMESTER_2_EVENTS, WINTER_BREAK_EVENTS } from "./events_semester2";
 import { OI_ROUTE_EVENTS } from './events_oi_route';
 import { MO_EVENTS } from './events_mo';
 import { OI_EVENTS } from "./events_oi";
@@ -14,7 +14,6 @@ import { SATURDAY_COURSE_SIGNUP } from './saturday_courses';
 import { SCHOOL_SIGNALS } from './events_school_signals';
 import { CAMPUS_PROJECT_EVENTS } from './events_campus_project';
 import { COMPETITION_SUMMER_WEEKS, MILITARY_TRAINING_WEEKS } from './game_flow';
-import { clearWeekdaySchedule } from './timetable';
 import AI_EVENTS from './ai_generated_events.json';
 
 export * from './event_defs';
@@ -295,13 +294,13 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
     {
         id: 'mil_start',
         title: '军训开始',
-        description: '烈日当空，为期一周的军训开始了。教官看起来很严厉。',
+        description: '军训第一天，大家戴着刚领的帽子到操场集合。教官让各班按身高排队，先练站姿。',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',
         fixedWeek: 1,
         choices: [
-            { text: '坚持就是胜利', action: (s) => ({ general: { ...s.general, health: s.general.health + 5, mindset: s.general.mindset - 5 } }) },
+            { text: '到队伍里站好', action: (s) => ({ general: { ...s.general, health: s.general.health + 5, mindset: s.general.mindset - 5 } }) },
             {
                 text: '【体育特长】帮教官领口令，把方阵节奏带稳',
                 condition: (s) => s.talents.some(t => t.id === 'healthy'),
@@ -377,32 +376,6 @@ const MILITARY_EVENTS_RAW: GameEvent[] = [
 ];
 
 const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
-    {
-        id: 's1_evening_study',
-        title: '周五晚自习报名',
-        description: '周一到周四照常晚自习。班主任问，有没有人也想把周五晚上留在教室里，用来整理这周没弄懂的题。',
-        triggerType: 'FIXED',
-        fixedWeek: 2,
-        once: true,
-        type: 'neutral',
-        choices: [
-            { 
-                text: '周五也参加晚自习',
-                action: (s) => ({ 
-                    flags: { ...s.flags, joined_evening_study: true },
-                    lastWeekSchedule: clearWeekdaySchedule(s.lastWeekSchedule),
-                    general: { ...s.general, efficiency: s.general.efficiency + 4, mindset: s.general.mindset - 2 },
-                    log: [...s.log, { message: '你在报名表上签了字。周五晚也留给自习。', type: 'info', timestamp: Date.now() }]
-                }) 
-            },
-            { 
-                text: '周五晚上自己安排',
-                action: (s) => ({ 
-                    general: { ...s.general, mindset: s.general.mindset + 5 }
-                }) 
-            }
-        ]
-    },
     {
         id: 'evt_autumn_trip',
         title: '金秋考察',
@@ -760,7 +733,7 @@ export const PHASE_EVENTS: Record<Phase, GameEvent[]> = {
     [Phase.WITHDRAWAL]: [],
     [Phase.WINTER_BREAK]: injectSleep([...WINTER_BREAK_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
     [Phase.SEMESTER_2]: injectSleep([...SEMESTER_2_EVENTS, ...SCHOOL_SIGNALS, ...CAMPUS_PROJECT_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_2), ...RIVAL_EVENTS, ...OI_EVENTS, ...OI_ROUTE_EVENTS, ...MO_EVENTS.filter(event => event.fixedPhase === Phase.SEMESTER_2), ...PARSED_AI_EVENTS, ...CAMPUS_FOLLOWUPS, ...ROMANCE_EVENTS]),
-    [Phase.SUMMER_BREAK]: injectSleep([...OI_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
+    [Phase.SUMMER_BREAK]: injectSleep([POST_FINAL_DRAMA_EVENT, ...OI_EVENTS, ...HOLIDAY_ROMANCE_EVENTS]),
     [Phase.WC_EXAM]: [],
     [Phase.PROVINCIAL_EXAM]: [],
     [Phase.APIO_EXAM]: [],

@@ -253,7 +253,7 @@ export const getEndingMemories = (state: GameState): string[] => {
         memories.push(state.flags.drama_role === 'prop'
             ? '英语戏剧节那天，你一直在幕边照清单递道具。最后一幕顺利接上时，你还攥着那张被揉皱的纸。'
             : '站上了期末英语戏剧节礼堂舞台，最后一幕走完，台下的掌声很响。');
-    }
+    } else if (state.flags.drama_watched) memories.push('期末后的戏剧节散场了，你把同学签过名的节目单夹进了书里。');
     if (state.completedProjects.length && !state.flags.campus_project_topic) memories.push(`你在截止周前交了 ${state.completedProjects.length} 份课题记录。`);
     if (state.flags.class_board_finished) memories.push('放学后留下来和同学一起补完的班级黑板报，在走廊里贴了整整一个月。');
     if (state.flags.rival_resolved) memories.push(`你和${RIVAL_NICKNAME}比过几次周测，期末前互相借了错题本。`);

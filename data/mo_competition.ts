@@ -77,12 +77,12 @@ export const scoreMoPaperTwo = (state: GameState, strategy: 'geometry_algebra' |
     return { marks, total: marks.reduce((sum, score) => sum + score, 0) };
 };
 
-const readMark = (state: GameState, key: string, max: number): number | undefined => {
+const readMark = (state: Pick<GameState, 'flags'>, key: string, max: number): number | undefined => {
     const value = state.flags[key];
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max ? value : undefined;
 };
 
-export const getMoResult = (state: GameState, exam: MoExam) => {
+export const getMoResult = (state: Pick<GameState, 'flags'>, exam: MoExam) => {
     const first = readMark(state, `mo_${exam}_first`, MO_PAPER_MAX[0]);
     const second = readMark(state, `mo_${exam}_second`, MO_PAPER_MAX[1]);
     return first !== undefined && second !== undefined ? { first, second, total: first + second } : null;
@@ -90,6 +90,14 @@ export const getMoResult = (state: GameState, exam: MoExam) => {
 
 // These cutoffs are for the simulation. Beijing bases awards on that year's results.
 export const isMoAwardScore = (first: number, second: number) => first + second >= 112 && second >= 24;
+
+export const getMoLeagueAward = (state: Pick<GameState, 'flags'>) => {
+    const score = getMoResult(state, 'league');
+    if (!score) return state.flags.mo_league_awarded ? '已获奖' : null;
+    if (score.total >= 155 && score.second >= 45) return '一等奖';
+    if (score.total >= 135 && score.second >= 35) return '二等奖';
+    return isMoAwardScore(score.first, score.second) ? '三等奖' : null;
+};
 
 export const getMoExamScheduleTitle = (state: Pick<GameState, 'phase' | 'week' | 'flags'>) => {
     if (state.phase === 'SEMESTER_1' && state.week === MO_LEAGUE_WEEK && state.flags.mo_league_sat) return '高中数学联赛';

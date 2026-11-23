@@ -198,7 +198,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_drama_start',
         title: '英语戏剧节报名',
-        description: '英语戏剧节开始筹备了。要在期末考完后表演，这是一个展示自我的好机会！',
+        description: '英语戏剧节在期末考完后演出。班里下周分工，可以上台，也可以做幕后。',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',
@@ -568,46 +568,6 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
             }
         ]
     },
-    {
-        id: 's2_drama_performance',
-        title: '英语戏剧节 正式演出！',
-        description: state => state.flags.drama_role === 'prop'
-            ? '轮到你们班了。灯一暗，前台有人伸手催下一件道具。你认出了彩排时贴的标记。'
-            : '轮到你们班了。台下渐渐安静下来，幕边的同学正等你接上第一句。',
-        type: 'positive', triggerType: 'CONDITIONAL', once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.drama_progress === 2 && s.week === 18,
-        choices: [
-            {
-                text: '听准提示，把自己的戏接上',
-                condition: state => state.flags.drama_role !== 'prop',
-                resultDescription: '短短几分钟比彩排过得快。最后一幕走完，你才听见台下开始鼓掌。',
-                action: state => ({
-                    flags: { ...state.flags, drama_performed: true },
-                    general: {
-                        ...state.general,
-                        mindset: state.general.mindset + (state.flags.drama_role === 'main' ? 28 : 18),
-                        romance: state.general.romance + (state.flags.drama_role === 'main' ? 8 : 4),
-                        experience: state.general.experience + 8
-                    }
-                })
-            },
-            {
-                text: '照清单递道具，确认下一幕也摆好了',
-                condition: state => state.flags.drama_role === 'prop',
-                resultDescription: '幕布合上前，台上同学回头跟你比了个手势。你这才发现手里还攥着那张被揉皱的清单。',
-                action: state => ({
-                    flags: { ...state.flags, drama_performed: true },
-                    general: {
-                        ...state.general,
-                        mindset: state.general.mindset + 12,
-                        romance: state.general.romance + 2,
-                        experience: state.general.experience + 14,
-                        efficiency: state.general.efficiency + 1
-                    }
-                })
-            }
-        ]
-    },
     // --- ACADEMIC PROFICIENCY EXAM (学考) ---
     {
         id: 's2_academic_exam',
@@ -867,6 +827,62 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         ]
     }
 ];
+
+export const POST_FINAL_DRAMA_EVENT: GameEvent = {
+    id: 's2_drama_performance',
+    title: '期末后的英语戏剧节',
+    description: state => {
+        if (state.flags.drama_role === 'prop') return '考完期末，终于轮到你们班上台。灯一暗，有人伸手要下一件道具。你认出了彩排时贴的标记。';
+        if (state.flags.drama_progress === 2) return '期末考完了。幕布后，同学替你把翻进去的衣领理好。台下安静下来，等你开口。';
+        return '期末考完了。你在台下坐好，节目单上还留着一行空白，散场后可以请同学签个名。';
+    },
+    type: 'positive',
+    triggerType: 'FIXED',
+    fixedPhase: Phase.SUMMER_BREAK,
+    fixedWeek: 1,
+    once: true,
+    allowChallengeSleep: false,
+    condition: state => state.phase === Phase.SUMMER_BREAK && state.week === 1 && !state.flags.drama_performed && (
+        state.flags.drama_progress === 2 || (state.triggeredEvents.includes('s2_drama_start') && !state.flags.drama_joined)
+    ),
+    choices: [
+        {
+            text: '听准提示，把自己的戏接上',
+            condition: state => state.flags.drama_progress === 2 && state.flags.drama_role !== 'prop',
+            resultDescription: '谢幕时，你听见台下有人喊你们班的班号。回到后台，同学问你要不要换好衣服再合影。',
+            action: state => ({
+                flags: { ...state.flags, drama_performed: true },
+                general: {
+                    ...state.general,
+                    mindset: state.general.mindset + (state.flags.drama_role === 'main' ? 28 : 18),
+                    romance: state.general.romance + (state.flags.drama_role === 'main' ? 8 : 4),
+                    experience: state.general.experience + 8
+                }
+            })
+        },
+        {
+            text: '照清单递道具，确认下一幕也摆好了',
+            condition: state => state.flags.drama_progress === 2 && state.flags.drama_role === 'prop',
+            resultDescription: '合影时，有人从台上探头叫你过去。你把攥皱的道具清单折好，跟着站到最后一排。',
+            action: state => ({
+                flags: { ...state.flags, drama_performed: true },
+                general: {
+                    ...state.general,
+                    mindset: state.general.mindset + 12,
+                    romance: state.general.romance + 2,
+                    experience: state.general.experience + 14,
+                    efficiency: state.general.efficiency + 1
+                }
+            })
+        },
+        {
+            text: '散场后去找同学签个名',
+            condition: state => !state.flags.drama_joined && state.flags.drama_progress !== 2,
+            resultDescription: '同学在节目单背面签了名，还补了一句暑假见。你把它夹进了书里。',
+            action: state => ({ flags: { ...state.flags, drama_watched: true } })
+        }
+    ]
+};
 
 export const WINTER_BREAK_EVENTS: GameEvent[] = [
     {

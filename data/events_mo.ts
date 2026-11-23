@@ -1,5 +1,5 @@
 import { type GameEvent, type GameState, Phase } from '../types';
-import { getMoResult, isMoAwardScore, MO_LEAGUE_WEEK, MO_MOCK_WEEK, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from './mo_competition';
+import { getMoLeagueAward, getMoResult, isMoAwardScore, MO_LEAGUE_WEEK, MO_MOCK_WEEK, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from './mo_competition';
 import { getLearningMultiplier, modifySub } from './utils';
 
 const onMoRoute = (s: GameState) => s.competition === 'MO';
@@ -251,11 +251,19 @@ export const MO_EVENTS: GameEvent[] = [
         fixedPhase: Phase.SEMESTER_1,
         fixedWeek: 10,
         allowChallengeSleep: false,
-        condition: s => onMoRoute(s) && s.flags.mo_league_published === true && s.flags.mo_league_awarded === true,
+        condition: s => onMoRoute(s) && s.flags.mo_league_published === true && !!getMoLeagueAward(s),
         choices: [{
             text: '在名单上查自己的考号',
-            resultDescription: '你在北京赛区获奖名单上看到了自己的考号。',
-            action: s => ({ flags: { ...s.flags, mo_league_award_announced: true } })
+            action: s => {
+                const award = getMoLeagueAward(s);
+                const message = award && award !== '已获奖'
+                    ? `你在名单上找到了自己的考号。赛区${award}（游戏内评定）。`
+                    : '你在北京赛区获奖名单上看到了自己的考号。';
+                return {
+                    flags: { ...s.flags, mo_league_award_announced: true },
+                    log: [...s.log, { message, type: 'event', timestamp: Date.now() }]
+                };
+            }
         }]
     },
     mock.first

@@ -27,7 +27,7 @@ try {
     function Harness({ account = 'choice-regression' }) { game = useGameLogic(undefined, account); return null; }
     flushSync(() => root.render(React.createElement(Harness)));
     const initial = game.state;
-    const { SHOP_ITEMS, WEEKEND_ACTIVITIES } = await import('/data/mechanics.ts');
+    const { SHOP_ITEMS, STATUSES, WEEKEND_ACTIVITIES } = await import('/data/mechanics.ts');
     const { getEndingData, getEndingMemories } = await import('/data/ending.ts');
     const { modifyOI, getEffectiveEfficiency, isStudyChoice } = await import('/data/utils.ts');
     const book = SHOP_ITEMS.find(item=>item.id==='five_three').effect(initial);
@@ -50,7 +50,9 @@ try {
     } finally {
       Math.random = originalRandom;
     }
-    const { generateRandomFlavorEvent } = await import('/data/event_generators.ts');
+    const { generateRandomFlavorEvent, generateStudyEvent } = await import('/data/event_generators.ts');
+    const { getClassroomScene } = await import('/data/classroom_scenes.ts');
+    const { Phase, SUBJECT_NAMES } = await import('/types.ts');
     const { default: campusEnglish } = await import('/data/en-overrides.json');
     const randomBeforeFlavorProbe = Math.random;
     const flavorAt = (phase, week, totalWeeksInPhase) => {
@@ -91,10 +93,30 @@ try {
       geography:{...initial.subjects.geography,level:15}};
     const usualResults = proficiency.choices[1].action({...initial,subjects:unevenSubjects}).log.at(-1).message;
     const intensiveResults = proficiency.choices[0].action({...initial,subjects:unevenSubjects}).log.at(-1).message;
-    const performance = PHASE_EVENTS.SEMESTER_2.find(event => event.id === 's2_drama_performance');
-    const backstage = {...initial,flags:{drama_role:'prop',drama_progress:2}};
+    const performance = PHASE_EVENTS.SUMMER_BREAK.find(event => event.id === 's2_drama_performance');
+    const backstage = {...initial,phase:'SUMMER_BREAK',week:1,flags:{drama_joined:true,drama_role:'prop',drama_progress:2}};
     const backstageChoice = performance.choices.find(choice => choice.condition?.(backstage));
     const performedBackstage = {...backstage,...backstageChoice.action(backstage)};
+    const audience = {...backstage,flags:{},triggeredEvents:['s2_drama_start']};
+    const acting = {...backstage,flags:{...backstage.flags,drama_role:'sub'}};
+    const dramaCalendar = !springEvents.some(event=>event.id===performance.id)
+      && !performance.condition({...backstage,phase:'SEMESTER_2',week:18})
+      && !performance.condition({...backstage,phase:'FINAL_EXAM_2'})
+      && performance.condition(backstage) && !performance.condition(performedBackstage)
+      && performance.condition(audience) && performance.condition(acting)
+      && performance.choices.filter(choice=>choice.condition(audience)).map(choice=>choice.text).join()==='散场后去找同学签个名'
+      && performance.choices.filter(choice=>choice.condition(acting)).map(choice=>choice.text).join()==='听准提示，把自己的戏接上';
+    const classroomCalendar = Object.keys(SUBJECT_NAMES).every(subject => {
+      const selectedSubjects = ['chinese','math','english'].includes(subject) ? ['physics'] : [subject];
+      const queuedIds = ['chinese','math','english',...selectedSubjects].filter(key=>key!==subject).map(key=>`study_weekly_${key}`);
+      return [Phase.SEMESTER_1,Phase.SEMESTER_2].every(phase => [2,15].every(week => {
+        const scene = getClassroomScene(subject,phase,week);
+        const lesson = generateStudyEvent({...initial,phase,week,selectedSubjects},queuedIds);
+        return lesson.description===scene.description && lesson.choices[0].text===scene.choice
+          && lesson.choices[0].action(initial).log.at(-1).message===scene.result
+          && Object.values(scene).every(line=>!!campusEnglish[line]);
+      })) && getClassroomScene(subject,Phase.SEMESTER_1,2).topic!==getClassroomScene(subject,Phase.SEMESTER_2,2).topic;
+    });
     const generated = withChallengeSleep({id:'historical-test',title:'历史事件',description:'test',type:'neutral',choices:[{text:'继续',action:()=>({})}]});
     const sleeper = {...initial,activeChallengeId:'c_sleep_king'};
     const sleepChoice = generated.choices.find(c=>c.text==='不管了，我要睡觉');
@@ -285,6 +307,11 @@ try {
     const completeSummary = planLog.message.includes('完成 1 项，跳过 2 项') && planLog.details.length === 3
       && planLog.details.some(line=>line.includes('晚自习')) && planLog.details.some(line=>line.includes('状态不允许学习'))
       && JSON.stringify(game.state.lastWeekSchedule)==='{"Sat_Aft":"w_library"}';
+    flushSync(() => game.setState({...initial,phase:'SEMESTER_1',week:3,isPlaying:false,isWeekend:true,
+      flags:{joined_evening_study:true}}));
+    flushSync(() => game.executeTimetable({Fri_Eve:'w_read'}));
+    const fridayAvailable = game.state.lastWeekSchedule.Fri_Eve==='w_read'
+      && !PHASE_EVENTS.SEMESTER_1.some(event=>event.id==='s1_evening_study');
     const plannerRoot = createRoot(document.body.appendChild(document.createElement('div')));
     const plannerState = { ...initial, difficulty:'REALITY', fatigue:95, isWeekend:true,
       general:{...initial.general, mindset:80}, availableWeekendActivityIds:['w_sleep','w_library'],
@@ -429,8 +456,32 @@ try {
     const isolated = game.state.phase === 'INIT'
       && localStorage.getItem('recall_save_v1_other-regression') === 'untouched'
       && localStorage.getItem(saveKey) === beforeSwitch;
+    const awardState = {...initial,phase:'SEMESTER_1',week:10,totalWeeksInPhase:21,competition:'MO',isPlaying:true,
+      activeStatuses:[{...STATUSES.in_love,duration:999}],general:{...initial.general,mindset:100},
+      flags:{mo_league_first:97,mo_league_second:24,mo_league_published:true,mo_league_awarded:true}};
+    const waitForEvent = async id => {
+      for (let retry=0;retry<60 && game.state.currentEvent?.id!==id;retry++) {
+        await new Promise(resolve=>setTimeout(resolve,50));
+      }
+    };
+    flushSync(() => game.setState(awardState));
+    await waitForEvent('mo_league_award_notice');
+    const award = game.state.currentEvent;
+    const moodAfterWeek = game.state.general.mindset;
+    if (award?.id==='mo_league_award_notice') {
+      flushSync(()=>game.handleChoice(award.choices[0],(oldState,newState)=>[
+        oldState.general.mindset-newState.general.mindset
+      ].filter(Boolean)));
+    }
+    const awardFeedback = moodAfterWeek===100 && game.state.eventResult?.diff.length===0
+      && game.state.eventResult.narrative.includes('赛区三等奖') && game.state.flags.mo_league_award_announced;
+    flushSync(() => game.setState({...backstage,phase:'FINAL_EXAM_2',week:21,popupExamResult:finalExam,isPlaying:false}));
+    flushSync(() => game.closeExamResult());
+    await waitForEvent(performance.id);
+    const postFinalPerformance = game.state.currentEvent?.id===performance.id
+      && game.state.phase==='SUMMER_BREAK' && game.state.week===1;
     root.unmount();
-    return { skipCleanup, homeworkCalendar, springScenesComplete, variedPlan, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview, newEventRules,
+    return { skipCleanup, fridayAvailable, homeworkCalendar, springScenesComplete, dramaCalendar, classroomCalendar, awardFeedback, postFinalPerformance, variedPlan, routeRegressions, checks, plannedLibrary, boardChecks, restThenStudy, auditedChoices, auditFailures, recommendations, recommendationPreview, initialProjectPreview, nextProjectPreview, newEventRules,
       exclusiveInvite, acceptedClub, enforcedInviteSlot, manualHidden, moSave,
       autoSaved,pendingNotSaved,restored,failureReported,isolated,keepExistingAtLimit,manualIndependent,manualRestored,
       stableTimer,pausedTimer,resumedTimer,importantManual,legacyPlan,delayedChoices,completeSummary };
@@ -442,8 +493,12 @@ try {
   }
   assert.ok(results.routeRegressions.every(Boolean), 'route failures, sleep availability, humanities book and empty club');
   assert.ok(results.newEventRules.every(Boolean), 'spring companion, homework limits and match outcome feedback');
+  assert.ok(results.fridayAvailable, 'Friday is available even in a legacy Friday-study save');
   assert.ok(results.skipCleanup, 'carry over available activities and drop unavailable ones');
   assert.ok(results.homeworkCalendar, 'winter break homework only appears in the last week and offers a moderate choice');
+  assert.ok(results.dramaCalendar && results.postFinalPerformance, 'final exam result leads to the appropriate drama performance');
+  assert.ok(results.classroomCalendar, 'classroom choices and bilingual feedback match the subject and term');
+  assert.ok(results.awardFeedback, 'award lookup shows the prize without taking back over-cap weekly mood');
   assert.ok(results.springScenesComplete, 'five complete translated spring campus events are in the random pool');
   assert.ok(results.variedPlan, 'recent optional activities give way to fresh choices while homework remains');
   assert.ok(results.plannedLibrary);

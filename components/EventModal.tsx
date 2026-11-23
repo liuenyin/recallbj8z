@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { GameEvent, EventChoice, GameState, Phase } from '../types';
 import { formatCampusText } from '../data/campus_names';
+import { getEventIllustration } from '../data/event_art';
 import { isStudyBlocked, isStudyChoice } from '../data/utils';
 import { playSound } from '../lib/sound';
 
@@ -101,6 +102,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
     const studyBlocked = isStudyBlocked(state);
     const innerWhisper = !eventResult ? getInnerWhisper(state) : null;
     const resultTone = eventResult ? getResultTone(eventResult.diff) : null;
+    const illustration = getEventIllustration(event, state.phase);
 
     useEffect(() => {
         if (paused) return;
@@ -146,9 +148,21 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                   <div className="p-5 md:p-9">
                   {!eventResult ? (
                     <div>
-                      <div className="flex justify-between items-start gap-3 mb-4">
-                          <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{tr(formatStoryText(event.title))}</h2>
-                          {state.eventQueue.length > 0 && <span className="mt-1 text-xs text-slate-500 whitespace-nowrap">{tr("还有 ")}{state.eventQueue.length} {tr("件事")}</span>}
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                          <div className={`min-w-0 flex-1 ${illustration ? 'self-center' : 'flex items-start justify-between gap-3'}`}>
+                              <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{tr(formatStoryText(event.title))}</h2>
+                              {state.eventQueue.length > 0 && <span className="block mt-1 shrink-0 whitespace-nowrap text-xs text-slate-500">{tr("还有 ")}{state.eventQueue.length} {tr("件事")}</span>}
+                          </div>
+                          {illustration && (
+                            <img
+                                src={illustration}
+                                alt=""
+                                width={144}
+                                height={96}
+                                decoding="async"
+                                className="aspect-[3/2] h-auto w-24 shrink-0 object-contain sm:w-36"
+                            />
+                          )}
                       </div>
 
                       <p className="text-slate-700 mb-5 text-base md:text-lg leading-relaxed font-medium">

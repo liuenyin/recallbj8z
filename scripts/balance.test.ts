@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import type { GameState } from '../types.ts';
 import { getWeeklyEfficiency } from '../data/constants.ts';
-import { getMoResult, isMoAwardScore, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from '../data/mo_competition.ts';
+import { getMoLeagueAward, getMoResult, isMoAwardScore, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from '../data/mo_competition.ts';
 import { ACTIVITY_REPEAT_MULTIPLIERS, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, clamp, getAcademicSubjectScore, getAcademicExamSubjectScore, getAcademicExamRank, getRealisticExamRank } from '../data/balance.ts';
-import { clearWeekdaySchedule, ALLOWED_SLOTS_MAP, BLOCKED_SLOTS_MAP } from '../data/timetable.ts';
+import { clearEveningStudySchedule, getEveningStudySlots, ALLOWED_SLOTS_MAP, BLOCKED_SLOTS_MAP } from '../data/timetable.ts';
 
 test('Chinese scores cluster more tightly than maths and English', () => {
   assert.ok(getAcademicSubjectScore('chinese', 55, 150) > 80);
@@ -79,6 +79,21 @@ test('MO counts blanks in eights and gives partial credit for written work', () 
   assert.equal(getMoResult({ ...starter, flags: { mo_league_first: 121, mo_league_second: 0 } }, 'league'), null);
 });
 
+test('MO award tiers use both papers and preserve legacy award results', () => {
+  const award = (first: number, second: number) => getMoLeagueAward({
+    flags: { mo_league_first: first, mo_league_second: second }
+  });
+  assert.equal(award(120, 23), null);
+  assert.equal(award(87, 24), null);
+  assert.equal(award(88, 24), '三等奖');
+  assert.equal(award(97, 24), '三等奖');
+  assert.equal(award(101, 34), '三等奖');
+  assert.equal(award(100, 35), '二等奖');
+  assert.equal(award(111, 44), '二等奖');
+  assert.equal(award(110, 45), '一等奖');
+  assert.equal(getMoLeagueAward({ flags: { mo_league_awarded: true } }), '已获奖');
+});
+
 test('repeated activity multipliers decline without becoming punitive', () => {
   assert.deepEqual(
     [1, 2, 3, 4, 8].map(getActivityRepeatMultiplier),
@@ -94,10 +109,12 @@ test('clamp keeps projected values in the game meter range', () => {
   assert.equal(clamp(105, 0, 100), 100);
 });
 
-test('joining evening study clears weekday schedule entries but keeps weekends', () => {
+test('school reserves Monday through Thursday and keeps Friday free, including for legacy saves', () => {
+  const legacy = { phase: 'SEMESTER_1' as GameState['phase'], flags: { joined_evening_study: true } };
+  assert.deepEqual(getEveningStudySlots(legacy), ['Mon_Eve', 'Tue_Eve', 'Wed_Eve', 'Thu_Eve']);
   assert.deepEqual(
-    clearWeekdaySchedule({ Mon_Eve: 'w_game', Fri_Eve: 'w_chat', Sat_Aft: 'w_sleep' }),
-    { Sat_Aft: 'w_sleep' }
+    clearEveningStudySchedule({ Mon_Eve: 'w_game', Fri_Eve: 'w_chat', Sat_Aft: 'w_sleep' }, legacy),
+    { Fri_Eve: 'w_chat', Sat_Aft: 'w_sleep' }
   );
 });
 

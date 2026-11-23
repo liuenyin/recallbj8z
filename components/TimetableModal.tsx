@@ -280,7 +280,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose }) => {
                         </div>
                     )}
                     {eveningStudy.length > 0 && <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">
-                        {tr(eveningStudy.includes('Fri_Eve') ? '周一至周五晚固定晚自习' : '周一至周四晚固定晚自习')}
+                        {tr('周一至周四晚固定晚自习')}
                     </p>}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 md:gap-3">
                         {['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
