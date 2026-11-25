@@ -283,4 +283,66 @@ try {
     'recall_save_v1_' + localStorage.getItem('recall_active_account_v1'))).state.flags.w_invite_club === 1);
   assert.deepEqual(errors, []);
   console.log('PASS: English opens the original year, and switching language keeps the same save and journal');
+
+  const loadEnglishFixture = async state => {
+    await page.evaluate(state => {
+      const key = 'recall_save_v1_' + localStorage.getItem('recall_active_account_v1');
+      localStorage.setItem(key, JSON.stringify({version:3,state:{
+        phase:'SEMESTER_1', week:2, totalWeeksInPhase:21, hasSelectedClub:true,
+        subjects:{}, general:{health:80,mindset:70,money:100}, ...state
+      }}));
+    }, state);
+    await page.reload({waitUntil:'networkidle0'});
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    await clickText('Continue');
+  };
+  const waitForCopy = copy => page.waitForFunction(copy => document.body.innerText.includes(copy), {timeout:8000}, copy)
+    .catch(error => { throw new Error(`Missing English copy: ${copy}`, {cause:error}); });
+
+  await loadEnglishFixture({hasSelectedClub:false});
+  await waitForCopy('Club Fair');
+  assert.ok(await page.evaluate(() => {
+    const astronomy = [...document.querySelectorAll('button')].find(button => button.innerText.includes('Nandou Astronomy Club'));
+    return astronomy?.innerText.includes('look for constellations') && astronomy.innerText.includes('Physics ++')
+      && document.body.innerText.includes('Tabletop Role-Playing Club')
+      && !document.body.innerText.includes('The Chinese government');
+  }));
+  await clickText('Nandou Astronomy Club');
+  await clickText('More');
+  await clickText('Save');
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem(
+    'recall_save_v1_' + localStorage.getItem('recall_active_account_v1') + '_manual'))?.state.club === 'astronomy');
+
+  await loadEnglishFixture({currentEvent:'romance_first_encounter'});
+  await clickText('Pick up the fallen exercise books and apologise');
+  await waitForCopy('They pick up the last one and thank you.');
+  await loadEnglishFixture({phase:'MILITARY',week:1,currentEvent:'mil_blanket'});
+  await waitForCopy('Folding Your Quilt');
+  await waitForCopy('corners as square as a piece of tofu');
+  await waitForCopy('Keep folding until the corners are square');
+  await clickText('Pull the quilt over yourself and take a nap');
+  await waitForCopy('The quilt is still a mess, but you got some sleep.');
+  await loadEnglishFixture({phase:'WINTER_BREAK',week:3,currentEvent:'wb_new_year'});
+  await clickText('Join the reunion dinner and collect your lucky money');
+  await waitForCopy('the lucky money your relatives gave you');
+  await loadEnglishFixture({phase:'WINTER_BREAK',week:3,currentEvent:'evt_red_packet'});
+  await clickText('Accept the red envelope');
+  await waitForCopy('Lucky money +20 yuan');
+
+  await loadEnglishFixture({phase:'SELECTION',week:1});
+  await waitForCopy('in the placement, midterm and final exams');
+  await clickText('History');
+  await waitForCopy('1 of 3 selected');
+  const result = (title,rank) => ({title,rank,type:'ACADEMIC',totalScore:260,totalStudents:633,scores:{math:130,english:130},comment:''});
+  const placement = result('分班考试',100);
+  await loadEnglishFixture({phase:'PLACEMENT_EXAM',week:1,className:'一类实验班',popupExamResult:placement,examResult:placement});
+  await waitForCopy('Your assigned class is Advanced class.');
+  await waitForCopy('based on where you ranked in this placement exam');
+  for (const [rank, direction, places] of [[91,'Up',9],[107,'Down',7]]) {
+    const midterm = result('高一上 · 期中考试',rank);
+    await loadEnglishFixture({phase:'MIDTERM_EXAM',week:11,popupExamResult:midterm,examResult:midterm,academicExamHistory:[placement,midterm]});
+    await waitForCopy(`${direction} ${places} in the year-group rankings`);
+  }
+  assert.deepEqual(errors, []);
+  console.log('PASS: English club selection, choice meanings, New Year gifts and school exam context');
 } finally { await browser.close(); }

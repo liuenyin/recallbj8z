@@ -618,11 +618,16 @@ const GameApp: React.FC = () => {
                             </div>
                         )}
                         {state.phase === Phase.PLACEMENT_EXAM && state.className && (
-                            <p className="font-bold text-indigo-700">{tr("已分到")}{tr(state.className)}</p>
+                            <div className="mb-3">
+                                <p className="font-bold text-indigo-700">{tr(`你被分到${state.className}。`)}</p>
+                                <p className="mt-1 text-xs leading-relaxed text-slate-600">{tr('这是游戏里的编班结果，由这次分班考的年级排名决定。')}</p>
+                            </div>
                         )}
                         {rankDelta !== null && (
                             <p className={`text-xs font-bold ${rankDelta > 0 ? 'text-emerald-700' : rankDelta < 0 ? 'text-amber-800' : 'text-slate-600'}`}>
-                                {tr(rankDelta === 0 ? '和上次文化课考试的名次相同' : `比上次文化课考试${rankDelta > 0 ? '前进' : '后退'} ${Math.abs(rankDelta)} 名`)}
+                                {tr(rankDelta > 0 ? `比上次文化课考试前进 ${rankDelta} 名`
+                                    : rankDelta < 0 ? `比上次文化课考试后退 ${Math.abs(rankDelta)} 名`
+                                    : '和上次文化课考试的名次相同')}
                             </p>
                         )}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4 text-sm text-slate-700">
@@ -647,9 +652,15 @@ const GameApp: React.FC = () => {
 
         {/* Selection */}
         {(state.phase === Phase.SELECTION || state.phase === Phase.SUBJECT_RESELECTION) && (
-            <div className="absolute inset-0 bg-white/95 z-30 p-4 md:p-10 flex flex-col items-center justify-center rounded-2xl overflow-y-auto">
+            <div className="absolute inset-0 bg-white/95 z-30 p-4 md:p-10 flex flex-col items-center rounded-2xl overflow-y-auto">
+              <div className="my-auto flex w-full flex-col items-center">
                <h2 className="text-2xl md:text-3xl font-black mb-2">{tr(state.phase === Phase.SUBJECT_RESELECTION ? '重新选科' : '高一选科')}</h2>
-               <p className="text-xs text-slate-500 mb-6">{tr("请选择 3 门选考科目（已选 ")}{state.selectedSubjects.length} / 3）</p>
+               {state.phase === Phase.SELECTION && (
+                   <p className="mb-2 max-w-lg text-center text-sm leading-relaxed text-slate-600">
+                       {tr('选 3 门科目，和语文、数学、英语一起计入分班考、期中和期末。合格考有单独的科目清单。')}
+                   </p>
+               )}
+               <p className="mb-5 text-xs text-slate-500">{tr(`已选 ${state.selectedSubjects.length}/3 门`)}</p>
                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-8 w-full max-w-lg">
                   {(['physics', 'chemistry', 'biology', 'history', 'geography', 'politics'] as SubjectKey[]).map(s => {
                     const hideStats = state.difficulty === 'REALITY';
@@ -683,6 +694,7 @@ const GameApp: React.FC = () => {
                        subjectReselectionReturnPhase: null
                    };
                })} className="bg-indigo-600 disabled:bg-slate-200 text-white px-12 py-4 rounded-2xl font-black text-xl shadow-xl">{tr("确认选择")}</button>
+              </div>
             </div>
         )}
 

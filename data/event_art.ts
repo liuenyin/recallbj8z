@@ -35,11 +35,28 @@ const eventArt: readonly (readonly [URL, readonly string[]])[] = [
     [new URL('../assets/event-art/classroom-morning.webp', import.meta.url), ['sci_fest_first_day', 's2_seat_change', 's2_drama_audition']]
 ];
 
-const illustrations = new Map(eventArt.flatMap(([url, events]) => events.map(id => [id, url.href] as const)));
-const chemistryLab = new URL('../assets/event-art/lab-bench.webp', import.meta.url).href;
-const biologyLab = new URL('../assets/event-art/microscope-slide.webp', import.meta.url).href;
+export interface EventIllustration {
+    src: string;
+    kind: 'scene' | 'spot';
+}
 
-export function getEventIllustration(event: Pick<GameEvent, 'id' | 'serialized'>, phase: Phase): string | undefined {
+const SPOT_EVENTS = new Set([
+    'sum_goal_selection',
+    'campus_lost_card', 's2_daily_lost_card', 'flavor_6',
+    's2_daily_pendulums',
+    's2_daily_duplicate_page',
+    's2_daily_book_corner', 's1_library', 'sum_library_encounter'
+]);
+
+const illustrations = new Map<string, EventIllustration>(
+    eventArt.flatMap(([url, events]) =>
+        events.map(id => [id, { src: url.href, kind: SPOT_EVENTS.has(id) ? 'spot' : 'scene' }] as const)
+    )
+);
+const chemistryLab: EventIllustration = { src: new URL('../assets/event-art/lab-bench.webp', import.meta.url).href, kind: 'scene' };
+const biologyLab: EventIllustration = { src: new URL('../assets/event-art/microscope-slide.webp', import.meta.url).href, kind: 'scene' };
+
+export function getEventIllustration(event: Pick<GameEvent, 'id' | 'serialized'>, phase: Phase): EventIllustration | undefined {
     if (event.serialized?.source === 'ai') return undefined;
     if (event.id === 'study_weekly_chemistry' && (phase === Phase.SEMESTER_1 || phase === Phase.SEMESTER_2)) return chemistryLab;
     if (event.id === 'study_weekly_biology' && phase === Phase.SEMESTER_1) return biologyLab;

@@ -572,7 +572,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_academic_exam',
         title: '高中学业水平合格考',
-        description: '这次报名表上是化学、生物、历史和地理。每门各判一次合格，你准备用多少时间过一遍没弄懂的内容？',
+        description: '这轮合格考考化学、生物、历史和地理，没选的科目也要考。每门单独判定合格，这些成绩不计入期末总分。你打算怎么准备？',
         type: 'negative', triggerType: 'FIXED', once: true, fixedWeek: 19,
         choices: [
             { 

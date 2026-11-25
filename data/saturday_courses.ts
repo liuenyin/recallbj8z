@@ -9,7 +9,7 @@ const secondCourseId = 'saturday_course_second';
 export const SATURDAY_COURSE_SIGNUP: GameEvent = {
     id: 'saturday_course_signup',
     title: '三修课报名',
-    description: '老师发来三修课报名表。你可以选一门周六上午的课，再决定要不要加选下午的课。上课会提升对应科目，也会占用周六的自由时间。',
+    description: '想多练一门课内科目，可以报周六上午的三修课，下午还能再选一门。每门课占用周六一个时段。竞赛训练要另安排时间。',
     type: 'neutral',
     triggerType: 'FIXED',
     fixedPhase: Phase.SEMESTER_1,

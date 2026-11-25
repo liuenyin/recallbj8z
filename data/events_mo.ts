@@ -245,7 +245,7 @@ export const MO_EVENTS: GameEvent[] = [
     {
         id: 'mo_league_award_notice',
         title: '北京赛区获奖名单',
-        description: '11 月，教练把赛区获奖名单发到了班群。',
+        description: '11 月，教练把九月高中数学联赛的北京赛区获奖名单发到了班群。春季的校内模拟会另发成绩。',
         type: 'positive',
         triggerType: 'FIXED',
         fixedPhase: Phase.SEMESTER_1,
