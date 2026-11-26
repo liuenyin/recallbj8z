@@ -26,11 +26,11 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
 
                 {/* Tabs */}
                 <div className="flex border-b border-slate-200">
-                    <button onClick={() => setTab('STATS')} className={`flex-1 py-3 text-sm font-bold transition-colors ${tab === 'STATS' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    <button type="button" onClick={() => setTab('STATS')} className={`flex-1 min-w-0 px-2 py-3 text-xs sm:text-sm font-bold transition-colors ${tab === 'STATS' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'}`}>
                         {tr("模糊显示对照")}</button>
-                    <button onClick={() => setTab('MECHANICS')} className={`flex-1 py-3 text-sm font-bold transition-colors ${tab === 'MECHANICS' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    <button type="button" onClick={() => setTab('MECHANICS')} className={`flex-1 min-w-0 px-2 py-3 text-xs sm:text-sm font-bold transition-colors ${tab === 'MECHANICS' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'}`}>
                         {tr("效率与难度规则")}</button>
-                    <button onClick={() => setTab('EXAMS')} className={`flex-1 py-3 text-sm font-bold transition-colors ${tab === 'EXAMS' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    <button type="button" onClick={() => setTab('EXAMS')} className={`flex-1 min-w-0 px-2 py-3 text-xs sm:text-sm font-bold transition-colors ${tab === 'EXAMS' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-600 hover:bg-slate-50'}`}>
                         {tr("考试与排名")}</button>
                 </div>
 
@@ -63,17 +63,17 @@ const RealityGuideModal: React.FC<RealityGuideModalProps> = ({ onClose }) => {
                         <div className="space-y-5">
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
                                 <h4 className="font-bold text-indigo-700 text-sm">{tr("疲劳、兴奋与收益规律")}</h4>
-                                <p>{tr("• 疲劳 &ge; 50/75/90 时，有效效率依次扣除 1 / 3 / 6 点；疲劳 &ge; 75 还会持续扣减健康与心态。")}</p>
+                                <p>{tr("• 疲劳 ≥ 50/75/90 时，有效效率依次扣除 1 / 3 / 6 点；疲劳 ≥ 75 还会持续扣减健康与心态。")}</p>
                                 <p>{tr("• 兴奋值越高，学习与运动正向收益越高，但休息恢复效率会相应下降。")}</p>
                                 <p>{tr("• 周末同一项活动重复安排会触发收益递减（第 1~4 次：100% / 68% / 45% / 30%）。")}</p>
                                 <p>{tr("• 现实难度下，心态低时容易低估自己，心态高时容易高估。经验越多，自我判断越稳定。")}</p>
                             </div>
 
                             <div className="space-y-2 text-xs">
-                                <h4 className="font-bold text-slate-900 text-sm">{tr("高难度专属限制")}</h4>
+                                <h4 className="font-bold text-slate-900 text-sm">{tr("难度规则差异")}</h4>
                                 <ul className="list-disc list-inside space-y-1.5 pl-1">
-                                    <li><span className="font-bold text-orange-600">{tr("困难 / 现实难度")}</span>{tr("：隐藏事件选项的收益与胜率提示，保留截止时间与规则说明。")}</li>
-                                    <li><span className="font-bold text-rose-600">{tr("现实难度")}</span>{tr("：周末活动每周变化。心态低于 20 或疲劳超过 90 时，先恢复状态再学习。")}</li>
+                                    <li><span className="font-bold text-orange-600">{tr("困难难度")}</span>{tr("：开局属性与零花钱更少，同学平均水平更高。")}</li>
+                                    <li><span className="font-bold text-rose-600">{tr("现实难度")}</span>{tr("：除余额外以体感档位呈现，事件隐藏高风险提示；周末活动每周变化；心态低于 20 或疲劳超过 90 时无法学习。")}</li>
                                 </ul>
                             </div>
                         </div>

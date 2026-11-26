@@ -187,11 +187,11 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
             )}
 
              {showQQGroup && (
-                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowQQGroup(false)}>
+                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowQQGroup(false)} role="dialog" aria-modal="true" aria-label={tr("加入组织")}>
                      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col items-center" onClick={e => e.stopPropagation()}>
                          <div className="flex justify-between items-center w-full mb-6 border-b border-slate-100 pb-4">
                              <h2 className="text-2xl font-black text-slate-800">{tr("加入组织")}</h2>
-                             <button onClick={() => setShowQQGroup(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
+                             <button type="button" onClick={() => setShowQQGroup(false)} aria-label={tr("关闭")} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
                          <div className="bg-slate-100 p-4 rounded-2xl mb-4">
                             {imageFallbacks.qr ? (
@@ -200,7 +200,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                     <span>{tr("二维码加载失败，请直接搜群号")}</span>
                                 </div>
                             ) : (
-                                <img src="https://cdn.luogu.com.cn/upload/image_hosting/rhymaxyw.png" alt="QQ Group QR" onError={() => setImageFallbacks(prev => ({ ...prev, qr: true }))} className="w-64 h-auto rounded-xl mix-blend-multiply" />
+                                <img src="https://cdn.luogu.com.cn/upload/image_hosting/rhymaxyw.png" alt={tr("QQ群二维码")} onError={() => setImageFallbacks(prev => ({ ...prev, qr: true }))} className="w-64 h-auto rounded-xl mix-blend-multiply" />
                             )}
                          </div>
                          <p className="text-center text-slate-600 font-bold mb-2">{tr("群号: 1080382240")}</p>
@@ -214,12 +214,12 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
              )}
              
              {showVideo && (
-                 <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowVideo(false)}>
+                 <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowVideo(false)} role="dialog" aria-modal="true" aria-label={tr("介绍视频")}>
                      <div className="w-full max-w-5xl aspect-video bg-black rounded-3xl shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
-                         <button onClick={() => setShowVideo(false)} className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white flex items-center justify-center transition-colors">
+                         <button type="button" onClick={() => setShowVideo(false)} aria-label={tr("关闭")} className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white flex items-center justify-center transition-colors">
                              <i className="fas fa-times"></i>
                          </button>
-                         <iframe 
+                         <iframe title={tr("介绍视频")}
                             src="https://player.bilibili.com/player.html?isOutside=true&aid=115953580973453&bvid=BV1TEzDBDEPg&cid=35597586008&p=1&autoplay=0" 
                             scrolling="no" 
                             style={{ border: 0 }}
@@ -232,7 +232,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
              )}
 
              {showAchievements && (
-                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowAchievements(false)}>
+                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowAchievements(false)} role="dialog" aria-modal="true" aria-label={tr(collectionTab === 'achievements' ? '成就墙' : '生涯结局图鉴')}>
                     <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-4xl w-full h-[80vh] shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
                              <div>
@@ -248,7 +248,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                      <button type="button" onClick={() => setCollectionTab('achievements')} className={`px-3 py-1.5 rounded-lg transition-all ${collectionTab === 'achievements' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{tr("成就徽章")}</button>
                                      <button type="button" onClick={() => setCollectionTab('endings')} className={`px-3 py-1.5 rounded-lg transition-all ${collectionTab === 'endings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{tr("结局图鉴")}</button>
                                  </div>
-                                 <button onClick={() => setShowAchievements(false)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
+                                 <button type="button" onClick={() => setShowAchievements(false)} aria-label={tr("关闭")} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                              </div>
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scroll grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
@@ -261,7 +261,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                         </div>
                                         <div>
                                             <h4 className={`font-bold text-sm ${isUnlocked ? 'text-slate-800' : 'text-slate-500'}`}>{tr(ach.title)}</h4>
-                                            <p className="text-xs text-slate-400 mt-0.5 leading-tight">{tr(ach.description)}</p>
+                                            <p className="text-xs text-slate-500 mt-0.5 leading-tight">{tr(ach.description)}</p>
                                         </div>
                                     </div>
                                 );
@@ -286,11 +286,11 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
              
              
              {showSponsor && (
-                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSponsor(false)}>
+                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fadeIn" onClick={() => setShowSponsor(false)} role="dialog" aria-modal="true" aria-label={tr("赞助商展示")}>
                      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                              <h2 className="text-2xl font-black text-slate-800">{tr("赞助商展示")}</h2>
-                             <button onClick={() => setShowSponsor(false)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
+                             <button type="button" onClick={() => setShowSponsor(false)} aria-label={tr("关闭")} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><i className="fas fa-times"></i></button>
                          </div>
                          <div className="overflow-y-auto custom-scroll space-y-3 pr-2 text-center">
                              {SPONSORS.map((sponsor, idx) => (
@@ -307,7 +307,7 @@ const HomeView: React.FC<HomeViewProps> = ({ selectedDifficulty, onDifficultyCha
                                  </div>
                              ))}
                              
-                             <p className="text-xs text-slate-400 mt-4 mb-6">{tr("金主列表每周更新一次，可能有时间延迟")}</p>
+                             <p className="text-xs text-slate-500 mt-4 mb-6">{tr("金主列表每周更新一次，可能有时间延迟")}</p>
                              <a href="https://afdian.com/a/liuenyin?tab=home" target="_blank" rel="noopener noreferrer" className="block w-full bg-amber-500 text-white py-3 rounded-xl font-bold hover:bg-amber-600 transition-colors shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
                                  <i className="fas fa-bolt mr-2"></i> {tr("前往爱发电支持作者")}</a>
                          </div>

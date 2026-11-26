@@ -125,7 +125,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
               <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden mb-1.5">
                 <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, (project.progress / project.requiredProgress) * 100)}%` }} />
               </div>
-              <p className="text-[10px] text-amber-700">{tr(getPhaseLabel(project.deadlinePhase))}{tr("第 ")}{project.deadlineWeek} {tr("周截止")}</p>
+              <p className="text-[10px] text-amber-700">{tr(getPhaseLabel(project.deadlinePhase))} {tr("第 ")}{project.deadlineWeek} {tr("周截止")}</p>
             </div>
           ))}
         </div>
@@ -133,7 +133,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
       <div>
         <div className="flex justify-between items-center mb-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <i className="fas fa-user-circle"></i> {tr(hideDetails ? "自我认知" : "个人档案")}</h3>
               {onShowGuide && (
                 <button type="button" onClick={onShowGuide} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1" title={tr("查看难度与状态说明")}>
@@ -160,16 +160,16 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
 
       {/* 学业背景 */}
       <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-xs font-bold text-indigo-800">{tr("班级: ")}{tr(state.className || '待分班')}</span>
+        <div className="flex justify-between items-center gap-2 mb-2">
+          <span className="text-xs font-bold text-indigo-800 min-w-0 truncate" title={`${tr("班级: ")}${tr(state.className || '待分班')}`}>{tr("班级: ")}{tr(state.className || '待分班')}</span>
           {hideDetails ? (
-            <span className={`text-xs font-bold ${getFuzzyDesc(effectiveEfficiency, 'efficiency', 7).c}`}>
+            <span className={`text-xs font-bold shrink-0 whitespace-nowrap ${getFuzzyDesc(effectiveEfficiency, 'efficiency', 7).c}`}>
               {tr("状态: ")}{tr(getFuzzyDesc(effectiveEfficiency, 'efficiency', 7).t)}
             </span>
           ) : (
-            <span className="text-xs font-bold text-indigo-800">
+            <span className="text-xs font-bold text-indigo-800 shrink-0 whitespace-nowrap">
                 {tr("效率: ")}{effectiveEfficiency.toFixed(1)}
-                {effectiveEfficiency > state.general.efficiency && <span className="text-emerald-500 text-[10px] ml-1">(+{ tr((effectiveEfficiency - state.general.efficiency).toFixed(0)) })</span>}
+                {effectiveEfficiency > state.general.efficiency && <span className="text-emerald-600 text-[10px] ml-1">(+{ tr((effectiveEfficiency - state.general.efficiency).toFixed(0)) })</span>}
             </span>
           )}
         </div>
@@ -187,7 +187,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
 
       {/* 基础属性 */}
       <div>
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
             <i className="fas fa-chart-bar"></i> {tr("身心状态")}</h3>
         <div className="grid grid-cols-4 gap-1.5">
             {hideDetails ? (
@@ -219,7 +219,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
        {/* 天赋展示 */}
       {state.talents.length > 0 && (
            <div>
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+               <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                    <i className="fas fa-dna"></i> {tr("天赋")}</h3>
                <div className="flex flex-wrap gap-2">
                    {state.talents.map(t => (
@@ -250,7 +250,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
               ['string', '字符串'], ['graph', '图论'], ['misc', '综合']
             ] as const).map(([key, label]) => (
               <div key={key} className="rounded-lg bg-white border border-slate-100 px-1.5 py-1.5 text-center">
-                <div className="text-[9px] text-slate-400 truncate" title={tr(label)}>{tr(label)}</div>
+                <div className="text-[9px] text-slate-500 truncate" title={tr(label)}>{tr(label)}</div>
                 <div className="text-xs font-black text-indigo-600">{tr(hideDetails ? getOIFuzzyLabel(state.oiStats[key]) : Math.round(state.oiStats[key]))}</div>
               </div>
             ))}
@@ -264,7 +264,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
 
       {/* 学科属性 */}
       <div className="flex-1 pb-4">
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
           <i className="fas fa-graduation-cap"></i> {tr(hideDetails ? "学术评估" : "学科能力")}</h3>
         <div className="grid grid-cols-1 gap-3">
           {(Object.keys(state.subjects) as SubjectKey[]).map((key, idx) => {
@@ -280,7 +280,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ state, onShowGuide, onShowConte
                     {hideDetails ? (
                       <span className={`font-medium ${fuzzy.c}`}>{tr(fuzzy.t)}</span>
                     ) : (
-                      <span className="text-slate-400">{tr(`天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`)}</span>
+                      <span className="text-slate-500">{tr(`天赋 ${state.subjects[key].aptitude} | 水平 ${state.subjects[key].level.toFixed(1)}`)}</span>
                     )}
                   </div>
                   {!hideDetails && (

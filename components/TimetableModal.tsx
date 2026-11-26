@@ -222,9 +222,9 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose }) => {
                             )}
                             {cost > 0 && <span>{tr("预计花费 ")}{cost} {tr("元")}</span>}
                             {!hideDetails && currentProject && (
-                                <span className="text-indigo-800">《{tr(currentProject.title)}》{tr(projectedProject
-                                    ? `执行后剩 ${getProjectSessionsLeft(projectedProject)} 次，第 ${currentProject.deadlineWeek} 周截止。`
-                                    : '本周可完成。')}</span>
+                                <span className="text-indigo-800">{tr(projectedProject
+                                    ? `《${currentProject.title}》执行后剩 ${getProjectSessionsLeft(projectedProject)} 次，第 ${currentProject.deadlineWeek} 周截止。`
+                                    : `《${currentProject.title}》本周可完成。`)}</span>
                             )}
                         </div>
                     </div>
@@ -242,7 +242,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose }) => {
             <div className="bg-slate-50 rounded-[24px] md:rounded-[32px] max-w-6xl w-full h-[min(95dvh,54rem)] md:h-[90dvh] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
                 {/* Left: Timetable Grid */}
                 <div className={`${selectedSlot ? 'hidden md:flex' : 'flex'} flex-1 p-4 md:p-6 flex-col min-h-0 overflow-y-auto custom-scroll md:border-r border-b md:border-b-0 border-slate-200 bg-white`}>
-                    <div className="flex justify-between items-start gap-2 mb-1 md:mb-2">
+                    <div className="flex flex-wrap justify-between items-center gap-2 mb-1 md:mb-2">
                         <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{tr("周计划时间表")}</h2>
                         {recommendation && <button type="button" onClick={() => { setShowGrid(false); setSelectedSlot(null); }} className="rounded-lg px-2 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-50">{tr("查看推荐")}</button>}
                         {!state.isWeekend && onClose && (
@@ -380,9 +380,9 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose }) => {
                         </div>
                         {currentProject && (
                             <p aria-label={tr("课题进度预览")} className="mt-2 text-xs text-indigo-800">
-                                《{tr(currentProject.title)}》{tr(plannedProject
-                                    ? `还需整理 ${getProjectSessionsLeft(plannedProject)} 次，第 ${currentProject.deadlineWeek} 周截止。`
-                                    : '按当前计划，本周可以完成。')}
+                                {tr(plannedProject
+                                    ? `《${currentProject.title}》还需整理 ${getProjectSessionsLeft(plannedProject)} 次，第 ${currentProject.deadlineWeek} 周截止。`
+                                    : `《${currentProject.title}》按当前计划，本周可以完成。`)}
                             </p>
                         )}
                         {state.activeChallengeId === 'c_sleep_king' && !hasSleepActivity && (
@@ -440,7 +440,7 @@ const TimetableModal: React.FC<Props> = ({ state, onConfirm, onClose }) => {
                                                 : 'border-slate-200 cursor-pointer hover:border-indigo-500 hover:shadow-md'
                                         }`}
                                     >
-                                        <div className="flex items-center gap-2 md:gap-3 mb-1">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:gap-x-3 mb-1">
                                             <i className={`fas ${act.icon} text-indigo-500 group-hover:scale-110 transition-transform`}></i>
                                             <span className="font-bold text-slate-800 text-sm md:text-base">{tr(act.id === 'w_mo_proof' ? MO_PRACTICE_TITLES[getMoPracticeTopic(state)] : act.name)}</span>
                                             {currentCount > 0 && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{currentCount}/{maxSlots}</span>}

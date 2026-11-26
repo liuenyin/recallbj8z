@@ -217,7 +217,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'negative',
         once: true,
         triggerType: 'CONDITIONAL',
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.week >= 11 && s.selectedSubjects.some(sub => s.subjects[sub].level < 10 && s.subjects[sub].aptitude < 30),
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.week >= 11 && s.week <= 18 && s.selectedSubjects.some(sub => s.subjects[sub].level < 10 && s.subjects[sub].aptitude < 30),
         choices: [
             { 
                 text: '坚持原本的选择', 
@@ -378,7 +378,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
         type: 'positive',
         triggerType: 'CONDITIONAL',
         once: true,
-        condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.basketball_stage === 8 && s.week >= 10 && s.week <= 11,
+        condition: (s) => s.phase === Phase.SEMESTER_2 && s.flags.basketball_stage === 8 && s.week >= 10 && s.week <= 12,
         choices: [
             {
                 text: '拼到最后一秒',
@@ -536,7 +536,7 @@ export const SEMESTER_2_EVENTS: GameEvent[] = [
     {
         id: 's2_drama_audition',
         title: '英语戏剧节 选角',
-        description: '戏剧节马上开始排练了，你决定竞选什么角色？',
+        description: '戏剧节马上开始排练了，你想试试哪个岗位？（主角要求英语水平达到 15 或天赋达到 75）',
         type: 'neutral', triggerType: 'CONDITIONAL', once: true,
         condition: (s) => s.phase === Phase.SEMESTER_2 && !!s.flags.drama_joined && s.week === 14,
         choices: [

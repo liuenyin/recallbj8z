@@ -24,7 +24,7 @@ const TalentView: React.FC<TalentViewProps> = ({ availableTalents, selectedTalen
     const { t: tr } = useLanguage();
     const isAtCap = selectedTalents.length >= 5;
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-10 font-sans relative">
+        <div className="min-h-[100dvh] bg-slate-50 flex flex-col items-center justify-center p-4 md:p-10 font-sans relative">
               <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-3 tracking-tight">{tr("天赋抉择")}</h2>
               <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mb-6 bg-white px-5 py-2.5 rounded-2xl md:rounded-full border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2">
@@ -34,7 +34,7 @@ const TalentView: React.FC<TalentViewProps> = ({ availableTalents, selectedTalen
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isAtCap ? 'bg-amber-100 text-amber-700' : 'bg-indigo-50 text-indigo-600'}`}>
                       {tr("已选 ")}{selectedTalents.length} / 5 {tr(isAtCap ? '（已满）' : '')}
                   </span>
-                  <span className="text-xs text-slate-400 hidden sm:inline border-l border-slate-200 pl-3">{tr("选择负面天赋以获取更多点数")}</span>
+                  <span className="text-xs text-slate-500 hidden sm:inline border-l border-slate-200 pl-3">{tr("选择负面天赋以获取更多点数")}</span>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 max-w-6xl w-full mb-8 overflow-y-auto max-h-[60vh] p-2 custom-scroll">
@@ -59,7 +59,7 @@ const TalentView: React.FC<TalentViewProps> = ({ availableTalents, selectedTalen
                             </div>
                             
                             <h3 className="text-base md:text-lg font-bold mt-1 leading-tight">{tr(talent.name)}</h3>
-                            <p className={`text-xs leading-relaxed ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>{tr(talent.description)}</p>
+                            <p className={`text-xs leading-relaxed ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>{tr(talent.description)}</p>
                             
                             {isSelected && (
                                 <div className="absolute bottom-2 right-2 w-5 h-5 bg-white text-indigo-600 rounded-full flex items-center justify-center shadow-sm">

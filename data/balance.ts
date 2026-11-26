@@ -37,12 +37,12 @@ export const getAcademicSubjectScore = (
   return Math.floor(clamp(percentage / 100, 0, 1) * maximum);
 };
 
-const ACADEMIC_PAPER_DIFFICULTIES: Partial<Record<Phase, readonly [standard: number, realistic: number]>> = {
-  PLACEMENT_EXAM: [1.05, 0.69],
-  MIDTERM_EXAM: [1.27, 1.13],
-  FINAL_EXAM: [1.46, 1.44],
-  MIDTERM_EXAM_2: [1.63, 1.815],
-  FINAL_EXAM_2: [1.75, 1.85]
+const ACADEMIC_PAPER_DIFFICULTIES: Partial<Record<Phase, readonly [normal: number, hard: number, realistic: number]>> = {
+  PLACEMENT_EXAM: [1.10, 0.90, 0.78],
+  MIDTERM_EXAM: [1.40, 1.24, 1.16],
+  FINAL_EXAM: [1.60, 1.42, 1.41],
+  MIDTERM_EXAM_2: [1.72, 1.56, 1.62],
+  FINAL_EXAM_2: [1.80, 1.66, 1.75]
 };
 
 export const getAcademicExamSubjectScore = (
@@ -53,7 +53,8 @@ export const getAcademicExamSubjectScore = (
   luckMultiplier: number
 ): number => {
   const realistic = state.difficulty === 'REALITY';
-  const difficulty = ACADEMIC_PAPER_DIFFICULTIES[state.phase]?.[realistic ? 1 : 0] ?? 1;
+  const difficultyIndex = realistic ? 2 : state.difficulty === 'HARD' ? 1 : 0;
+  const difficulty = ACADEMIC_PAPER_DIFFICULTIES[state.phase]?.[difficultyIndex] ?? 1;
   const stats = state.subjects[subject];
   const focusBonus = Math.max(0, effectiveEfficiency - 15) * (realistic ? 1 : 0.35);
   const accuracy = (stats.aptitude * 0.4 + stats.level * 3) / difficulty + focusBonus;

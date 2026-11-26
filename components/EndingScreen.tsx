@@ -48,7 +48,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                          {/* Rank Stamp placed inside Left Column header corner so it never overlaps Right Column memories */}
                          <div className="absolute top-5 right-5 z-20 pointer-events-none">
                              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 md:border-[6px] border-red-600 flex items-center justify-center rotate-12 opacity-85 bg-white/80 backdrop-blur-sm shadow-lg">
-                                 <span className="text-3xl md:text-5xl font-black text-red-600 tracking-tighter">{tr(endingData.rank)}</span>
+                                 <span className={`${endingData.rank.length >= 3 ? 'text-2xl md:text-3xl' : 'text-3xl md:text-5xl'} font-black text-red-600 tracking-tighter`}>{tr(endingData.rank)}</span>
                              </div>
                          </div>
 
@@ -57,7 +57,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                                 <i className="fas fa-user-graduate"></i>
                              </div>
                              <div>
-                                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{tr("八中生涯档案")}</div>
+                                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">{tr("八中生涯档案")}</div>
                                  <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">{tr(endingData.title)}</h2>
                                  <div className="text-sm font-bold text-indigo-600 mt-1">{tr(state.className || '未分班')}</div>
                              </div>
@@ -116,7 +116,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
 
                          {/* Stats Grid */}
                          <div className="space-y-4">
-                             <h3 className="font-black text-slate-400 uppercase text-xs">{tr("综合能力评估")}</h3>
+                             <h3 className="font-black text-slate-500 uppercase text-xs">{tr("综合能力评估")}</h3>
                              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                  {[
                                      { label: '心态', val: state.general.mindset, max: 100, color: 'bg-blue-500' },
@@ -160,7 +160,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                         )}
                         {state.talents.length > 0 && (
                             <div className="mb-5">
-                                <h3 className="font-black text-slate-400 uppercase text-xs mb-3">{tr("天赋")}</h3>
+                                <h3 className="font-black text-slate-500 uppercase text-xs mb-3">{tr("天赋")}</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {state.talents.map(t => (
                                         <div key={t.id} className="px-2 py-1 bg-slate-100 rounded text-xs font-bold text-slate-600 border border-slate-200">
@@ -171,7 +171,7 @@ const EndingScreen: React.FC<EndingScreenProps> = ({ state, endingData, onRestar
                             </div>
                         )}
                         <div className="flex-1 mb-5">
-                            <h3 className="font-black text-slate-400 uppercase text-xs mb-4">{tr("开局日记")}</h3>
+                            <h3 className="font-black text-slate-500 uppercase text-xs mb-4">{tr("开局日记")}</h3>
                             <div className="space-y-4 relative">
                                 <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-slate-100"></div>
                                 {state.history.slice(0, 4).map((h, i) => (

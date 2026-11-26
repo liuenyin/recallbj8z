@@ -919,7 +919,13 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
             const j = Math.floor(Math.random() * (i + 1));
             [validIds[i], validIds[j]] = [validIds[j], validIds[i]];
         }
-        const guaranteed = ['w_sleep', HOMEWORK_ACTIVITY_ID, 'w_project_work', ...MO_TRAINING_IDS].filter(id => validIds.includes(id));
+        const guaranteed = [
+            'w_sleep',
+            HOMEWORK_ACTIVITY_ID,
+            'w_project_work',
+            ...MO_TRAINING_IDS,
+            ...(snapshot.competition === 'OI' ? ['w_luogu'] : [])
+        ].filter(id => validIds.includes(id));
         return Array.from(new Set([...guaranteed, ...validIds])).slice(0, 9);
     };
 
@@ -1364,8 +1370,9 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
         eventActionStateRef.current = prev;
         const oldState = prev;
         const choiceTags = choice.tags || [];
-        const isSleepChoice = choiceTags.includes('sleep') || /睡|梦|补觉/.test(choice.text);
-        const isRestChoice = isSleepChoice || choiceTags.includes('rest') || /休息|放松|躺平/.test(choice.text);
+        const explicitStudy = choiceTags.includes('study');
+        const isSleepChoice = choiceTags.includes('sleep') || (!explicitStudy && !/不睡|清醒/.test(choice.text) && /睡|梦|补觉/.test(choice.text));
+        const isRestChoice = isSleepChoice || choiceTags.includes('rest') || (!explicitStudy && !/不休息/.test(choice.text) && /休息|放松|躺平/.test(choice.text));
         const isHardWorkChoice = isStudyChoice(choice);
         let updates: Partial<GameState>;
         if (isHardWorkChoice && isStudyBlocked(prev)) {
@@ -1405,7 +1412,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
                 oiStats: scalePositiveOIStatDeltas(prev, updates.oiStats, getLearningMultiplier(prev)),
                 fatigue: actionFatigue + Math.max(4, Math.round(8 * difficulty.fatigueGainMultiplier * excitementFactor))
             };
-        } else if ((choiceTags.includes('sport') || /跑步|运动|体育|1000米|打球/.test(choice.text)) && updates.general) {
+        } else if ((choiceTags.includes('sport') || (!choiceTags.includes('social') && /跑步|运动|体育|1000米|打球/.test(choice.text))) && updates.general) {
             updates = { ...updates, general: scalePositiveGeneralDeltas(prev, updates.general, getLearningMultiplier(prev)) };
         }
         // Scaling an untouched stat group returns undefined; preserve its current value.
@@ -1436,7 +1443,7 @@ export const useGameLogic = (aiConfig?: AiConfig, accountId = 'guest', language:
         const entry: StoryEntry = {
             week: prev.week,
             phase: prev.phase,
-            eventTitle: prev.currentEvent?.title || '未知事件',
+            eventTitle: formatCampusText(prev.currentEvent?.title || '未知事件', prev.flags.relationship_name),
             choiceText: formatCampusText(choice.text, prev.flags.relationship_name),
             resultSummary: formatCampusText(rawResultSummary, prev.flags.relationship_name),
             timestamp: Date.now()

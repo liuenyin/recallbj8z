@@ -37,26 +37,26 @@ const ContestHistoryModal: React.FC<Props> = ({ state, onClose }) => {
                     ) : (
                         <div className="space-y-4">
                             {[...history].reverse().map((record, idx) => (
-                                <div key={`${record.name}-${record.date}-${idx}`} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-indigo-300 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow-inner ${hideDetails || record.ratingChange === 0 ? 'bg-indigo-50 text-indigo-600' : record.ratingChange > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                <div key={`${record.name}-${record.date}-${idx}`} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3 group hover:border-indigo-300 transition-colors">
+                                    <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                                        <div className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-xl font-bold shadow-inner ${hideDetails || record.ratingChange === 0 ? 'bg-indigo-50 text-indigo-600' : record.ratingChange > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                             <i className={`fas ${hideDetails ? 'fa-medal' : record.ratingChange === 0 ? 'fa-medal' : record.ratingChange > 0 ? 'fa-arrow-up' : 'fa-arrow-down'}`}></i>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-slate-800 text-lg group-hover:text-indigo-600 transition-colors">{tr(record.name)}</h4>
+                                        <div className="min-w-0">
+                                            <h4 className="font-bold text-slate-800 text-base md:text-lg truncate group-hover:text-indigo-600 transition-colors">{tr(record.name)}</h4>
                                             <p className="text-xs text-slate-500">
-                                                {tr("第 ")}{record.date} {tr("周 ")}{!hideDetails && record.rank && <span className="ml-2 font-bold text-yellow-600">{tr(record.rank)}</span>}
+                                                {tr("第 ")}{record.date} {tr("周 ")}{!hideDetails && record.rank && <span className="ml-2 font-bold text-yellow-700">{tr(record.rank)}</span>}
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-sm font-bold text-slate-400">
+                                    <div className="text-right shrink-0">
+                                        <div className="text-sm font-bold text-slate-500">
                                             {tr("成绩: ")}<span className="text-slate-700">{tr(hideDetails ? '·' : record.perf)}</span>
                                         </div>
                                         <div className={`text-lg font-black ${hideDetails || record.ratingChange === 0 ? 'text-indigo-500' : record.ratingChange > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                             {tr(hideDetails ? '已记录' : record.ratingChange === 0 ? '成绩记录' : `${record.ratingChange > 0 ? '+' : ''}${record.ratingChange}`)}
                                         </div>
-                                        <div className="text-[10px] font-bold text-slate-400">
+                                        <div className="text-[10px] font-bold text-slate-500">
                                             {tr(hideDetails ? '详细数值已隐藏' : record.ratingChange === 0 ? '不影响当前 Rating' : `${'=>'} ${record.newRating}`)}
                                         </div>
                                     </div>

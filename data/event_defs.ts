@@ -103,6 +103,7 @@ export const BASE_EVENTS: Record<string, GameEvent> = {
         title: '债主上门',
         description: '因为你的负债过高，几个高大的学生拦住了你的去路...',
         type: 'negative',
+        triggerType: 'RANDOM',
         choices: [
             { 
                 text: '还钱 (金钱归零)', 

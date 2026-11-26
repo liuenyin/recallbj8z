@@ -73,8 +73,8 @@ export const TALENTS: Talent[] = [
 
 // --- Shop Items ---
 export const SHOP_ITEMS: Item[] = [
-    { id: 'red_bull', name: '功能性提神饮', description: '高强度突击：效率+5、兴奋+25，但疲劳+10、健康-2。', price: 150, icon: 'fa-bolt',
-      effect: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 5, health: s.general.health - 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 25) }, fatigue: Math.min(100, s.fatigue + 10) }) },
+    { id: 'red_bull', name: '功能性提神饮', description: '高强度突击：效率+2.5、兴奋+18，但疲劳+8、健康-2。', price: 38, icon: 'fa-bolt',
+      effect: (s) => ({ general: { ...s.general, efficiency: s.general.efficiency + 2.5, health: s.general.health - 2, excitement: Math.min(100, (s.general.excitement ?? 0) + 18) }, fatigue: Math.min(100, s.fatigue + 8) }) },
     { id: 'coffee', name: '瑞幸生椰拿铁', description: '温和提神：心态+3，效率+0.5，疲劳+2。', price: 20, icon: 'fa-coffee',
       effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 3, efficiency: s.general.efficiency + 0.5 }, fatigue: Math.min(100, s.fatigue + 2) }) },
     { id: 'five_three', name: '五年高考三年模拟', description: '全科水平+0.5，心态-8。', price: 45, icon: 'fa-book',
@@ -82,19 +82,19 @@ export const SHOP_ITEMS: Item[] = [
           subjects: modifySub(s, ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics'], 0.5),
           general: { ...s.general, mindset: s.general.mindset - 8 }
       }) },
-    { id: 'game_skin', name: '限定游戏皮肤', description: '虽然不能变强，但心情变好了。心态+8。', price: 68, icon: 'fa-gamepad',
-      effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 8 } }) },
-    { id: 'flowers', name: '鲜花', description: '认识TA后可以送花。', price: 50, icon: 'fa-fan',
+    { id: 'game_skin', name: '限定游戏皮肤', description: '虽然不能变强，但心情好了不少。心态+12、兴奋+10。', price: 68, icon: 'fa-gamepad',
+      effect: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 12, excitement: Math.min(100, (s.general.excitement ?? 0) + 10) } }) },
+    { id: 'flowers', name: '鲜花', description: '魅力+5；认识TA后购买可提升好感，交往中额外恢复心态。', price: 38, icon: 'fa-fan',
       effect: (s) => ({
           general: { ...s.general, romance: s.general.romance + 5, mindset: s.general.mindset + (s.romancePartner ? 8 : 0) },
           flags: s.flags.romance_met || s.romancePartner ? { ...s.flags, ta_favorability: Number(s.flags.ta_favorability || 0) + 6 } : s.flags
       }) },
     { id: 'algo_book', name: '算法导论', description: '厚得可以当枕头。OI能力全面+2。', price: 80, icon: 'fa-code',
       effect: (s) => ({ oiStats: modifyOI(s, { dp: 2, ds: 2, math: 2, graph: 2, string: 2, misc: 2 }) }) },
-    { id: 'luogu_book', name: '深入浅出程序设计竞赛', description: 'kkk亲签？', price: 56, icon: 'fa-code',
+    { id: 'luogu_book', name: '深入浅出程序设计竞赛', description: '经典算法入门与进阶读本，OI能力全面提升（偏数据结构与数学）。', price: 56, icon: 'fa-code',
       effect: (s) => ({ oiStats: modifyOI(s, { dp: 1, ds: 2, math: 2, graph: 1, string: 1, misc: 1 }) }) },
-    { id: 'gym_card', name: '健身卡', description: '强身健体。健康+15。', price: 100, icon: 'fa-dumbbell',
-      effect: (s) => ({ general: { ...s.general, health: s.general.health + 15 } }) }
+    { id: 'gym_card', name: '健身卡', description: '强身健体，规律锻炼。健康+14、疲劳-4。', price: 65, icon: 'fa-dumbbell',
+      effect: (s) => ({ general: { ...s.general, health: s.general.health + 14 }, fatigue: Math.max(0, s.fatigue - 4) }) }
 ];
 
 // --- Achievements ---
@@ -106,7 +106,7 @@ export const ACHIEVEMENTS: Record<string, Achievement> = {
     'survival': { id: 'survival', title: '极限生存', description: '在高一上半学期后半段健康低于10仍继续游戏。', icon: 'fa-notes-medical', rarity: 'rare' },
     'rich': { id: 'rich', title: '小金库', description: '持有金钱超过200。', icon: 'fa-coins', rarity: 'common' },
     'in_debt': { id: 'in_debt', title: '负债累累', description: '负债超过250。', icon: 'fa-file-invoice-dollar', rarity: 'common' },
-    'top_rank': { id: 'top_rank', title: '一览众山小', description: '年级第一！（真的能实现！LA群里有人成功了！）', icon: 'fa-crown', rarity: 'legendary' },
+    'top_rank': { id: 'top_rank', title: '一览众山小', description: '在文化课考试中取得年级第一。', icon: 'fa-crown', rarity: 'legendary' },
     'bottom_rank': { id: 'bottom_rank', title: '旷世奇才', description: '倒数第一，也是神人。', icon: 'fa-poop', rarity: 'rare' },
     'sleep_god': { id: 'sleep_god', title: '睡神', description: '天天睡觉还考这么高，羡慕了。', icon: 'fa-bed', rarity: 'legendary' },
     'nice_person': { id: 'nice_person', title: '体面边界', description: '认真面对感情与边界（收到好人卡或体面约定做朋友）。', icon: 'fa-heart-broken', rarity: 'rare' },
@@ -475,9 +475,8 @@ WEEKEND_ACTIVITIES.push({
         const baseRating = s.oiStats?.rating ?? 1200;
         const totalAptitude = s.oiStats ? (s.oiStats.dp + s.oiStats.ds + s.oiStats.math + s.oiStats.string + s.oiStats.graph + s.oiStats.misc) : 0;
 
-        // Rating formula: slower growth, higher variance
-        // totalAptitude ranges 0-600, maps to perf 1200-2100 (was 1200-2700)
-        const expectedPerf = 1200 + (totalAptitude * 1.5);
+        // Rating formula: maps realistic yearly totalAptitude (0-300) into Pupil..CM range (1200-1950)
+        const expectedPerf = 1200 + Math.min(1000, totalAptitude * 2.5);
         const perf = Math.floor(expectedPerf + (Math.random() * 500 - 250));
 
         // Slower rating change (divisor 6 instead of 4)

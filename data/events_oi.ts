@@ -10,7 +10,7 @@ export const OI_EVENTS: GameEvent[] = [
     {
         id: 'oi_wc_invite',
         title: 'NOIWC 冬令营邀请',
-        description: '你的 CSP-S 成绩超过 280 分，收到了 NOI 冬令营的报名通知。去不去，要自己安排时间和费用。',
+        description: '你的 CSP-S 成绩超过 280 分，收到了 NOI 冬令营的报名通知。去不去，要自己安排好假期时间。',
         type: 'positive',
         once: true,
         triggerType: 'FIXED',
@@ -51,7 +51,7 @@ export const OI_EVENTS: GameEvent[] = [
                 })
             },
             {
-                text: '我感觉希望渺茫，专心搞文化课吧',
+                text: '退出信息竞赛，专心搞文化课',
                 action: (s) => ({
                     competition: 'None',
                     general: { ...s.general, efficiency: s.general.efficiency + 10, mindset: s.general.mindset - 20 }
@@ -144,12 +144,12 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                 action: (s) => {
                     const score = s.flags.wc_score || 0;
                     let msg = '';
-                    if (score >= 420) { msg = '这次发挥很好，成绩达到冬令营前列。'; }
-                    else if (score >= 300) { msg = '成绩还算稳，几道题的失分原因已经很清楚。'; }
+                    if (score >= 190) { msg = '这次发挥很好，成绩达到冬令营前列。'; }
+                    else if (score >= 135) { msg = '成绩还算稳，几道题的失分原因已经很清楚。'; }
                     else { msg = '题目比平时训练难不少。这次主要是来认识差距，回去还得补题。'; }
                     return {
                         general: { ...s.general, mindset: s.general.mindset + 20, experience: s.general.experience + 30 },
-                        log: [...s.log, { message: msg, type: score >= 420 ? 'success' : score >= 300 ? 'info' : 'warning', timestamp: Date.now() }]
+                        log: [...s.log, { message: msg, type: score >= 190 ? 'success' : score >= 135 ? 'info' : 'warning', timestamp: Date.now() }]
                     };
                 }
             }
@@ -184,10 +184,9 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                     // Provincial lines vary by year. Treat a borderline score as
                     // uncertain instead of making one low cutoff universal.
                     let madeTeam = false;
-                    if (score >= 430) madeTeam = true;
-                    else if (score >= 340) madeTeam = Math.random() < 0.6;
-                    else if (score >= 260) madeTeam = Math.random() < 0.2;
-                    else madeTeam = Math.random() < 0.05;
+                    if (score >= 380) madeTeam = true;
+                    else if (score >= 310) madeTeam = Math.random() < 0.6;
+                    else if (score >= 240) madeTeam = Math.random() < 0.2;
                     
                     if (madeTeam) {
                         return {
@@ -232,8 +231,8 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                 action: (s) => {
                     const score = s.flags.apio_score || 0;
                     let msg = '';
-                    if (score >= 420) { msg = '这次成绩达到 APIO 前列。'; }
-                    else if (score >= 300) { msg = '成绩不错，至少有几道题完整做出了。'; }
+                    if (score >= 195) { msg = '这次成绩达到 APIO 前列。'; }
+                    else if (score >= 135) { msg = '成绩不错，至少有几道题完整做出了。'; }
                     else { msg = '分数不高，但你知道自己在哪些题型上还不熟。'; }
                     return {
                         general: { ...s.general, experience: s.general.experience + 15 },
@@ -312,19 +311,19 @@ export const OI_EVENTS_POOL: GameEvent[] = [
                 action: (s) => {
                     const score = s.flags.noi_score || 0;
                     let msg = '';
-                    if (score >= 600) {
+                    if (score >= 530) {
                         msg = '你拿到了 NOI 金牌，成绩进入国家集训队选拔范围。';
-                    } else if (score >= 450) {
+                    } else if (score >= 400) {
                         msg = '你拿到了 NOI 银牌，获得了后续强基计划的竞争机会。';
-                    } else if (score >= 300) {
+                    } else if (score >= 280) {
                         msg = '你拿到了 NOI 铜牌，至少把这段省队经历完整走完了。';
                     } else {
                         msg = '你参加完了 NOI，但分数没有达到奖牌线。回去后要不要继续写题，再慢慢决定。';
                     }
                     return {
                         general: { ...s.general, mindset: s.general.mindset + 100 },
-                        flags: { ...s.flags, noi_medal: score >= 600 ? 'GOLD' : (score >= 450 ? 'SILVER' : (score >= 300 ? 'BRONZE' : 'PARTICIPANT')) },
-                        log: [...s.log, { message: msg, type: score >= 600 ? 'success' : 'info', timestamp: Date.now() }]
+                        flags: { ...s.flags, noi_medal: score >= 530 ? 'GOLD' : (score >= 400 ? 'SILVER' : (score >= 280 ? 'BRONZE' : 'PARTICIPANT')) },
+                        log: [...s.log, { message: msg, type: score >= 530 ? 'success' : 'info', timestamp: Date.now() }]
                     };
                 }
             }

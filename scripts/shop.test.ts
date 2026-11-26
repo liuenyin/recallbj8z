@@ -11,6 +11,8 @@ test('shop effects do not charge money themselves', () => {
 });
 
 test('shop lists the expected starting prices', () => {
-  assert.match(shopSource, /id: 'red_bull'[\s\S]*?price:\s*150/);
+  assert.match(shopSource, /id: 'red_bull'[\s\S]*?price:\s*38/);
   assert.match(shopSource, /id: 'coffee'[\s\S]*?price:\s*20/);
+  assert.match(shopSource, /id: 'flowers'[\s\S]*?price:\s*38/);
+  assert.match(shopSource, /id: 'gym_card'[\s\S]*?price:\s*65/);
 });

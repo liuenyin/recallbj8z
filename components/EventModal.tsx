@@ -102,8 +102,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
     const studyBlocked = isStudyBlocked(state);
     const innerWhisper = !eventResult ? getInnerWhisper(state) : null;
     const resultTone = eventResult ? getResultTone(eventResult.diff) : null;
-    const illustration = getEventIllustration(event, state.phase);
-    const isSpotIllustration = illustration?.kind === 'spot';
+    const illustration = getEventIllustration(event, state);
 
     useEffect(() => {
         if (paused) return;
@@ -149,31 +148,19 @@ const EventModal: React.FC<EventModalProps> = ({ event, state, eventResult, onCh
                   <div className="p-5 md:p-9">
                   {!eventResult ? (
                     <div>
-                      {illustration?.kind === 'scene' && (
+                      {illustration && (
                         <img
-                            src={illustration.src}
+                            src={illustration}
                             alt=""
                             width={600}
                             height={400}
                             decoding="async"
-                            className="mb-4 aspect-[16/9] max-h-40 sm:max-h-52 w-full rounded-2xl object-cover border border-slate-100"
+                            className="mb-4 aspect-[16/9] max-h-40 sm:max-h-60 w-full rounded-2xl object-cover object-center bg-slate-100 border border-slate-100"
                         />
                       )}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                          <div className={`min-w-0 flex-1 ${isSpotIllustration ? 'self-center' : 'flex items-start justify-between gap-3'}`}>
-                              <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{tr(formatStoryText(event.title))}</h2>
-                              {state.eventQueue.length > 0 && <span className="block mt-1 shrink-0 whitespace-nowrap text-xs text-slate-500">{tr("还有 ")}{state.eventQueue.length} {tr("件事")}</span>}
-                          </div>
-                          {isSpotIllustration && illustration && (
-                            <img
-                                src={illustration.src}
-                                alt=""
-                                width={144}
-                                height={96}
-                                decoding="async"
-                                className="aspect-[3/2] h-auto w-24 shrink-0 object-contain sm:w-36"
-                            />
-                          )}
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                          <h2 className="min-w-0 text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{tr(formatStoryText(event.title))}</h2>
+                          {state.eventQueue.length > 0 && <span className="mt-1 shrink-0 whitespace-nowrap text-xs text-slate-500">{tr("还有 ")}{state.eventQueue.length} {tr("件事")}</span>}
                       </div>
 
                       <p className="text-slate-700 mb-5 text-base md:text-lg leading-relaxed font-medium">

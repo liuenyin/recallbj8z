@@ -2,7 +2,7 @@ import { GameState, Phase, SubjectKey } from '../types';
 import { CLUBS } from './mechanics';
 import { isHealthFatal } from './utils';
 import { getAcademicExamPhase } from './game_flow';
-import { getMoResult } from './mo_competition';
+import { getMoLeagueAward, getMoResult } from './mo_competition';
 import { RIVAL_NICKNAME, FESTIVAL_PARTNER_NICKNAME } from './campus_names';
 
 export interface EndingCatalogEntry {
@@ -13,9 +13,9 @@ export interface EndingCatalogEntry {
 }
 
 export const ENDING_CATALOG: EndingCatalogEntry[] = [
-    { title: 'NOI 金牌选手（国集相关机会）', rank: 'SSS', category: 'OI', hint: '进入 OI 省队后，在 NOI 全国赛拿下 600 分以上。' },
-    { title: '强基破格入围者', rank: 'SS', category: 'OI', hint: '进入 OI 省队并在 NOI 全国赛取得银牌线成绩（450–599）。' },
-    { title: '省队巨佬', rank: 'S', category: 'OI', hint: '通过联合省选进入省队，或在 NOI 拿到铜牌及以上名次。' },
+    { title: 'NOI 金牌选手（国集相关机会）', rank: 'SSS', category: 'OI', hint: '进入 OI 省队后，在 NOI 全国赛拿下 530 分以上（700 分制）。' },
+    { title: '强基破格入围者', rank: 'SS', category: 'OI', hint: '进入 OI 省队并在 NOI 全国赛取得银牌线成绩（400–529 / 700）。' },
+    { title: '省队巨佬', rank: 'S', category: 'OI', hint: '通过联合省选进入省队，或在 NOI 拿到铜牌及以上名次（280 分以上）。' },
     { title: 'NOI 参赛者', rank: 'A/B', category: 'OI', hint: '走完省队与 NOI 赛程（未进奖牌线且常规路径未达省队认证）。' },
     { title: 'OI 命题与竞赛实践者', rank: 'S/A/B', category: 'OI', hint: '加入 OI 出题组并完成公开赛出题与新生赛后续邀约。' },
     { title: 'OI 出题实践者', rank: 'A/B', category: 'OI', hint: '加入 OI 出题组并起草题面（公开赛或草稿均可）。' },
@@ -160,9 +160,12 @@ export const getEndingData = (state: GameState) => {
            : '你把这道题放进了公开赛，赛后看了选手的提交。')
          : '你存下了题目草稿，写好了样例，还差几组边界数据。';
      } else if (state.competition === 'MO' && ((moLeague && state.flags.mo_league_award_announced) || legacyMoResult === 'medal')) {
-       rank = score >= 85 ? 'S' : 'A';
+       const moAward = getMoLeagueAward(state);
+       rank = moAward === '一等奖' || score >= 85 ? 'S' : 'A';
        title = '数学竞赛获奖者';
-       comment = '你在数学竞赛的获奖名单上找到了自己的考号。';
+       comment = moAward && moAward !== '已获奖'
+         ? `你在北京赛区高中数学联赛拿到了${moAward}。`
+         : '你在数学竞赛的获奖名单上找到了自己的考号。';
      } else if (score >= 90 && finalRankFraction <= 0.05) {
        rank = 'S';
        title = '年级学神';

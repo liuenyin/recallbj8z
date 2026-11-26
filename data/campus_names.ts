@@ -36,6 +36,7 @@ export const restoreRelationshipName = (name: unknown, profileId?: unknown): str
 };
 
 export const formatCampusText = (text: string, relationshipName?: string, oldRelationshipName?: string): string => {
+    if (typeof text !== 'string' || !text) return '';
     const replaced = text.replace(/林夏|沈知遥|陈默|许嘉禾|周竞|陈禾|哈基米|抢答机/g, name => explicitTextNames.get(name) ?? name);
     const name = relationshipName ? restoreRelationshipName(relationshipName) : '对方';
     let migrated = replaced;
@@ -45,5 +46,5 @@ export const formatCampusText = (text: string, relationshipName?: string, oldRel
             ? replaced.replace(new RegExp(`${oldRelationshipName}(?=在等|等你|朝你|向你|说话|笑着|发来|问你|对你说|向你招手)`, 'g'), name)
             : replaced.replaceAll(oldRelationshipName, name);
     }
-    return migrated.replace(/(?:L|S|C|X)同学/g, 'TA');
+    return migrated.replace(/(?<![A-Za-z0-9])(?:L|S|C|X)同学/g, 'TA');
 };

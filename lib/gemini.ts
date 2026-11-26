@@ -8,7 +8,7 @@ import {
   SubjectKey,
   SUBJECT_NAMES
 } from '../types';
-import { isWintryWeek } from '../data/game_flow';
+import { isWintryWeek, getPhaseLabel } from '../data/game_flow';
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
   enabled: false,
@@ -193,7 +193,7 @@ const sanitizeEffect = (raw: any): SerializableEffect => {
   }
 
   const subjects: Partial<Record<SubjectKey, number>> = {};
-  if (raw?.subjects && typeof raw.subjects === 'object') {
+  if (raw?.subjects && typeof raw.subjects === 'object' && !Array.isArray(raw.subjects)) {
     (Object.keys(SUBJECT_NAMES) as SubjectKey[]).forEach(key => {
       const value = toFiniteNumber(raw.subjects[key]);
       if (value !== undefined) subjects[key] = clamp(value, -5, 5);
@@ -202,7 +202,7 @@ const sanitizeEffect = (raw: any): SerializableEffect => {
   if (Object.keys(subjects).length > 0) effect.subjects = subjects;
 
   const oiStats: Partial<OIStats> = {};
-  if (raw?.oiStats && typeof raw.oiStats === 'object') {
+  if (raw?.oiStats && typeof raw.oiStats === 'object' && !Array.isArray(raw.oiStats)) {
     OI_EFFECT_KEYS.forEach(key => {
       const value = toFiniteNumber(raw.oiStats[key]);
       if (value !== undefined) (oiStats as any)[key] = clamp(value, -5, 5);
@@ -268,6 +268,7 @@ const buildPrompt = (state: GameState): string => {
   const statuses = state.activeStatuses.map(status => status.name).join('、') || '无';
     const hideDetails = state.difficulty === 'REALITY';
   const describe = (value: number, max: number) => {
+    if (value < 0) return '负债';
     const ratio = value / max;
     return ratio >= 0.8 ? '高' : ratio >= 0.6 ? '较高' : ratio >= 0.4 ? '一般' : ratio >= 0.2 ? '较低' : '低';
   };
@@ -277,11 +278,11 @@ const buildPrompt = (state: GameState): string => {
   const subjectLine = hideDetails
     ? (Object.entries(state.subjects) as [SubjectKey, { level: number }][]).map(([key, value]) => `${SUBJECT_NAMES[key]}:${describe(value.level, 100)}`).join('、')
     : subjects;
-  return `你是一个高中生活模拟游戏的事件编剧。玩家是北京八中高中部高一学生。
-校园设定：校内有信息学竞赛教练，外校课程用于补充训练；本局采用地下场馆设科技节展台的设定。没有交代的校规、场馆用途和活动日期不得当成全校统一规定。用同桌、社员、教练等称呼。恋爱和冲突角色沿用已有别称，新角色用代词或明显虚构的别称。
+  return `你是一个高中生活模拟游戏的事件编剧。玩家是北京八中高中部高一走读生。
+校园设定：校内有信息学竞赛教练，外校课程用于补充训练；本局采用地下场馆设科技节展台的设定。没有交代的校规、场馆用途和活动日期不得当成全校统一规定。不要写高二高三、大学或宿舍日常，也不要擅自设定“女朋友/男朋友”或替玩家确定恋爱关系。用同桌、社员、教练等称呼。恋爱和冲突角色沿用已有别称，新角色用代词或明显虚构的别称。
 路线要求：数竞写个人训练，正式联赛在 9 月。TA 的暗恋、表白和关系变化由游戏剧情处理，生成事件只写日常往来。
 日历要求：事件要符合下面的阶段。周一到周四晚有晚自习，周五晚由学生自行安排。寒暑假不要把日常上课和放学当成正在发生的事。当前周${isWintryWeek(state) ? '可以写下雪' : '不要写下雪'}。
-当前阶段：${state.phase}，第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : state.competition === 'MO' ? '数学竞赛（MO）' : '课内综合'}。
+当前阶段：${getPhaseLabel(state.phase)}（${state.phase}），第${state.week}周；路线：${state.competition === 'OI' ? 'OI竞赛' : state.competition === 'MO' ? '数学竞赛（MO）' : '课内综合'}。
 当前属性：${generalLine}。
 学科水平：${subjectLine}。
 当前状态：${statuses}。

@@ -302,7 +302,7 @@
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
     "title": "被队友带飞省选模拟",
-    "description": "跨校训练群组织了一场省选模拟，你只会暴力，临时队友是个强手直接 AC 了所有题，你躺赢到了前 10%。",
+    "description": "跨校训练群组织了一场组队模拟赛，你只会暴力，临时队友是个强手直接 AC 了所有题，你躺赢到了前 10%。",
     "type": "positive",
     "choices": [
       {
@@ -333,7 +333,7 @@
           "oi_misc": 4,
           "efficiency": 3
         },
-        "resultDescription": "你每天刷题到深夜，一个月后rating从1200冲到了1500。",
+        "resultDescription": "你每天刷题到深夜，一个月后模拟赛排名往前赶了一大截。",
         "tags": [
           "study"
         ]
@@ -827,8 +827,8 @@
     "phase": "SEMESTER_1",
     "cfRatingMin": 1200,
     "cfRatingMax": 1399,
-    "title": "CSP-S第一场爆零",
-    "description": "CSP-S第一轮，你因为紧张把所有代码都写错了一个括号，编译错误导致爆零。",
+    "title": "CSP-S 模拟赛爆零",
+    "description": "CSP-S 模拟赛上，你因为紧张把代码括号漏改了一处，编译错误导致爆零。",
     "type": "negative",
     "choices": [
       {
@@ -1121,7 +1121,7 @@
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "CSP-S考前自信爆棚",
-    "description": "模拟赛你发挥不错，连续几场都切了前两题，觉得自己CSP-S拿省一有望。你开始幻想自己在考场上大杀四方。",
+    "description": "模拟赛你发挥不错，连续几场都切了前两题，开始觉得自己拿高分有望，心里已经畅想起来。",
     "type": "positive",
     "choices": [
       {
@@ -1131,7 +1131,7 @@
           "experience": 5,
           "health": 3
         },
-        "resultDescription": "你继续按计划刷真题，稳扎稳打。考场上心态平和，正常发挥，最后拿到了不错的分数。"
+        "resultDescription": "你继续按计划刷真题，稳扎稳打。在后续测试里心态平和，正常发挥，拿到了不错的分数。"
       },
       {
         "text": "骄傲自满，刷题量骤减",
@@ -1140,16 +1140,16 @@
           "experience": -5,
           "efficiency": -3
         },
-        "resultDescription": "你觉得自己稳了，开始摸鱼聊天。结果考场上遇到两道新题全都无从下手，最后只拿了省三，懊悔不已。"
+        "resultDescription": "你觉得自己稳了，开始摸鱼聊天。结果模拟测遇到两道新题无从下手，最后分数垫底，懊悔不已。"
       },
       {
-        "text": "找老师要来历年省一分数线，制定保底策略",
+        "text": "找老师要来往年分数线，制定保底策略",
         "effect": {
           "oi_misc": 2,
           "mindset": 2,
           "luck": 3
         },
-        "resultDescription": "你分析分数线，发现自己第二题常犯小错误。于是加强检查习惯，最终虽然题目难，但凭借细心拿到了省一。",
+        "resultDescription": "你分析分数线，发现自己第二题常犯小错误。加强检查习惯后，虽然题目难，但还是拿稳了保底分。",
         "tags": [
           "study"
         ]
@@ -1205,18 +1205,18 @@
     "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
-    "title": "误被当成作弊",
-    "description": "期中考试结束后，你名字出现在作弊嫌疑名单上，理由是手机APP检测到你考试期间运行了代码编辑器。你明明没用，只打开了草稿纸。",
+    "title": "线上赛查重误报",
+    "description": "跨校线上模拟赛结束后，你的名字出现在代码查重预警名单里，理由是一段快读模板和另一位选手高度相似。",
     "type": "negative",
     "choices": [
       {
-        "text": "主动找班主任解释，并展示手机记录",
+        "text": "主动找教练说明模板来源，并附上提交记录",
         "effect": {
           "mindset": 10,
           "luck": 8,
           "experience": -2
         },
-        "resultDescription": "你心平气和地解释了那是昨晚打CF时打开的编辑器，后台进程残留。班主任查明后撤销处分，还夸你成熟。"
+        "resultDescription": "你把平时自己整理的代码模板和逐次提交记录发过去。教练核对后撤销了预警，还提醒你赛时注意注释区分。"
       },
       {
         "text": "沉默不语，自己消化委屈",
@@ -1225,15 +1225,15 @@
           "health": -5,
           "luck": -10
         },
-        "resultDescription": "你不说话，但心里很不舒服，影响了之后OI训练状态。后来成绩被扣了15分，你更抑郁了。"
+        "resultDescription": "你不说话，心里一直憋着委屈，影响了之后几天的 OI 训练状态。"
       },
       {
-        "text": "让家长出面跟学校交涉",
+        "text": "让训练群熟识的同学帮忙作证",
         "effect": {
           "mindset": -6,
           "experience": 2
         },
-        "resultDescription": "家长找来证明你手机确实有编程软件，但校方还是给了警告。虽然没有实质性惩罚，但你觉得很没面子。"
+        "resultDescription": "同学帮你说明你们赛前确实各自在写不同题，查重预警解除，但你还是觉得折腾了一趟很累。"
       }
     ]
   },
@@ -1280,8 +1280,8 @@
     "phase": "SEMESTER_1",
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
-    "title": "预赛翻车现场",
-    "description": "NOIP初赛你觉得自己没问题，选择题和填空都写完了，结果对答案时发现逻辑题全错，可能连初赛都过不了。",
+    "title": "初赛模拟翻车",
+    "description": "CSP-S 第一轮模拟笔试你觉得自己没问题，选择和填空都写完了，结果对答案时发现阅读程序和逻辑题错了一大片。",
     "type": "negative",
     "choices": [
       {
@@ -1291,7 +1291,7 @@
           "mindset": 6,
           "health": -3
         },
-        "resultDescription": "你发现你掉进了命题陷阱，学会了“形式逻辑”题的套路。虽然初赛擦线过，但以后遇到类似题不会再错。",
+        "resultDescription": "你发现自己掉进了命题陷阱，学会了阅读程序和形式逻辑题的排查套路，后面写初赛题稳了不少。",
         "tags": [
           "study"
         ]
@@ -1303,16 +1303,16 @@
           "health": 3,
           "experience": -5
         },
-        "resultDescription": "你觉得自己凉了，干脆不复习。结果初赛过了别人都没过，但你的排名很低，省选没资格，后悔莫及。"
+        "resultDescription": "你觉得自己凉了，干脆放下卷子开始玩手机，结果后面再刷套卷依然卡在同一类题上。"
       },
       {
-        "text": "在群里找往年初赛成绩分布，算自己可能分数",
+        "text": "在群里找往年初赛分数分布，估一下自己的位置",
         "effect": {
           "luck": 3,
           "mindset": 2,
           "experience": 5
         },
-        "resultDescription": "你根据往年线估计自己可能能过，于是继续准备复赛。最后你初赛刚好过线2分，有惊无险。"
+        "resultDescription": "你对照往年线估了分，知道差在哪些题型后继续补短板，总算心里有底了。"
       }
     ]
   },
@@ -1502,7 +1502,7 @@
     "type": "neutral",
     "choices": [
       {
-        "text": "选择线下集训，面对面交流",
+        "text": "选择线下集训，面对面交流（8 元）",
         "effect": {
           "oi_misc": 2,
           "experience": 10,
@@ -1519,10 +1519,10 @@
         "effect": {
           "oi_dp": 2,
           "health": 5,
-          "money": 5,
+          "money": 0,
           "mindset": -2
         },
-        "resultDescription": "你在线听课，但自制力不强，经常走神。不过你利用了回放反复听难点，最终也学到了不少。",
+        "resultDescription": "你在线听课，虽然偶尔容易走神，但省下了路费，还能利用回放反复听难点。",
         "tags": [
           "study"
         ]
@@ -1595,17 +1595,17 @@
     "cfRatingMin": 1400,
     "cfRatingMax": 1599,
     "title": "赛后情绪波动",
-    "description": "CSP-S刚刚结束，你自我感觉尚可，但对了一下民间答案，发现第二题少判了一个边界条件，可能丢掉30分。你心神不宁。",
+    "description": "模拟赛刚刚结束，你自我感觉尚可，但对了一下解法，发现第二题少判了一个边界条件，可能丢掉 30 分，心里有些慌。",
     "type": "negative",
     "choices": [
       {
-        "text": "接受现实，开始准备NOIP",
+        "text": "接受现实，整理错因准备后面的比赛",
         "effect": {
           "mindset": 10,
           "experience": 5,
           "health": 3
         },
-        "resultDescription": "你很快调整心态，把精力放在NOIP复习上。后来成绩出来，你第二题只丢10分，依然拿到了省一。"
+        "resultDescription": "你很快调整心态，把失分点记进错题本，继续投入下一阶段复习。"
       },
       {
         "text": "反复看答案，懊悔不已",
@@ -1614,7 +1614,7 @@
           "health": -8,
           "efficiency": -2
         },
-        "resultDescription": "你连续两天都在纠结那个边界条件，导致没心思刷题。最后NOIP也受到心态影响，发挥失常。"
+        "resultDescription": "你连续两天都在纠结那个边界条件，没心思刷题，下一场测试也受了影响。"
       },
       {
         "text": "跟一起比赛的同学吐槽，互相安慰",
@@ -1762,7 +1762,7 @@
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "线段树懒标记大战",
-    "description": "你在写一道带区间加法和区间赋值的线段树题目，两个懒标记互相影响，你debug了很久还没过样例，室友喊你去吃饭。",
+    "description": "你在写一道带区间加法和区间赋值的线段树题目，两个懒标记互相影响，你debug了很久还没过样例，同桌喊你去吃饭。",
     "type": "negative",
     "choices": [
       {
@@ -2050,8 +2050,8 @@
     "phase": "SEMESTER_1",
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
-    "title": "CSP-S第三题博弈",
-    "description": "CSP-S赛场上，你遇到一道博弈论+DP的题目，样例过了，但自己构造的数据总是错，你开始怀疑dp转移方程。",
+    "title": "模拟赛第三题博弈",
+    "description": "模拟赛场上，你遇到一道博弈论+DP的题目，样例过了，但自己构造的数据总是错，你开始怀疑 DP 转移方程。",
     "type": "positive",
     "choices": [
       {
@@ -2061,7 +2061,7 @@
           "oi_dp": 2,
           "experience": 5
         },
-        "resultDescription": "你冷静下来，发现其实不是sg函数，而是min-max对抗搜索，推对了方程，最终AC，靠这题进了省一。",
+        "resultDescription": "你冷静下来，发现其实不是 SG 函数，而是 min-max 对抗搜索，推对了方程后顺利通过这题。",
         "tags": [
           "study"
         ]
@@ -2467,7 +2467,7 @@
     "cfRatingMin": 1600,
     "cfRatingMax": 1899,
     "title": "赛后虚脱狂补觉",
-    "description": "CSP-S第一天结束，你为了备战第二天，晚上喝了三杯咖啡强行刷题，结果躺在床上翻来覆去睡不着。",
+    "description": "两日集训模拟赛第一天结束，你为了备战第二天，晚上喝了三杯咖啡强行刷题，结果躺在床上翻来覆去睡不着。",
     "type": "negative",
     "choices": [
       {
@@ -2781,7 +2781,7 @@
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "紫题首杀纪念",
-    "description": "你盯了洛谷P3225（紫题）三天，终于用树形DP关掉了这道题。评测机绿了的一瞬间，你激动得想嚎叫，但旁边是正在自习的同学。",
+    "description": "你盯了一道树形 DP 紫题三天，终于理清转移并顺利通过。评测机全绿的一瞬间，你差点喊出声，但旁边是正在自习的同学。",
     "type": "positive",
     "choices": [
       {
@@ -3004,7 +3004,7 @@
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
     "title": "文化课与OI的修罗场",
-    "description": "期中考试后，你的数学物理成绩掉到了班级中游，班主任找你谈话，暗示你如果OI再不出成绩，就得退出竞赛班。你面临两难选择。",
+    "description": "期中考试后，你的数学物理成绩掉到了班级中游，班主任找你谈话，提醒你要平衡好文化课和竞赛训练。你面临两难选择。",
     "type": "negative",
     "choices": [
       {
@@ -3029,13 +3029,13 @@
         ]
       },
       {
-        "text": "先放文化课，全力冲NOIP",
+        "text": "先放文化课，全力冲春季省选",
         "effect": {
           "oi_misc": 3,
           "health": -10,
           "mindset": -5
         },
-        "resultDescription": "你每天刷题到凌晨，文化课成绩继续下滑，但OI水平突飞猛进，成功拿到省一等奖。",
+        "resultDescription": "你每天刷题到深夜，文化课成绩继续下滑，但 OI 水平突飞猛进，在省选模拟赛里冲进了前列。",
         "tags": [
           "study"
         ]
@@ -3229,8 +3229,8 @@
     "phase": "SEMESTER_1",
     "cfRatingMin": 1900,
     "cfRatingMax": 2099,
-    "title": "NOIP遇到原题了",
-    "description": "NOIP第一天第二题，你一看题目描述就蒙了——这不是你上周在洛谷刷过的黑题吗？连样例都一样！你心跳加速，握笔的手微微颤抖。",
+    "title": "模拟赛遇到原题了",
+    "description": "周末模拟赛第二题，你一看题目描述就蒙了——这不是你上周在洛谷刷过的黑题吗？连样例都一样！你心跳加速，握笔的手微微颤抖。",
     "type": "positive",
     "choices": [
       {
@@ -3240,7 +3240,7 @@
           "oi_ds": 2,
           "mindset": 5
         },
-        "resultDescription": "你凭借记忆写出正解，一遍AC，心里暗爽，下午的题也充满信心。",
+        "resultDescription": "你凭借记忆写出正解，一遍通过，心里暗爽，做后面的题也充满信心。",
         "tags": [
           "study"
         ]
@@ -3682,7 +3682,7 @@
           "mindset": 3,
           "efficiency": 2
         },
-        "resultDescription": "你调整心态准备下午的比赛，但心里始终有一根刺。"
+        "resultDescription": "你调整心态去准备接下来的训练，但心里始终留着一根刺。"
       },
       {
         "text": "怪评测机太慢",
@@ -3800,7 +3800,10 @@
           "health": -5,
           "efficiency": -3
         },
-        "resultDescription": "你被老师抓到第二次，直接叫家长，OI练习被禁止两周。"
+        "resultDescription": "你被老师抓到第二次，直接叫家长，这周也只好乖乖按时休息。",
+        "tags": [
+          "sleep"
+        ]
       },
       {
         "text": "找理由搪塞",
@@ -3862,19 +3865,19 @@
     "phase": "WINTER",
     "cfRatingMin": 0,
     "cfRatingMax": 1199,
-    "title": "女友约你出去玩",
-    "description": "周末女朋友约你去看电影，但你正卡在一道普及-的模拟题上，想AC了再去。",
+    "title": "朋友约你出门",
+    "description": "周末熟人约你去看电影，但你正卡在一道普及-的模拟题上，想 AC 了再去。",
     "type": "neutral",
     "choices": [
       {
-        "text": "先AC题再赴约",
+        "text": "先 AC 题再赴约",
         "effect": {
           "oi_misc": 4,
           "mindset": 2,
           "health": -3,
           "luck": -2
         },
-        "resultDescription": "你花了2小时AC了题，但迟到了，女友有点生气，不过你还是陪她看了后半场。",
+        "resultDescription": "你花了两小时 AC 了题，结果出门晚了半拍，只好赶着陪朋友看了后半场。",
         "tags": [
           "study"
         ]
@@ -3886,16 +3889,16 @@
           "efficiency": -2,
           "experience": -2
         },
-        "resultDescription": "你开心地看了电影，但回到宿舍发现那道题思路忘了，又要从头想。"
+        "resultDescription": "你开心地看了电影，但回到家打开电脑发现那道题的思路忘了，又要从头想。"
       },
       {
-        "text": "约女友一起看题",
+        "text": "约朋友先在麦当劳一起坐会儿看题",
         "effect": {
           "mindset": -3,
           "efficiency": -1,
           "oi_misc": 2
         },
-        "resultDescription": "女友陪你看了半小时代码，觉得无聊自己先走了，你既没AC又失了约会。",
+        "resultDescription": "朋友陪你看了半小时代码，觉得无聊先去逛街了，你既没 AC 又错过了电影。",
         "tags": [
           "study"
         ]
@@ -4035,7 +4038,7 @@
       {
         "text": "立即认错并转头",
         "effect": {
-          "mindset": 3,
+          "mindset": -3,
           "experience": -5,
           "luck": -2
         },
@@ -4209,16 +4212,16 @@
           "health": -10,
           "oi_misc": 2
         },
-        "resultDescription": "你完成了4道水题，但腰疼得第二天直不起来，去了医院花了200。",
+        "resultDescription": "你完成了 4 道水题，但腰疼得第二天直不起来，去校医室涂了药贴才缓过来。",
         "tags": [
           "study"
         ]
       },
       {
-        "text": "买靠垫和支架",
+        "text": "买靠垫和支架（30 元）",
         "effect": {
           "health": 5,
-          "money": -3
+          "money": -30
         },
         "resultDescription": "你花费30元买了靠垫，之后久坐情况有所改善，但被同学笑称“养生选手”。"
       }
@@ -4254,13 +4257,13 @@
         ]
       },
       {
-        "text": "给自己买个键盘奖励",
+        "text": "给自己买个新键帽奖励（8 元）",
         "effect": {
           "mindset": 4,
           "money": -8,
           "efficiency": 2
         },
-        "resultDescription": "你买了新机械键盘，打字快了，但被父母说乱花钱。"
+        "resultDescription": "你买了个好看的个性键帽换上，但被父母念叨了一句别乱花钱。"
       }
     ]
   }

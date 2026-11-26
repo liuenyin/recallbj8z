@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import type { GameState } from '../types.ts';
 import { getWeeklyEfficiency } from '../data/constants.ts';
 import { getMoLeagueAward, getMoResult, isMoAwardScore, scoreMoPaperOne, scoreMoPaperTwo, trainMo } from '../data/mo_competition.ts';
+import { evaluateOIProblemScore, getOIContestMaxScore, selectOIExamProblems } from '../data/oi_data.ts';
 import { ACTIVITY_REPEAT_MULTIPLIERS, getActivityRepeatMultiplier, getWeekendActivityFatigueDelta, clamp, getAcademicSubjectScore, getAcademicExamSubjectScore, getAcademicExamRank, getRealisticExamRank } from '../data/balance.ts';
 import { clearEveningStudySchedule, getEveningStudySlots, ALLOWED_SLOTS_MAP, BLOCKED_SLOTS_MAP } from '../data/timetable.ts';
 
@@ -134,4 +135,58 @@ test('staying up to play games increases fatigue instead of receiving rest recov
 test('weekend fatigue preview uses the same late-night penalty as execution', () => {
   assert.equal(getWeekendActivityFatigueDelta({ id: 'w_game_late', type: 'REST' }, 1, 1), 16);
   assert.equal(getWeekendActivityFatigueDelta({ id: 'w_sleep', type: 'REST' }, 1, 1), -35);
+});
+
+test('HARD and REALITY academic difficulty curves progress smoothly without placement inversion', () => {
+  const hardPlacement = getAcademicExamSubjectScore(
+    { phase: 'PLACEMENT_EXAM' as GameState['phase'], difficulty: 'HARD', subjects: { math: { aptitude: 80, level: 12 } } as GameState['subjects'] },
+    'math', 150, 10, 1
+  );
+  const realityPlacement = getAcademicExamSubjectScore(
+    { phase: 'PLACEMENT_EXAM' as GameState['phase'], difficulty: 'REALITY', subjects: { math: { aptitude: 70, level: 10 } } as GameState['subjects'] },
+    'math', 150, 7.2, 1
+  );
+  assert.ok(hardPlacement >= 105 && hardPlacement <= 125);
+  assert.ok(realityPlacement >= 100 && realityPlacement <= 120);
+  const realityMidterm2 = getAcademicExamSubjectScore(
+    { phase: 'MIDTERM_EXAM_2' as GameState['phase'], difficulty: 'REALITY', subjects: { math: { aptitude: 70, level: 30 } } as GameState['subjects'] },
+    'math', 150, 18, 1
+  );
+  const realityFinal1 = getAcademicExamSubjectScore(
+    { phase: 'FINAL_EXAM' as GameState['phase'], difficulty: 'REALITY', subjects: { math: { aptitude: 70, level: 30 } } as GameState['subjects'] },
+    'math', 150, 18, 1
+  );
+  assert.ok(realityMidterm2 < realityFinal1);
+});
+
+test('OI contests match realistic problem counts, max totals, and 5-pt/2-pt score steps', () => {
+  const expected: Array<[GameState['phase'], number, number]> = [
+    ['CSP_EXAM' as GameState['phase'], 4, 400],
+    ['NOIP_EXAM' as GameState['phase'], 4, 400],
+    ['WC_EXAM' as GameState['phase'], 3, 300],
+    ['PROVINCIAL_EXAM' as GameState['phase'], 6, 600],
+    ['APIO_EXAM' as GameState['phase'], 3, 300],
+    ['NOI_EXAM' as GameState['phase'], 7, 700]
+  ];
+  const steady = () => 0.5;
+  const nerdOnly = { dp: 5, ds: 5, math: 5, string: 5, graph: 5, misc: 10 };
+  const topOi = { dp: 28, ds: 25, math: 25, string: 14, graph: 22, misc: 22 };
+  const mathStats = { aptitude: 80, level: 25 };
+
+  for (const [phase, count, maxTotal] of expected) {
+    const problems = selectOIExamProblems(phase, steady);
+    assert.equal(problems.length, count, phase);
+    assert.equal(getOIContestMaxScore(phase), maxTotal, phase);
+    for (const prob of problems) {
+      const score = evaluateOIProblemScore(phase, prob, topOi, mathStats, 30, 1, steady);
+      assert.ok(score >= 0 && score <= 100);
+      assert.equal(score % (prob.isWritten ? 2 : 5), 0, `${phase} ${prob.name}=${score}`);
+    }
+  }
+  const wcNerdTotal = selectOIExamProblems('WC_EXAM' as GameState['phase'], steady)
+    .reduce((sum, p) => sum + evaluateOIProblemScore('WC_EXAM' as GameState['phase'], p, nerdOnly, { aptitude: 80, level: 15 }, 10, 1, steady), 0);
+  const apioTopTotal = selectOIExamProblems('APIO_EXAM' as GameState['phase'], steady)
+    .reduce((sum, p) => sum + evaluateOIProblemScore('APIO_EXAM' as GameState['phase'], p, topOi, mathStats, 30, 1, steady), 0);
+  assert.ok(wcNerdTotal < 135, `untrained oi_nerd should not reach WC silver/gold (${wcNerdTotal})`);
+  assert.ok(apioTopTotal <= 300 && apioTopTotal >= 200, `top OIer APIO expected 200..300 (${apioTopTotal})`);
 });

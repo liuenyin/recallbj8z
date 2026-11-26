@@ -51,14 +51,14 @@ const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ config, onSave, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-6" onClick={onClose}>
-      <div className="bg-white rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl" onClick={event => event.stopPropagation()}>
+    <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-6" onClick={onClose} role="dialog" aria-modal="true" aria-label={tr("AI 事件模式")}>
+      <div className="bg-white rounded-3xl p-6 md:p-8 max-w-xl w-full max-h-[90dvh] overflow-y-auto custom-scroll shadow-2xl" onClick={event => event.stopPropagation()}>
         <div className="flex justify-between items-start gap-4 border-b border-slate-100 pb-4 mb-6">
           <div>
             <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><i className="fas fa-robot text-indigo-500"></i> {tr("AI 事件模式")}</h2>
             <p className="text-xs text-slate-500 mt-1">{tr("使用 OpenAI 兼容的 Chat Completions 接口生成本周事件。")}</p>
           </div>
-          <button type="button" onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500" title={tr("关闭")}>
+          <button type="button" onClick={onClose} aria-label={tr("关闭")} className="w-9 h-9 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500" title={tr("关闭")}>
             <i className="fas fa-times"></i>
           </button>
         </div>
@@ -75,7 +75,7 @@ const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ config, onSave, onClo
           <label className="block">
             <span className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{tr("API 地址")}</span>
             <input value={draft.apiUrl} onChange={event => update('apiUrl', event.target.value)} placeholder="https://api.deepseek.com/chat/completions" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
-            <span className="block text-[11px] text-slate-400 mt-1">{tr("可填完整的 `/chat/completions` 地址，也可填服务根地址。")}</span>
+            <span className="block text-[11px] text-slate-500 mt-1">{tr("可填完整的 `/chat/completions` 地址，也可填服务根地址。")}</span>
           </label>
 
           <label className="block">

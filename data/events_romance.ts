@@ -171,7 +171,7 @@ export const ROMANCE_EVENTS: GameEvent[] = [
             },
             {
                 text: '去买两杯热奶茶（30 元）',
-                condition: (s) => s.general.money > 30,
+                condition: (s) => s.general.money >= 30,
                 resultDescription: 'TA接过杯子，问了你口味，下次出门也给你带一杯。',
                 action: (s) => ({
                     general: { ...s.general, mindset: s.general.mindset + 15, health: s.general.health + 5, money: s.general.money - 30, efficiency: s.general.efficiency + 1, romance: s.general.romance + 5 },

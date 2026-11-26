@@ -32,8 +32,12 @@ const CHALLENGE_SLEEP_CHOICE: EventChoice = {
 
 // Apply at display time too: generated and historical events are not in PHASE_EVENTS.
 export const withChallengeSleep = (event: GameEvent): GameEvent => {
-    if (event.allowChallengeSleep === false || event.choices?.some(c => /睡|梦/.test(c.text) && !c.condition) ||
-        event.choices?.some(c => c.text === CHALLENGE_SLEEP_CHOICE.text)) return event;
+    const offersSleep = event.choices?.some(choice =>
+        choice.text === CHALLENGE_SLEEP_CHOICE.text ||
+        (!choice.condition && (choice.tags?.includes('sleep') ||
+            (!choice.tags?.includes('study') && !/不睡|清醒/.test(choice.text) && /睡|梦/.test(choice.text))))
+    );
+    if (event.allowChallengeSleep === false || offersSleep) return event;
     return { ...event, choices: [...(event.choices || []), CHALLENGE_SLEEP_CHOICE] };
 };
 const injectSleep = (events: GameEvent[]): GameEvent[] => events.map(withChallengeSleep);
@@ -42,7 +46,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_goal_selection',
         title: '暑假的抉择',
-        description: '录取通知书到了。家长把两张报名表递给你。“信竞（OI）用编程解题，数竞（MO）做竞赛数学题，还要把证明写清楚。两项暑假准备都是八周，你也可以先按自己的节奏准备开学。”',
+        description: '录取通知书到了。家长把两张报名表递给你。“信竞（OI）用编程解题，数竞（MO）做竞赛数学题并写清证明。报这两项竞赛会有 8 周暑假训练，开学后还有额外竞赛或联赛，占用部分周末；不报竞赛（专注课内或先补觉）则 3 周后较快入校。”',
         type: 'neutral',
         once: true,
         triggerType: 'FIXED',
@@ -101,7 +105,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
             { 
-                text: '买点吃的',
+                text: '买点吃的（2 元）',
                 action: (s) => ({ 
                     general: { ...s.general, money: s.general.money - 2, experience: s.general.experience + 2, romance: s.general.romance + 1 } 
                 }) 
@@ -143,7 +147,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         type: 'neutral',
         triggerType: 'RANDOM',
         choices: [
-            { text: '报名衔接班', action: (s) => ({ subjects: modifySub(s, ['math', 'physics', 'chemistry', 'english'], 2), general: { ...s.general, money: s.general.money - 5, experience: s.general.experience + 4, mindset: s.general.mindset - 1 } }) },
+            { text: '报名衔接班（5 元）', action: (s) => ({ subjects: modifySub(s, ['math', 'physics', 'chemistry', 'english'], 2), general: { ...s.general, money: s.general.money - 5, experience: s.general.experience + 4, mindset: s.general.mindset - 1 } }) },
             { text: '在家自学', action: (s) => {
                     if (s.general.efficiency > 11) {
                         return { subjects: modifySub(s, ['math', 'physics'], 2), general: { ...s.general, experience: s.general.experience + 3, mindset: s.general.mindset + 2 } };
@@ -165,7 +169,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
     {
         id: 'sum_math_bridge',
         title: '暑期数学衔接班',
-        description: 'woc，我咋不知道我还要上数学课？',
+        description: '暑假还没正式开学，家里就先给你排了一节数学衔接课。',
         type: 'neutral',
         triggerType: 'RANDOM',
         choices: [
@@ -256,7 +260,7 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         type: 'negative',
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
-            { text: '空调续命', action: (s) => ({ general: { ...s.general, money: s.general.money - 5, health: s.general.health + 2 } }) },
+            { text: '空调续命（5 元）', action: (s) => ({ general: { ...s.general, money: s.general.money - 5, health: s.general.health + 2 } }) },
             { text: '心静自然凉', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset + 5, health: s.general.health - 5 } }) }
         ]
     },
@@ -267,11 +271,11 @@ const SUMMER_EVENTS_RAW: GameEvent[] = [
         type: 'neutral',
         triggerType: 'RANDOM', // Set as RANDOM
         choices: [
-            { text: '忍痛付款', action: (s) => ({ general: { ...s.general, money: s.general.money - 20, mindset: s.general.mindset -1 } }) },
+            { text: '忍痛付款（18 元）', action: (s) => ({ general: { ...s.general, money: s.general.money - 18, mindset: s.general.mindset -1 } }) },
             { text: '默默放回', action: (s) => ({ general: { ...s.general, mindset: s.general.mindset - 4 } }) },
             {
-                text: '【家里有矿】多拿两根顺手分给身边同学',
-                condition: (s) => s.talents.some(t => t.id === 'rich_kid') && s.general.money >= 50,
+                text: '【家里有矿】多拿两根顺手分给身边同学（35 元）',
+                condition: (s) => s.talents.some(t => t.id === 'rich_kid') && s.general.money >= 35,
                 resultDescription: '你刷卡结账，把多出来的两根分给一起走出来的同学，一路边聊边回家。',
                 action: (s) => ({ general: { ...s.general, money: s.general.money - 35, romance: s.general.romance + 4, mindset: s.general.mindset + 6 } })
             }
@@ -538,12 +542,24 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     {
         id: 'oi_temple_visit',
         title: '赛前迷信',
-        description: 'CSP考试前，你打算换一个绿色的壁纸，甚至想去孔庙拜拜。',
-        condition: (s) => s.competition === 'OI' && s.week < 10,
+        description: 'CSP-S 临近，机房里有人把电脑桌面换成了代表 AC 的绿色壁纸，也有同学约你周末顺路去孔庙门口求张祈福牌图个安心。',
+        condition: (s) => s.competition === 'OI' && s.phase === Phase.SEMESTER_1 && s.week < 7 && !s.triggeredEvents.includes('csp_exam_trigger'),
         once: true,
         type: 'neutral',
         triggerType: 'RANDOM',
-        choices: [{ text: '求个好运', action: (s) => ({ general: { ...s.general, luck: s.general.luck + 15, money: s.general.money - 5 } }) }]
+        choices: [
+            {
+                text: '去孔庙门口求张祈福牌（5 元）',
+                resultDescription: '你挑了张印着“顺利通过”的小木牌挂在廊下，心里踏实了一点。',
+                action: (s) => ({ general: { ...s.general, luck: s.general.luck + 15, money: s.general.money - 5 } })
+            },
+            {
+                text: '换上绿色壁纸，回机房再刷两道题',
+                tags: ['study'],
+                resultDescription: '你把桌面换成绿色图个吉利，顺手把去年 CSP-S 的几道模拟题又过了一遍。',
+                action: (s) => ({ general: { ...s.general, luck: s.general.luck + 5, mindset: s.general.mindset + 3 }, oiStats: modifyOI(s, { misc: 1 }) })
+            }
+        ]
     },
     {
         id: 's1_library',
@@ -574,15 +590,30 @@ const SEMESTER_1_EVENTS_RAW: GameEvent[] = [
     },
     {
         id: 'evt_sport_meet',
-        title: '神秘体育场运动会',
-        description: '你发现，堵车时自己下去走真的比在车上呆着快一些。',
+        title: '秋季运动会',
+        description: '十月的田径场上挂起了各班的班旗，广播里循环念着检录通知。上午刚比完短跑预赛，下午还有长跑和接力。',
+        condition: (s) => s.phase === Phase.SEMESTER_1 && s.week >= 4 && s.week <= 8,
         triggerType: 'RANDOM',
         once: true,
         type: 'positive',
         choices: [
-            { text: '报名1000米', action: (s) => ({ general: { ...s.general, health: s.general.health + 1, mindset: s.general.mindset + 2 } }) },
-            { text: '好困好困，睡一觉', action: (s) => ({ general: { ...s.general, health: s.general.health + 3 } , sleepCount: (s.sleepCount || 0) + 1}) },
-            { text: '写加油稿（我真的不会写）', action: (s) => ({ subjects: modifySub(s, ['chinese'], 1), general: { ...s.general, mindset: s.general.mindset + 2 } }) }
+            {
+                text: '报名1000米',
+                tags: ['sport'],
+                resultDescription: '你跑完两圈半回到看台，同学立刻递过来一瓶矿泉水。',
+                action: (s) => ({ general: { ...s.general, health: s.general.health + 1, mindset: s.general.mindset + 2 } })
+            },
+            {
+                text: '在看台角落眯一会儿',
+                tags: ['sleep'],
+                resultDescription: '广播声混着操场上的呐喊成了背景音，你靠在书包上踏实歇了半小时。',
+                action: (s) => ({ general: { ...s.general, health: s.general.health + 3 }, sleepCount: (s.sleepCount || 0) + 1 })
+            },
+            {
+                text: '坐在看台写加油稿',
+                resultDescription: '你对照参赛名单写了三段短句递去广播台，没过多久操场喇叭里还真念了出来。',
+                action: (s) => ({ subjects: modifySub(s, ['chinese'], 1), general: { ...s.general, mindset: s.general.mindset + 2 } })
+            }
         ]
     },
     {

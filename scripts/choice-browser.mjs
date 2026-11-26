@@ -120,6 +120,13 @@ try {
     const generated = withChallengeSleep({id:'historical-test',title:'历史事件',description:'test',type:'neutral',choices:[{text:'继续',action:()=>({})}]});
     const sleeper = {...initial,activeChallengeId:'c_sleep_king'};
     const sleepChoice = generated.choices.find(c=>c.text==='不管了，我要睡觉');
+    const sportsDay = PHASE_EVENTS.SEMESTER_1.find(event=>event.id==='evt_sport_meet');
+    const sportsDaySleep = sportsDay.choices.filter(choice =>
+      (choice.tags?.includes('sleep') || choice.text===sleepChoice.text)
+      && (!choice.condition || choice.condition(sleeper)));
+    const shareIceCream = PHASE_EVENTS.SUMMER.find(event=>event.id==='sum_ice_cream').choices
+      .find(choice=>choice.text.includes('35 元'));
+    const shopper = money => ({...initial,talents:[{id:'rich_kid'}],general:{...initial.general,money}});
     const memories = getEndingMemories({...initial,club:'literature',romancePartner:'林夏',flags:{oi_problem_drafted:true}});
     const finalExam = {title:'FINAL_EXAM_2', type:'ACADEMIC', scores:{chinese:140,math:145,english:140,physics:85,chemistry:85,biology:85}, totalScore:680, rank:14, totalStudents:633, comment:''};
     const topStudentState = {
@@ -174,6 +181,9 @@ try {
       backstageChoice.text.includes('递道具') && getEndingMemories(performedBackstage).some(memory=>memory.includes('幕边')),
       sleepChoice.condition(sleeper) && !sleepChoice.condition(initial) && sleepChoice.action(sleeper).hasSleptThisWeek,
       withChallengeSleep(generated).choices.length===generated.choices.length,
+      sportsDaySleep.length===1 && sportsDaySleep[0].text==='在看台角落眯一会儿',
+      !shareIceCream.condition(shopper(34)) && shareIceCream.condition(shopper(35))
+        && shareIceCream.action(shopper(35)).general.money===0,
       getEndingData({...sleeper,phase:'ENDING',flags:{sleep_challenge_failed:true}}).title==='睡神挑战失败',
       getEndingData({...initial,phase:'ENDING',competition:'OI',flags:{oi_setter:true,oi_problem_drafted:true}}).comment.includes('草稿'),
       getEndingData({...initial,phase:'ENDING',competition:'MO',flags:{mo_setter:true,mo_review:'rough'}}).title !== '数学命题实践者'

@@ -21,6 +21,10 @@ try {
     await handle.asElement().click();
     await handle.dispose();
   };
+  const waitForArtwork = name => page.waitForFunction(name =>
+    [...document.querySelectorAll('[role="dialog"] img')].some(img =>
+      img.src.includes(name) && img.complete && img.naturalWidth > 0),
+  {timeout:8000}, name);
   await page.goto(base, {waitUntil:'networkidle0'});
   assert.ok(await page.evaluate(() => document.body.innerText.includes('八中')));
   assert.equal(await page.$eval('button.rounded-2xl', el => getComputedStyle(el).borderRadius), '16px');
@@ -62,6 +66,7 @@ try {
   assert.ok(await page.evaluate(() => !document.body.innerText.includes('换一批')));
   await clickText('入学吧。');
   assert.ok(await page.evaluate(() => !document.body.innerText.includes('重要同学')));
+  await waitForArtwork('admission-envelope');
   await clickText('专注课内综合');
   await clickText('确认结果');
   await page.waitForFunction(() => !document.body.innerText.includes('暑假的抉择'));
@@ -226,7 +231,7 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({path:'artifacts/review-home-english-mobile.png',fullPage:true});
   await clickText('Start a new game');
-  await clickText('Go to school.');
+  await clickText('Begin Term');
   await clickText('Focus on school and campus life');
   await page.waitForFunction(() => document.body.innerText.includes('You sort through your books'));
   await page.waitForFunction(() => document.body.innerText.includes('Efficiency +2'));
@@ -301,6 +306,7 @@ try {
 
   await loadEnglishFixture({hasSelectedClub:false});
   await waitForCopy('Club Fair');
+  await waitForArtwork('club-fair-booths');
   assert.ok(await page.evaluate(() => {
     const astronomy = [...document.querySelectorAll('button')].find(button => button.innerText.includes('Nandou Astronomy Club'));
     return astronomy?.innerText.includes('look for constellations') && astronomy.innerText.includes('Physics ++')

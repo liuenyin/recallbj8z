@@ -267,7 +267,7 @@ export const generateRandomFlavorEvent = (state: GameState): GameEvent => {
                     })
                 }] : []),
                 { text: '冒雨跑回去', action: (st) => ({ general: { ...st.general, health: st.general.health - 10, mindset: st.general.mindset - 5 } }) },
-                { text: '在便利店买把伞', action: (st) => ({ general: { ...st.general, money: st.general.money - 20 } }) }
+                { text: '在便利店买把伞（20 元）', action: (st) => ({ general: { ...st.general, money: st.general.money - 20 } }) }
             ]
         }),
         flavor_1: () => ({
@@ -423,7 +423,7 @@ export const generateSummerLifeEvent = (state: GameState): GameEvent => {
                 })
             },
             {
-                text: '抽一发二次元卡池！',
+                text: '抽一发二次元卡池（30 元）',
                 action: (s) => {
                     // Luck heavily influences gacha
                     const baseRate = 0.05 + s.general.luck / 200; 
